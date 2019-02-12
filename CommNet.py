@@ -106,7 +106,7 @@ class CommNet(nn.Module):
             # average the hidden state
             h_ /= num_agents_alive - 1
             # calculate the communication vector
-            c = h_.sum(dim=1) if i != 0 else torch.zeros_like() # shape = (batch_size, n, hid_size)
+            c = h_.sum(dim=1) if i != 0 else torch.zeros_like(h) # shape = (batch_size, n, hid_size)
             # h_{j}^{i+1} = \sigma(H_j * h_j^{i+1} + C_j * c_j^{i+1})
             h = nn.Tanh(sum([self.f_modules[i](h), self.C_modules[i](c)]))
         # calculate the value function (critic)
