@@ -10,7 +10,5 @@ class Agent(nn.Moudle):
     def update(self):
         raise NotImplemented()
 
-    def action(self, obs):
+    def action(self, obs, info={}):
         raise NotImplemented()
-
-    
