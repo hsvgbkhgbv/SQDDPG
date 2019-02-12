@@ -5,23 +5,28 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class CommNet(Agent):
+class CommNet(nn.Module):
 
     def __init__(self, args):
         '''
-        args = {
+        args = (
         agent_num: int,
         hid_size: int,
         obs_size: int,
         continuous: bool,
         action_dim: int,
         comm_iters: int,
-        action_heads_num: list(int)
-        }
+        action_heads_num: list(int),
+        init_std: float32
+        )
+        args is a namedtuple, e.g. args = collections.namedtuple()
         '''
         super(CommNet, self).__init__()
         self.args = args
+        # create a model
         self.construct_model()
+        # initialize parameters with normal distribution with mean of 0
+        map(self.init_weights, self.parameters())
 
     def construct_model(self):
         '''
@@ -36,6 +41,7 @@ class CommNet(Agent):
             self.action_mean = nn.Linear(self.args.hid_size, self.args.action_dim)
             self.action_log_std = nn.Parameter(torch.zeros(1, self.args.action_dim))
         else:
+            assert 'action_heads_num' in self.args._fields
             self.action_heads = nn.ModuleList([nn.Linear(args.hid_size, o) for o in self.args.action_heads_num])
         # define communication inference
         self.f_module = nn.Linear(self.args.hid_size, self.args.hid_size)
@@ -44,17 +50,16 @@ class CommNet(Agent):
         self.C_module = nn.Linear(self.args.hid_size, self.args.hid_size)
         self.C_modules = nn.ModuleList([self.C_module for _ in range(self.args.comm_iters)])
         # initialise weights of communication encoder as 0
-        for i in range(self.args.comm_iters):
-            self.C_modules[i].weight.data.zero_()
+        # for i in range(self.args.comm_iters):
+        #     self.C_modules[i].weight.data.zero_()
         # define value function
-        self.value_head = nn.Linear(self.hid_size, 1)
+        self.value_head = nn.Linear(self.args.hid_size, 1)
 
     def state_encoder(self, x):
         '''
         define a single forward pass of communication inference
         '''
-        x = nn.Tanh(self.encoder(x))
-        return x
+        return nn.Tanh(self.encoder(x))
 
     def get_agent_mask(self, batch_size, info):
         '''
@@ -88,20 +93,20 @@ class CommNet(Agent):
         # conduct the main process of communication
         for i in range(self.args.comm_iters):
             # shape = (batch_size, n, hid_size)->(batch_size, n, 1, hid_size)->(batch_size, n, n, hid_size)
-            h = h.unsqueeze(-2).expand(-1, n, n, self.hid_size)
+            h_ = h.unsqueeze(-2).expand(-1, n, n, self.hid_size)
             # construct the communication mask
             mask = self.comm_mask.view(1, n, n) # shape = (1, n, n)
             mask = mask.expand(batch_size, n, n) # shape = (batch_size, n, n)
             mask = mask.unsqueeze(-1) # shape = (batch_size, n, n, 1)
-            mask = mask.expand_as(h) # shape = (batch_size, n, n, hid_size)
+            mask = mask.expand_as(h_) # shape = (batch_size, n, n, hid_size)
             # mask each agent itself (collect the hidden state of other agents)
-            h *= mask
+            h_ *= mask
             # mask the dead agent
-            h *= agent_mask * agent_mask.transpose(1, 2)
+            h_ *= agent_mask * agent_mask.transpose(1, 2)
             # average the hidden state
-            h /= num_agents_alive - 1
+            h_ /= num_agents_alive - 1
             # calculate the communication vector
-            c = h.sum(dim=1) # shape = (batch_size, n, hid_size)
+            c = h_.sum(dim=1) if i != 0 else torch.zeros_like() # shape = (batch_size, n, hid_size)
             # h_{j}^{i+1} = \sigma(H_j * h_j^{i+1} + C_j * c_j^{i+1})
             h = nn.Tanh(sum([self.f_modules[i](h), self.C_modules[i](c)]))
         # calculate the value function (critic)
@@ -118,3 +123,37 @@ class CommNet(Agent):
             # discrete actions, shape = (batch_size, n, action_type, action_num)
             action = [F.log_softmax(head(h), dim=-1) for head in self.action_heads]
         return action, value_head
+
+    def init_weights(self, m):
+        '''
+        initialize the weights of parameters
+        '''
+        if type(m) == nn.Linear:
+            m.weight.data.normal_(0, self.args.init_std)
+
+
+'''
+Examples to instantiate a CommNet, e.g.
+
+if __name__ == '__main__':
+    from collections import namedtuple
+    Args = namedtuple('Args', ['agent_num',\
+                               'hid_size',\
+                               'obs_size',\
+                               'continuous',\
+                               'action_dim',\
+                               'comm_iters',\
+                               'action_heads_num',\
+                               'init_std'])
+    args = Args(agent_num=5,\
+                hid_size=10,\
+                obs_size=10,\
+                continuous=1,\
+                action_dim=5,\
+                comm_iters=5,\
+                action_heads_num=[],
+                init_std=0.2)
+    a = CommNet(args)
+    for p in a.parameters():
+        print (p.data)
+'''
