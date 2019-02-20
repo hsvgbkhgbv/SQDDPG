@@ -3,7 +3,7 @@ import torch.autograd as autograd
 from torch.autograd import Variable
 import torch.nn as nn
 import torch.nn.functional as F
-
+import numpy as np
 
 class CommNet(nn.Module):
 
@@ -42,7 +42,7 @@ class CommNet(nn.Module):
             self.action_log_std = nn.Parameter(torch.zeros(1, self.args.action_dim))
         else:
             assert 'action_heads_num' in self.args._fields
-            self.action_heads = nn.ModuleList([nn.Linear(args.hid_size, o) for o in self.args.action_heads_num])
+            self.action_heads = nn.ModuleList([nn.Linear(self.args.hid_size, o) for o in self.args.action_heads_num])
         # define communication inference
         self.f_module = nn.Linear(self.args.hid_size, self.args.hid_size)
         self.f_modules = nn.ModuleList([self.f_module for _ in range(self.args.comm_iters)])
@@ -54,12 +54,13 @@ class CommNet(nn.Module):
         #     self.C_modules[i].weight.data.zero_()
         # define value function
         self.value_head = nn.Linear(self.args.hid_size, 1)
+        self.tanh = nn.Tanh()
 
     def state_encoder(self, x):
         '''
         define a single forward pass of communication inference
         '''
-        return nn.Tanh(self.encoder(x))
+        return self.tanh(self.encoder(x))
 
     def get_agent_mask(self, batch_size, info):
         '''
@@ -82,6 +83,16 @@ class CommNet(nn.Module):
         '''
         define the action process of vanilla CommNet
         '''
+        length = 0
+        for o in obs:
+            if o.shape[0] > length:
+                length = o.shape[0]
+        i = 0
+        for o in obs:
+            if o.shape[0] < length:
+                obs[i] = np.concatenate((o, np.zeros(length-o.shape[0])))
+            i += 1
+        obs = torch.tensor(np.array(obs)).float().unsqueeze(0)
         # encode observation
         h = self.state_encoder(obs)
         # get the batch size
@@ -93,7 +104,7 @@ class CommNet(nn.Module):
         # conduct the main process of communication
         for i in range(self.args.comm_iters):
             # shape = (batch_size, n, hid_size)->(batch_size, n, 1, hid_size)->(batch_size, n, n, hid_size)
-            h_ = h.unsqueeze(-2).expand(-1, n, n, self.hid_size)
+            h_ = h.unsqueeze(-2).expand(-1, n, n, self.args.hid_size)
             # construct the communication mask
             mask = self.comm_mask.view(1, n, n) # shape = (1, n, n)
             mask = mask.expand(batch_size, n, n) # shape = (batch_size, n, n)
@@ -108,11 +119,11 @@ class CommNet(nn.Module):
             # calculate the communication vector
             c = h_.sum(dim=1) if i != 0 else torch.zeros_like(h) # shape = (batch_size, n, hid_size)
             # h_{j}^{i+1} = \sigma(H_j * h_j^{i+1} + C_j * c_j^{i+1})
-            h = nn.Tanh(sum([self.f_modules[i](h), self.C_modules[i](c)]))
+            h = self.tanh(sum([self.f_modules[i](h), self.C_modules[i](c)]))
         # calculate the value function (critic)
         value_head = self.value_head(h)
         # calculate the action vector (actor)
-        if self.continuous:
+        if self.args.continuous:
             # shape = (batch_size, n, action_dim)
             action_mean = self.action_mean(h)
             action_log_std = self.action_log_std.expand_as(action_mean)

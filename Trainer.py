@@ -4,9 +4,47 @@ import numpy as np
 import torch
 from torch import optim
 import torch.nn as nn
-from utils import *
-from action_utils import *
 
+
+def merge_stat(src, dest):
+    for k, v in src.items():
+        if not k in dest:
+            dest[k] = v
+        elif isinstance(v, numbers.Number):
+            dest[k] = dest.get(k, 0) + v
+        elif isinstance(v, np.ndarray): # for rewards in case of multi-agent
+            dest[k] = dest.get(k, 0) + v
+        else:
+            if isinstance(dest[k], list) and isinstance(v, list):
+                dest[k].extend(v)
+            elif isinstance(dest[k], list):
+                dest[k].append(v)
+            else:
+                dest[k] = [dest[k], v]
+
+def normal_entropy(std):
+    var = std.pow(2)
+    entropy = 0.5 + 0.5 * torch.log(2 * var * math.pi)
+    return entropy.sum(1, keepdim=True)
+
+
+def normal_log_density(x, mean, log_std, std):
+    var = std.pow(2)
+    log_density = -(x - mean).pow(2) / (2 * var) - 0.5 * math.log(2 * math.pi) - log_std
+    return log_density.sum(1, keepdim=True)
+
+def multinomials_log_density(actions, log_probs):
+    log_prob = 0
+    for i in range(len(log_probs)):
+        log_prob += log_probs[i].gather(1, actions[:, i].long().unsqueeze(1))
+    return log_prob
+
+def multinomials_log_densities(actions, log_probs):
+    log_prob = [0] * len(log_probs)
+    for i in range(len(log_probs)):
+        log_prob[i] += log_probs[i].gather(1, actions[:, i].long().unsqueeze(1))
+    log_prob = torch.cat(log_prob, dim=-1)
+    return log_prob
 
 def select_action(args, action_out):
     if args.continuous:
@@ -19,9 +57,8 @@ def select_action(args, action_out):
         ret = torch.stack([torch.stack([torch.multinomial(x, 1).detach() for x in p]) for p in p_a])
         return ret
 
-
 def translate_action(args, env, action):
-    if args.num_actions[0] > 0:
+    if args.action_num[0] > 0:
         # environment takes discrete action
         action = [x.squeeze().data.numpy() for x in action]
         actual = action
@@ -54,13 +91,12 @@ Transition = namedtuple('Transition', ('state', 'action', 'action_out', 'value',
 
 class Trainer(object):
 
-    def __init__(self, args, policy_net, env, special_process):
+    def __init__(self, args, policy_net, env):
         self.args = args
         self.policy_net = policy_net
         self.env = env
         self.optimizer = optim.RMSprop(policy_net.parameters(), lr = args.lrate, alpha=0.97, eps=1e-6)
         self.params = [p for p in self.policy_net.parameters()]
-        self.special_process = special_process
 
     def get_episode(self):
         # define the episode list
@@ -78,9 +114,14 @@ class Trainer(object):
             # return the sampled actions of all of agents
             action = select_action(self.args, action_out)
             # return the rescaled (clipped) actions
-            _, actual = translate_action(self.args, self.env, action)
+            _, actual = translate_action(self.args, self.env, action[0])
             # receive the reward and the next state
-            next_state, reward, done, info = self.env.step(actual)
+            action_wrapper = []
+            for a in actual[0]:
+                action_ = np.zeros(5)
+                action_[a] += 1
+                action_wrapper.append(np.concatenate([action_, np.zeros(self.env.world.dim_c)]))
+            next_state, reward, done, info = self.env.step(action_wrapper)
             # record the alive agents
             if 'alive_mask' in info:
                 # serve for the starcraft environment
@@ -90,6 +131,7 @@ class Trainer(object):
             # define the flag of the finish of exploration
             done = done or t == self.args.max_steps - 1
 
+            reward = np.array(reward)
             episode_mask = np.ones(reward.shape)
             episode_mini_mask = np.ones(reward.shape)
 
@@ -205,15 +247,15 @@ class Trainer(object):
 
         return stat
 
-    def run_batch(self, epoch):
+    def run_batch(self):
         batch = []
         self.stats = dict()
         self.stats['num_episodes'] = 0
         while len(batch) < self.args.batch_size:
             if self.args.batch_size - len(batch) <= self.args.max_steps:
                 self.last_step = True
-            episode, episode_stat = self.get_episode(epoch)
-            merge_stat(episode_stat, self.stats)
+            episode, episode_stat = self.get_episode()
+            # merge_stat(episode_stat, self.stats)
             self.stats['num_episodes'] += 1
             batch += episode
 
@@ -222,8 +264,8 @@ class Trainer(object):
         batch = Transition(*zip(*batch))
         return batch, self.stats
 
-    def train_batch(self, epoch):
-        batch, stat = self.run_batch(epoch)
+    def train_batch(self):
+        batch, stat = self.run_batch()
         self.optimizer.zero_grad()
 
         s = self.compute_grad(batch)
