@@ -41,8 +41,7 @@ class CommNet(nn.Module):
             self.action_mean = nn.Linear(self.args.hid_size, self.args.action_dim)
             self.action_log_std = nn.Parameter(torch.zeros(1, self.args.action_dim))
         else:
-            assert 'action_heads_num' in self.args._fields
-            self.action_heads = nn.ModuleList([nn.Linear(self.args.hid_size, o) for o in self.args.action_heads_num])
+            self.action_head = nn.Linear(self.args.hid_size, self.args.action_num)
         # define communication inference
         self.f_module = nn.Linear(self.args.hid_size, self.args.hid_size)
         self.f_modules = nn.ModuleList([self.f_module for _ in range(self.args.comm_iters)])
@@ -132,7 +131,7 @@ class CommNet(nn.Module):
             action = (action_mean, action_log_std, action_std)
         else:
             # discrete actions, shape = (batch_size, n, action_type, action_num)
-            action = [F.log_softmax(head(h), dim=-1) for head in self.action_heads]
+            action = F.log_softmax(self.action_head(h), dim=-1)
         return action, value_head
 
     def init_weights(self, m):

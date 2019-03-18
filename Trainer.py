@@ -27,7 +27,6 @@ def normal_entropy(std):
     entropy = 0.5 + 0.5 * torch.log(2 * var * math.pi)
     return entropy.sum(1, keepdim=True)
 
-
 def normal_log_density(x, mean, log_std, std):
     var = std.pow(2)
     log_density = -(x - mean).pow(2) / (2 * var) - 0.5 * math.log(2 * math.pi) - log_std
@@ -114,13 +113,17 @@ class Trainer(object):
             # return the sampled actions of all of agents
             action = select_action(self.args, action_out)
             # return the rescaled (clipped) actions
-            _, actual = translate_action(self.args, self.env, action[0])
+            print (action.size())
+            _, actual = translate_action(self.args, self.env, action)
             # receive the reward and the next state
+
+            # TODO: this is needed to do
             action_wrapper = []
             for a in actual[0]:
                 action_ = np.zeros(5)
                 action_[a] += 1
                 action_wrapper.append(np.concatenate([action_, np.zeros(self.env.world.dim_c)]))
+
             next_state, reward, done, info = self.env.step(action_wrapper)
             # record the alive agents
             if 'alive_mask' in info:
@@ -166,8 +169,9 @@ class Trainer(object):
         rewards = torch.Tensor(batch.reward)
         episode_masks = torch.Tensor(batch.episode_mask)
         episode_mini_masks = torch.Tensor(batch.episode_mini_mask)
-        actions = torch.Tensor(batch.action)
-        actions = actions.transpose(1, 2).view(-1, n, dim_actions)
+        batch_action = torch.stack(batch.action, dim=0).float()
+        actions = torch.Tensor(batch_action)
+        actions = actions.transpose(1, 2).view(-1, n, action_dim)
 
         values = torch.cat(batch.value, dim=0)
         action_out = list(zip(*batch.action_out))
@@ -208,8 +212,8 @@ class Trainer(object):
             action_means, action_log_stds, action_stds = action_out
             log_prob = normal_log_density(actions, action_means, action_log_stds, action_stds)
         else:
-            log_p_a = [action_out[i].view(-1, num_actions[i]) for i in range(dim_actions)]
-            actions = actions.contiguous().view(-1, dim_actions)
+            log_p_a = [action_out[i].view(-1, action_num[i]) for i in range(action_dim)]
+            actions = actions.contiguous().view(-1, action_dim)
             if self.args.advantages_per_action:
                 log_prob = multinomials_log_densities(actions, log_p_a)
             else:
