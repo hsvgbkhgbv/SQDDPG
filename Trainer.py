@@ -57,7 +57,7 @@ def select_action(args, action_out):
         return ret
 
 def translate_action(args, env, action):
-    if args.action_num[0] > 0:
+    if args.action_num > 0:
         # environment takes discrete action
         action = [x.squeeze().data.numpy() for x in action]
         actual = action
@@ -113,7 +113,6 @@ class Trainer(object):
             # return the sampled actions of all of agents
             action = select_action(self.args, action_out)
             # return the rescaled (clipped) actions
-            print (action.size())
             _, actual = translate_action(self.args, self.env, action)
             # receive the reward and the next state
 
@@ -123,7 +122,7 @@ class Trainer(object):
                 action_ = np.zeros(5)
                 action_[a] += 1
                 action_wrapper.append(np.concatenate([action_, np.zeros(self.env.world.dim_c)]))
-
+            
             next_state, reward, done, info = self.env.step(action_wrapper)
             # record the alive agents
             if 'alive_mask' in info:
@@ -165,54 +164,61 @@ class Trainer(object):
         action_dim = self.args.action_dim
         n = self.args.agent_num
         batch_size = len(batch.state)
-
-        rewards = torch.Tensor(batch.reward)
-        episode_masks = torch.Tensor(batch.episode_mask)
-        episode_mini_masks = torch.Tensor(batch.episode_mini_mask)
-        batch_action = torch.stack(batch.action, dim=0).float()
-        actions = torch.Tensor(batch_action)
-        actions = actions.transpose(1, 2).view(-1, n, action_dim)
+        
+        with torch.no_grad():
+            rewards = torch.Tensor(batch.reward)
+            
+            episode_masks = torch.Tensor(batch.episode_mask)
+            episode_mini_masks = torch.Tensor(batch.episode_mini_mask)
+            batch_action = torch.stack(batch.action, dim=0).float()
+            actions = torch.Tensor(batch_action)
+            actions = actions.transpose(1, 2).view(-1, n, action_dim)
 
         values = torch.cat(batch.value, dim=0)
         action_out = list(zip(*batch.action_out))
         action_out = [torch.cat(a, dim=0) for a in action_out]
-
-        alive_masks = torch.Tensor(np.concatenate([item['alive_mask'] for item in batch.misc])).view(-1)
-
-        coop_returns = torch.Tensor(batch_size, n)
-        ncoop_returns = torch.Tensor(batch_size, n)
-        returns = torch.Tensor(batch_size, n)
-        deltas = torch.Tensor(batch_size, n)
-        advantages = torch.Tensor(batch_size, n)
-        values = values.view(batch_size, n)
+        
+        with torch.no_grad():
+            alive_masks = torch.Tensor(np.concatenate([item['alive_mask'] for item in batch.misc])).view(-1)
+        
+        with torch.no_grad():
+            coop_returns = torch.Tensor(batch_size, n)
+            ncoop_returns = torch.Tensor(batch_size, n)
+            returns = torch.Tensor(batch_size, n)
+            # deltas = torch.Tensor(batch_size, n)
+            advantages = torch.Tensor(batch_size, n)
+            values = values.view(batch_size, n)
 
         prev_coop_return = 0
         prev_ncoop_return = 0
         prev_value = 0
         prev_advantage = 0
-
+        
+        # calculate the return reversely and the reward is shared
         for i in reversed(range(rewards.size(0))):
-            # calculate the return reversely and the reward is shared
             coop_returns[i] = rewards[i] + self.args.gamma * prev_coop_return * episode_masks[i]
             ncoop_returns[i] = rewards[i] + self.args.gamma * prev_ncoop_return * episode_masks[i] * episode_mini_masks[i]
 
-            prev_coop_return = coop_returns[i].clone()
-            prev_ncoop_return = ncoop_returns[i].clone()
+            prev_coop_return = coop_returns[i]
+            prev_ncoop_return = ncoop_returns[i]
 
             returns[i] = (self.args.mean_ratio * coop_returns[i].mean()) \
                          + ((1 - self.args.mean_ratio) * ncoop_returns[i])
-
+        
+        # calculate the advantage
         for i in reversed(range(rewards.size(0))):
             advantages[i] = returns[i] - values.data[i]
-
+        
+        # normalize the advantage
         if self.args.normalize_rewards:
             advantages = (advantages - advantages.mean()) / advantages.std()
-
+        
+        # take the policy of the actions
         if self.args.continuous:
             action_means, action_log_stds, action_stds = action_out
             log_prob = normal_log_density(actions, action_means, action_log_stds, action_stds)
         else:
-            log_p_a = [action_out[i].view(-1, action_num[i]) for i in range(action_dim)]
+            log_p_a = action_out
             actions = actions.contiguous().view(-1, action_dim)
             if self.args.advantages_per_action:
                 log_prob = multinomials_log_densities(actions, log_p_a)

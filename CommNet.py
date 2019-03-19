@@ -48,9 +48,6 @@ class CommNet(nn.Module):
         # define communication encoder
         self.C_module = nn.Linear(self.args.hid_size, self.args.hid_size)
         self.C_modules = nn.ModuleList([self.C_module for _ in range(self.args.comm_iters)])
-        # initialise weights of communication encoder as 0
-        # for i in range(self.args.comm_iters):
-        #     self.C_modules[i].weight.data.zero_()
         # define value function
         self.value_head = nn.Linear(self.args.hid_size, 1)
         self.tanh = nn.Tanh()
@@ -66,12 +63,13 @@ class CommNet(nn.Module):
         define the getter of agent mask to confirm the living agent
         '''
         n = self.args.agent_num
-        if 'alive_mask' in info:
-            agent_mask = torch.from_numpy(info['alive_mask'])
-            num_agents_alive = agent_mask.sum()
-        else:
-            agent_mask = torch.ones(n)
-            num_agents_alive = n
+        with torch.no_grad():
+            if 'alive_mask' in info:
+                agent_mask = torch.from_numpy(info['alive_mask'])
+                num_agents_alive = agent_mask.sum()
+            else:
+                agent_mask = torch.ones(n)
+                num_agents_alive = n
         # shape = (1, 1, n)
         agent_mask = agent_mask.view(1, 1, n)
         # shape = (batch_size, n ,n, 1)
@@ -91,7 +89,8 @@ class CommNet(nn.Module):
             if o.shape[0] < length:
                 obs[i] = np.concatenate((o, np.zeros(length-o.shape[0])))
             i += 1
-        obs = torch.tensor(np.array(obs)).float().unsqueeze(0)
+        with torch.no_grad():
+            obs = torch.tensor(np.array(obs)).float().unsqueeze(0)
         # encode observation
         h = self.state_encoder(obs)
         # get the batch size
@@ -110,11 +109,11 @@ class CommNet(nn.Module):
             mask = mask.unsqueeze(-1) # shape = (batch_size, n, n, 1)
             mask = mask.expand_as(h_) # shape = (batch_size, n, n, hid_size)
             # mask each agent itself (collect the hidden state of other agents)
-            h_ *= mask
+            h_ = h_ * mask
             # mask the dead agent
-            h_ *= agent_mask * agent_mask.transpose(1, 2)
+            h_ = h_ * agent_mask * agent_mask.transpose(1, 2)
             # average the hidden state
-            h_ /= num_agents_alive - 1
+            h_ = h_ / (num_agents_alive - 1)
             # calculate the communication vector
             c = h_.sum(dim=1) if i != 0 else torch.zeros_like(h) # shape = (batch_size, n, hid_size)
             # h_{j}^{i+1} = \sigma(H_j * h_j^{i+1} + C_j * c_j^{i+1})
@@ -133,7 +132,10 @@ class CommNet(nn.Module):
             # discrete actions, shape = (batch_size, n, action_type, action_num)
             action = F.log_softmax(self.action_head(h), dim=-1)
         return action, value_head
-
+    
+    def forward(self, obs, info={}):
+        return self.action(obs, info)
+    
     def init_weights(self, m):
         '''
         initialize the weights of parameters

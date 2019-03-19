@@ -35,7 +35,7 @@ args = Args(agent_num=6,
             hid_size=10,
             obs_size=34,
             continuous=0,
-            action_dim=None,
+            action_dim=1,
             comm_iters=5,
             init_std=0.2,
             lrate=0.001,
@@ -50,5 +50,8 @@ args = Args(agent_num=6,
             entr=0.001)
 policy_net = CommNet(args)
 epoch = 0
-train = Trainer(args, policy_net, env)
-train.train_batch()
+while True:
+    train = Trainer(args, policy_net, env)
+    train.train_batch()
+    print ('This is the epoch: {} and the current advantage is: {}'.format(epoch, train.stats['action_loss']))
+    epoch += 1
