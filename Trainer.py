@@ -31,10 +31,6 @@ class Trainer(object):
         info = dict()
         # define the main process of exploration
         for t in range(self.args.max_steps):
-#             self.env.render()
-#             plt.imshow(np.array(self.env.render(mode='rgb_array')).squeeze())
-#             display.display(plt.gcf())    
-#             display.clear_output()
             misc = dict()
             # decide the next action and return the correlated state value (baseline)
             action_out, value = self.policy_net.action(state, info)
@@ -44,6 +40,7 @@ class Trainer(object):
             _, actual = translate_action(self.args, self.env, action)
             # receive the reward and the next state
             next_state, reward, done, info = self.env.step(actual)
+            done = np.prod(done)
             # record the alive agents
             if 'alive_mask' in info:
                 # serve for the starcraft environment
@@ -71,6 +68,7 @@ class Trainer(object):
             state = next_state
 
             if done:
+                print ('This is the finish of the game, and the time steps use in this game is: ', t)
                 break
         stat['num_steps'] = t + 1
         stat['steps_taken'] = stat['num_steps']
@@ -83,10 +81,10 @@ class Trainer(object):
         action_dim = self.args.action_dim
         n = self.args.agent_num
         batch_size = len(batch.state)
-        
+
         with torch.no_grad():
             rewards = torch.Tensor(batch.reward)
-            
+
             episode_masks = torch.Tensor(batch.episode_mask)
             episode_mini_masks = torch.Tensor(batch.episode_mini_mask)
             batch_action = torch.stack(batch.action, dim=0).float()
@@ -96,10 +94,10 @@ class Trainer(object):
         values = torch.cat(batch.value, dim=0)
         action_out = list(zip(*batch.action_out))
         action_out = [torch.cat(a, dim=0) for a in action_out]
-        
+
         with torch.no_grad():
             alive_masks = torch.Tensor(np.concatenate([item['alive_mask'] for item in batch.misc])).view(-1)
-        
+
         with torch.no_grad():
             coop_returns = torch.Tensor(batch_size, n)
             ncoop_returns = torch.Tensor(batch_size, n)
@@ -112,7 +110,7 @@ class Trainer(object):
         prev_ncoop_return = 0
         prev_value = 0
         prev_advantage = 0
-        
+
         # calculate the return reversely and the reward is shared
         for i in reversed(range(rewards.size(0))):
             coop_returns[i] = rewards[i] + self.args.gamma * prev_coop_return * episode_masks[i]
@@ -123,15 +121,15 @@ class Trainer(object):
 
             returns[i] = (self.args.mean_ratio * coop_returns[i].mean()) \
                          + ((1 - self.args.mean_ratio) * ncoop_returns[i])
-        
+
         # calculate the advantage
         for i in reversed(range(rewards.size(0))):
             advantages[i] = returns[i] - values.data[i]
-        
+
         # normalize the advantage
         if self.args.normalize_rewards:
             advantages = (advantages - advantages.mean()) / advantages.std()
-        
+
         # take the policy of the actions
         if self.args.continuous:
             action_means, action_log_stds, action_stds = action_out
