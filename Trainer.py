@@ -4,84 +4,7 @@ import numpy as np
 import torch
 from torch import optim
 import torch.nn as nn
-
-
-def merge_stat(src, dest):
-    for k, v in src.items():
-        if not k in dest:
-            dest[k] = v
-        elif isinstance(v, numbers.Number):
-            dest[k] = dest.get(k, 0) + v
-        elif isinstance(v, np.ndarray): # for rewards in case of multi-agent
-            dest[k] = dest.get(k, 0) + v
-        else:
-            if isinstance(dest[k], list) and isinstance(v, list):
-                dest[k].extend(v)
-            elif isinstance(dest[k], list):
-                dest[k].append(v)
-            else:
-                dest[k] = [dest[k], v]
-
-def normal_entropy(std):
-    var = std.pow(2)
-    entropy = 0.5 + 0.5 * torch.log(2 * var * math.pi)
-    return entropy.sum(1, keepdim=True)
-
-def normal_log_density(x, mean, log_std, std):
-    var = std.pow(2)
-    log_density = -(x - mean).pow(2) / (2 * var) - 0.5 * math.log(2 * math.pi) - log_std
-    return log_density.sum(1, keepdim=True)
-
-def multinomials_log_density(actions, log_probs):
-    log_prob = 0
-    for i in range(len(log_probs)):
-        log_prob += log_probs[i].gather(1, actions[:, i].long().unsqueeze(1))
-    return log_prob
-
-def multinomials_log_densities(actions, log_probs):
-    log_prob = [0] * len(log_probs)
-    for i in range(len(log_probs)):
-        log_prob[i] += log_probs[i].gather(1, actions[:, i].long().unsqueeze(1))
-    log_prob = torch.cat(log_prob, dim=-1)
-    return log_prob
-
-def select_action(args, action_out):
-    if args.continuous:
-        action_mean, _, action_std = action_out
-        action = torch.normal(action_mean, action_std)
-        return action.detach()
-    else:
-        log_p_a = action_out
-        p_a = [[z.exp() for z in x] for x in log_p_a]
-        ret = torch.stack([torch.stack([torch.multinomial(x, 1).detach() for x in p]) for p in p_a])
-        return ret
-
-def translate_action(args, env, action):
-    if args.action_num > 0:
-        # environment takes discrete action
-        action = [x.squeeze().data.numpy() for x in action]
-        actual = action
-        return action, actual
-    else:
-        if args.continuous:
-            action = action.data[0].numpy()
-            cp_action = action.copy()
-            # clip and scale action to correct range
-            for i in range(len(action)):
-                low = env.action_space.low[i]
-                high = env.action_space.high[i]
-                cp_action[i] = cp_action[i] * args.action_scale
-                cp_action[i] = max(-1.0, min(cp_action[i], 1.0))
-                cp_action[i] = 0.5 * (cp_action[i] + 1.0) * (high - low) + low
-            return action, cp_action
-        else:
-            actual = np.zeros(len(action))
-            for i in range(len(action)):
-                low = env.action_space.low[i]
-                high = env.action_space.high[i]
-                actual[i] = action[i].data.squeeze()[0] * (high - low) / (args.naction_heads[i] - 1) + low
-            action = [x.squeeze().data[0] for x in action]
-            return action, actual
+from util import *
 
 
 # define a transition of an episode
@@ -93,6 +16,7 @@ class Trainer(object):
     def __init__(self, args, policy_net, env):
         self.args = args
         self.policy_net = policy_net
+        self.policy_net
         self.env = env
         self.optimizer = optim.RMSprop(policy_net.parameters(), lr = args.lrate, alpha=0.97, eps=1e-6)
         self.params = [p for p in self.policy_net.parameters()]
@@ -107,6 +31,10 @@ class Trainer(object):
         info = dict()
         # define the main process of exploration
         for t in range(self.args.max_steps):
+#             self.env.render()
+#             plt.imshow(np.array(self.env.render(mode='rgb_array')).squeeze())
+#             display.display(plt.gcf())    
+#             display.clear_output()
             misc = dict()
             # decide the next action and return the correlated state value (baseline)
             action_out, value = self.policy_net.action(state, info)
@@ -115,15 +43,7 @@ class Trainer(object):
             # return the rescaled (clipped) actions
             _, actual = translate_action(self.args, self.env, action)
             # receive the reward and the next state
-
-            # TODO: this is needed to do
-            action_wrapper = []
-            for a in actual[0]:
-                action_ = np.zeros(5)
-                action_[a] += 1
-                action_wrapper.append(np.concatenate([action_, np.zeros(self.env.world.dim_c)]))
-            
-            next_state, reward, done, info = self.env.step(action_wrapper)
+            next_state, reward, done, info = self.env.step(actual)
             # record the alive agents
             if 'alive_mask' in info:
                 # serve for the starcraft environment
@@ -160,7 +80,6 @@ class Trainer(object):
 
         stat = dict()
 
-        action_num = self.args.action_num
         action_dim = self.args.action_dim
         n = self.args.agent_num
         batch_size = len(batch.state)
@@ -172,7 +91,7 @@ class Trainer(object):
             episode_mini_masks = torch.Tensor(batch.episode_mini_mask)
             batch_action = torch.stack(batch.action, dim=0).float()
             actions = torch.Tensor(batch_action)
-            actions = actions.transpose(1, 2).view(-1, n, action_dim)
+            actions = actions.transpose(1, 2).view(-1, n, 1)
 
         values = torch.cat(batch.value, dim=0)
         action_out = list(zip(*batch.action_out))
@@ -219,7 +138,7 @@ class Trainer(object):
             log_prob = normal_log_density(actions, action_means, action_log_stds, action_stds)
         else:
             log_p_a = action_out
-            actions = actions.contiguous().view(-1, action_dim)
+            actions = actions.contiguous().view(-1, 1)
             if self.args.advantages_per_action:
                 log_prob = multinomials_log_densities(actions, log_p_a)
             else:

@@ -12,12 +12,21 @@ class CommNet(nn.Module):
         args = (
         agent_num: int,
         hid_size: int,
-        obs_size: int,
+        obs_size: [int],
         continuous: bool,
-        action_dim: int,
+        action_dim: [int],
         comm_iters: int,
-        action_heads_num: list(int),
-        init_std: float32
+        init_std: float,
+        'lrate': float,
+        'batch_size': int,
+        'max_steps': int,
+        'gamma': float,
+        'mean_ratio': float,
+        'normalize_rewards': bool,
+        'advantages_per_action': bool,
+        'value_coeff': float,
+        'entr': float,
+        'action_num'=int
         )
         args is a namedtuple, e.g. args = collections.namedtuple()
         '''
@@ -27,7 +36,15 @@ class CommNet(nn.Module):
         self.construct_model()
         # initialize parameters with normal distribution with mean of 0
         map(self.init_weights, self.parameters())
-
+    
+    def mask_obs(self, x):
+        x_lens = [len(x_) for x_ in x]
+        x_len_max = np.max(x_lens)
+        for i in range(len(x_lens)):
+            if x_lens[i] < x_len_max:
+                x[i] = np.concatenate((x[i], np.zeros(x_len_max-x_lens[i])), axis=0)
+        return x
+    
     def construct_model(self):
         '''
         define the model of vanilla CommNet
@@ -41,7 +58,7 @@ class CommNet(nn.Module):
             self.action_mean = nn.Linear(self.args.hid_size, self.args.action_dim)
             self.action_log_std = nn.Parameter(torch.zeros(1, self.args.action_dim))
         else:
-            self.action_head = nn.Linear(self.args.hid_size, self.args.action_num)
+            self.action_head = nn.Linear(self.args.hid_size, self.args.action_dim)
         # define communication inference
         self.f_module = nn.Linear(self.args.hid_size, self.args.hid_size)
         self.f_modules = nn.ModuleList([self.f_module for _ in range(self.args.comm_iters)])
@@ -80,15 +97,7 @@ class CommNet(nn.Module):
         '''
         define the action process of vanilla CommNet
         '''
-        length = 0
-        for o in obs:
-            if o.shape[0] > length:
-                length = o.shape[0]
-        i = 0
-        for o in obs:
-            if o.shape[0] < length:
-                obs[i] = np.concatenate((o, np.zeros(length-o.shape[0])))
-            i += 1
+        obs = self.mask_obs(obs)
         with torch.no_grad():
             obs = torch.tensor(np.array(obs)).float().unsqueeze(0)
         # encode observation
@@ -142,30 +151,3 @@ class CommNet(nn.Module):
         '''
         if type(m) == nn.Linear:
             m.weight.data.normal_(0, self.args.init_std)
-
-
-'''
-Examples to instantiate a CommNet, e.g.
-
-if __name__ == '__main__':
-    from collections import namedtuple
-    Args = namedtuple('Args', ['agent_num',\
-                               'hid_size',\
-                               'obs_size',\
-                               'continuous',\
-                               'action_dim',\
-                               'comm_iters',\
-                               'action_heads_num',\
-                               'init_std'])
-    args = Args(agent_num=5,\
-                hid_size=10,\
-                obs_size=10,\
-                continuous=1,\
-                action_dim=5,\
-                comm_iters=5,\
-                action_heads_num=[],
-                init_std=0.2)
-    a = CommNet(args)
-    for p in a.parameters():
-        print (p.data)
-'''
