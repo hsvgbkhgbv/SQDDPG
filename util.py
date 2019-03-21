@@ -53,12 +53,12 @@ def select_action(args, action_out):
         return ret
 
 def translate_action(args, env, action):
-    # This is different from the source code
     if args.action_num > 0:
+        # This is different from the source code
         action_tensor = torch.zeros(tuple(action.size()[:-1])+(args.action_num,))
         action_tensor.scatter_(-1, action, 1)
         # environment takes discrete action
-        actual = [action_tensor[:, i, :].squeeze().data.numpy() for i in range(action_tensor.size(1))]
+        actual = [action_tensor[:, i, :].squeeze().cpu().data.numpy() for i in range(action_tensor.size(1))]
         action = np.array(actual)
         return action, actual
     else:

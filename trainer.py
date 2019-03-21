@@ -40,7 +40,7 @@ class Trainer(object):
             _, actual = translate_action(self.args, self.env, action)
             # receive the reward and the next state
             next_state, reward, done, info = self.env.step(actual)
-            done = np.prod(done)
+            done = np.sum(done)
             # record the alive agents
             if 'alive_mask' in info:
                 # serve for the starcraft environment
@@ -53,7 +53,6 @@ class Trainer(object):
             reward = np.array(reward)
             episode_mask = np.ones(reward.shape)
             episode_mini_mask = np.ones(reward.shape)
-
             if done:
                 episode_mask = np.zeros(reward.shape)
             else:
@@ -68,7 +67,7 @@ class Trainer(object):
             state = next_state
 
             if done:
-                print ('This is the finish of the game, and the time steps use in this game is: ', t)
+                print ('This is the reward: ', reward)
                 break
         stat['num_steps'] = t + 1
         stat['steps_taken'] = stat['num_steps']
@@ -84,7 +83,6 @@ class Trainer(object):
 
         with torch.no_grad():
             rewards = torch.Tensor(batch.reward)
-
             episode_masks = torch.Tensor(batch.episode_mask)
             episode_mini_masks = torch.Tensor(batch.episode_mini_mask)
             batch_action = torch.stack(batch.action, dim=0).float()
@@ -158,7 +156,7 @@ class Trainer(object):
         value_loss *= alive_masks
         value_loss = value_loss.sum()
         stat['value_loss'] = value_loss.item()
-
+        
         loss = action_loss + self.args.value_coeff * value_loss
 
         if not self.args.continuous:
@@ -197,9 +195,9 @@ class Trainer(object):
 
         s = self.compute_grad(batch)
         merge_stat(s, stat)
-        for p in self.params:
-            if p._grad is not None:
-                p._grad.data /= stat['num_steps']
+#         for p in self.params:
+#             if p._grad is not None:
+#                 p._grad.data /= stat['num_steps']
         self.optimizer.step()
-
+        del batch
         return stat
