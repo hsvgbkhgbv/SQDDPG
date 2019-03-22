@@ -5,7 +5,7 @@ import torch
 from torch import optim
 import torch.nn as nn
 from util import *
-
+from replay_buffer import *
 
 # define a transition of an episode
 Transition = namedtuple('Transition', ('state', 'action', 'action_out', 'value', 'episode_mask', 'episode_mini_mask', 'next_state', 'reward', 'misc'))
@@ -13,13 +13,16 @@ Transition = namedtuple('Transition', ('state', 'action', 'action_out', 'value',
 
 class Trainer(object):
 
-    def __init__(self, args, policy_net, env):
+    def __init__(self, args, policy_net, env, replay):
         self.args = args
         self.policy_net = policy_net
         self.policy_net
         self.env = env
         self.optimizer = optim.RMSprop(policy_net.parameters(), lr = args.lrate, alpha=0.97, eps=1e-6)
         self.params = [p for p in self.policy_net.parameters()]
+        self.replay = replay
+        if self.replay:
+            self.replay_buffer = ReplayBuffer(int(1e7), 0.2)
 
     def get_episode(self):
         # define the episode list
@@ -30,6 +33,7 @@ class Trainer(object):
         stat = dict()
         info = dict()
         # define the main process of exploration
+        mean_reward = []
         for t in range(self.args.max_steps):
             misc = dict()
             # decide the next action and return the correlated state value (baseline)
@@ -66,10 +70,14 @@ class Trainer(object):
 
             state = next_state
 
+            mean_reward.append(reward)
+
             if done:
-                print ('This is the reward: ', reward)
+                mean_reward = np.array(mean_reward)
+                mean_reward = mean_reward.mean()
                 break
         stat['num_steps'] = t + 1
+        stat['mean_reward'] = mean_reward
         stat['steps_taken'] = stat['num_steps']
         return (episode, stat)
 
@@ -156,7 +164,7 @@ class Trainer(object):
         value_loss *= alive_masks
         value_loss = value_loss.sum()
         stat['value_loss'] = value_loss.item()
-        
+
         loss = action_loss + self.args.value_coeff * value_loss
 
         if not self.args.continuous:
@@ -183,7 +191,8 @@ class Trainer(object):
             # merge_stat(episode_stat, self.stats)
             self.stats['num_episodes'] += 1
             batch += episode
-
+        if self.replay:
+            self.replay_buffer.add_experience(episode)
         self.last_step = False
         self.stats['num_steps'] = len(batch)
         batch = Transition(*zip(*batch))
@@ -192,12 +201,19 @@ class Trainer(object):
     def train_batch(self):
         batch, stat = self.run_batch()
         self.optimizer.zero_grad()
-
         s = self.compute_grad(batch)
         merge_stat(s, stat)
-#         for p in self.params:
-#             if p._grad is not None:
-#                 p._grad.data /= stat['num_steps']
+        # for p in self.params:
+        #     if p._grad is not None:
+        #         p._grad.data /= stat['num_steps']
         self.optimizer.step()
-        del batch
+        if self.replay:
+            for _ in range(10):
+                self.optimizer.zero_grad()
+                batch = self.replay_buffer.get_batch_episodes(\
+                                        self.args.batch_size)
+                batch = Transition(*zip(*batch))
+                s = self.compute_grad(batch)
+                self.optimizer.step()
+            print ('Finish replay in 10 iterations!')
         return stat

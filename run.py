@@ -19,8 +19,6 @@ world = scenario.make_world()
 # create multiagent environment
 env = MultiAgentEnv(world, scenario.reset_world, scenario.reward, scenario.observation, info_callback=None, shared_viewer=True)
 
-env.mode = 'human'
-
 env = GymWrapper(env)
 
 Args = namedtuple('Args', ['agent_num',
@@ -48,11 +46,11 @@ args = Args(agent_num=env.get_num_of_agents(),
             obs_size=np.max(env.get_shape_of_obs()),
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
-            comm_iters=10,
+            comm_iters=100,
             init_std=0.01,
             lrate=1e-5,
-            batch_size=1024,
-            max_steps=4000,
+            batch_size=2048,
+            max_steps=1000,
             gamma=0.99,
             mean_ratio=0.0,
             normalize_rewards=False,
@@ -66,9 +64,10 @@ policy_net = CommNet(args)
 num_epoch = 5000
 epoch = 0
 for i in range(num_epoch):
-    train = Trainer(args, policy_net, env())
+    train = Trainer(args, policy_net, env(), True)
     train.train_batch()
-    print ('This is the epoch: {}, the time step is {} and the current advantage is: {}'.format(epoch, train.stats['num_steps'], train.stats['action_loss']))
+    print ('This is the epoch: {}, the time step is {}, the mean reward is {} and the current advantage is: {}'\
+    .format(epoch, train.stats['mean_reward'], train.stats['num_steps'], train.stats['action_loss']))
     epoch += 1
     if i%10 == 0:
         print ('The model is saved!')
