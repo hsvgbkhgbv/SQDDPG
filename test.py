@@ -4,6 +4,8 @@ import torch
 from util import *
 import time
 from tester import *
+from gym_wrapper import *
+from collections import namedtuple
 
 
 scenario_name = 'simple_spread'
@@ -19,9 +21,6 @@ env = MultiAgentEnv(world, scenario.reset_world, scenario.reward, scenario.obser
 env.mode = 'human'
 
 env = GymWrapper(env)
-
-PATH='./exp1/adversary.pt'
-policy_net = torch.load(PATH)
 
 Args = namedtuple('Args', ['agent_num',
                            'hid_size',
@@ -61,6 +60,9 @@ args = Args(agent_num=env.get_num_of_agents(),
             entr=0.0,
             action_num=np.max(env.get_input_shape_of_act())
            )
+
+PATH='./exp1/coop.pt'
+policy_net = torch.load(PATH)
 
 test = Tester(env(), policy_net, args)
 episodes = 10

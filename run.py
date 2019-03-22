@@ -5,6 +5,8 @@ from commnet import *
 from trainer import *
 from gym_wrapper import *
 import torch
+from collections import namedtuple
+
 
 scenario_name = 'simple_spread'
 # scenario_name = 'simple_world_comm'
@@ -42,14 +44,14 @@ Args = namedtuple('Args', ['agent_num',
                  )
 
 args = Args(agent_num=env.get_num_of_agents(),
-            hid_size=32,
+            hid_size=64,
             obs_size=np.max(env.get_shape_of_obs()),
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
             comm_iters=10,
             init_std=0.01,
-            lrate=0.00001,
-            batch_size=32,
+            lrate=1e-5,
+            batch_size=128,
             max_steps=1000,
             gamma=0.99,
             mean_ratio=0.0,
