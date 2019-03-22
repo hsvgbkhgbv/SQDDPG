@@ -61,7 +61,7 @@ args = Args(agent_num=env.get_num_of_agents(),
             action_num=np.max(env.get_input_shape_of_act())
            )
 
-PATH='./exp1/coop.pt'
+PATH='./exp1/coop1.pt'
 policy_net = torch.load(PATH)
 
 test = Tester(env(), policy_net, args)
