@@ -13,7 +13,7 @@ class Tester(object):
 
     def run_step(self, state):
         action_out, value = self.policy_net.action(state)
-        action = select_action(self.args, action_out, 'test')
+        action = select_action(self.args, action_out, 'train')
         _, actual = translate_action(self.args, self.env, action)
         next_state, reward, done, info = self.env.step(actual)
         return next_state, done
