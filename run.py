@@ -22,4 +22,4 @@ for i in range(num_epoch):
     epoch += 1
     if i%10 == 9:
         print ('The model is saved!\n')
-        torch.save(policy_net, './exp1/'+MODEL_NAME+'.pt')
+        torch.save(policy_net, './exp1/'+scenario_name+'.pt')

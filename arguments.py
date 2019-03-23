@@ -6,9 +6,9 @@ import numpy as np
 
 
 
-# scenario_name = 'simple_spread'
+scenario_name = 'simple_spread'
 # scenario_name = 'simple_world_comm'
-scenario_name = 'simple'
+# scenario_name = 'simple'
 
 # load scenario from script
 scenario = scenario.load(scenario_name + ".py").Scenario()
@@ -45,7 +45,7 @@ args = Args(agent_num=env.get_num_of_agents(),
             obs_size=np.max(env.get_shape_of_obs()),
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
-            comm_iters=1,
+            comm_iters=10,
             init_std=0.1,
             lrate=5e-5,
             batch_size=1024,
