@@ -9,12 +9,11 @@ import os
 policy_net = CommNet(args)
 num_epoch = 500
 epoch = 0
-MODEL_NAME = 'simple'
 
-with open(MODEL_NAME+'.log', 'w+') as file:
+with open(scenario_name+'.log', 'w+') as file:
     file.write(str(args)+'\n')
     file.write(str(num_epoch))
-    
+
 for i in range(num_epoch):
     train = Trainer(args, policy_net, env(), False)
     train.train_batch()
