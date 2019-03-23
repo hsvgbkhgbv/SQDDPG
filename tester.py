@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 from util import *
+import time
 
 
 class Tester(object):
@@ -12,7 +13,7 @@ class Tester(object):
 
     def run_step(self, state):
         action_out, value = self.policy_net.action(state)
-        action = select_action(self.args, action_out)
+        action = select_action(self.args, action_out, 'test')
         _, actual = translate_action(self.args, self.env, action)
         next_state, reward, done, info = self.env.step(actual)
         return next_state, done
@@ -24,6 +25,7 @@ class Tester(object):
             while True:
                 if render:
                     self.env.render()
+                time.sleep(1)
                 state, done = self.run_step(state)
                 if np.all(done):
                     print ('The episode {} is finished!'.format(ep))

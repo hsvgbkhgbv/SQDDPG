@@ -7,6 +7,7 @@ import torch.nn as nn
 from util import *
 from replay_buffer import *
 
+
 # define a transition of an episode
 Transition = namedtuple('Transition', ('state', 'action', 'action_out', 'value', 'episode_mask', 'episode_mini_mask', 'next_state', 'reward', 'misc'))
 
@@ -103,14 +104,13 @@ class Trainer(object):
 
         with torch.no_grad():
             alive_masks = torch.Tensor(np.concatenate([item['alive_mask'] for item in batch.misc])).view(-1)
-
-        with torch.no_grad():
             coop_returns = torch.Tensor(batch_size, n)
             ncoop_returns = torch.Tensor(batch_size, n)
             returns = torch.Tensor(batch_size, n)
-            # deltas = torch.Tensor(batch_size, n)
+        # deltas = torch.Tensor(batch_size, n)
+        with torch.no_grad():
             advantages = torch.Tensor(batch_size, n)
-            values = values.view(batch_size, n)
+        values = values.view(batch_size, n)
 
         prev_coop_return = 0
         prev_ncoop_return = 0
@@ -149,10 +149,10 @@ class Trainer(object):
                 log_prob = multinomials_log_density(actions, log_p_a)
 
         if self.args.advantages_per_action:
-            action_loss = -advantages.view(-1).unsqueeze(-1) * log_prob
+            action_loss = -advantages.view(-1).unsqueeze(-1) * log_prob / self.args.batch_size
             action_loss *= alive_masks.unsqueeze(-1)
         else:
-            action_loss = -advantages.view(-1) * log_prob.squeeze()
+            action_loss = -advantages.view(-1) * log_prob.squeeze() / self.args.batch_size
             action_loss *= alive_masks
 
         action_loss = action_loss.sum()
@@ -160,7 +160,7 @@ class Trainer(object):
 
         # value loss term
         targets = returns
-        value_loss = (values - targets).pow(2).view(-1)
+        value_loss = (values - targets).pow(2).view(-1) / self.args.batch_size
         value_loss *= alive_masks
         value_loss = value_loss.sum()
         stat['value_loss'] = value_loss.item()
@@ -188,7 +188,7 @@ class Trainer(object):
             if self.args.batch_size - len(batch) <= self.args.max_steps:
                 self.last_step = True
             episode, episode_stat = self.get_episode()
-            # merge_stat(episode_stat, self.stats)
+            merge_stat(episode_stat, self.stats)
             self.stats['num_episodes'] += 1
             batch += episode
         if self.replay:
@@ -207,13 +207,13 @@ class Trainer(object):
         #     if p._grad is not None:
         #         p._grad.data /= stat['num_steps']
         self.optimizer.step()
-        if self.replay:
-            for _ in range(10):
-                self.optimizer.zero_grad()
-                batch = self.replay_buffer.get_batch_episodes(\
-                                        self.args.batch_size)
-                batch = Transition(*zip(*batch))
-                s = self.compute_grad(batch)
-                self.optimizer.step()
-            print ('Finish replay in 10 iterations!')
+        # if self.replay:
+        #     for i in range(20):
+        #         batch = self.replay_buffer.get_batch_episodes(\
+        #                                 self.args.batch_size)
+        #         batch = Transition(*zip(*batch))
+        #         self.optimizer.zero_grad()
+        #         s = self.compute_grad(batch)
+        #         self.optimizer.step()
+        #     print ('Finish replay in 20 iterations!')
         return stat

@@ -26,7 +26,8 @@ class CommNet(nn.Module):
         'advantages_per_action': bool,
         'value_coeff': float,
         'entr': float,
-        'action_num'=int
+        'action_num'=int,
+        'ifVanilla'=bool
         )
         args is a namedtuple, e.g. args = collections.namedtuple()
         '''
@@ -35,8 +36,9 @@ class CommNet(nn.Module):
         # create a model
         self.construct_model()
         # initialize parameters with normal distribution with mean of 0
-        map(self.init_weights, self.parameters())
-    
+        # map(self.init_weights, self.parameters())
+        self.apply(self.init_weights)
+
     def mask_obs(self, x):
         x_lens = [len(x_) for x_ in x]
         x_len_max = np.max(x_lens)
@@ -44,7 +46,7 @@ class CommNet(nn.Module):
             if x_lens[i] < x_len_max:
                 x[i] = np.concatenate((x[i], np.zeros(x_len_max-x_lens[i])), axis=0)
         return x
-    
+
     def construct_model(self):
         '''
         define the model of vanilla CommNet
@@ -127,9 +129,9 @@ class CommNet(nn.Module):
             c = h_.sum(dim=1) if i != 0 else torch.zeros_like(h) # shape = (batch_size, n, hid_size)
             # h_{j}^{i+1} = \sigma(H_j * h_j^{i+1} + C_j * c_j^{i+1})
             h = self.tanh(sum([self.f_modules[i](h), self.C_modules[i](c)]))
-        # calculate the value function (critic)
+        # calculate the value function (baseline)
         value_head = self.value_head(h)
-        # calculate the action vector (actor)
+        # calculate the action vector (policy)
         if self.args.continuous:
             # shape = (batch_size, n, action_dim)
             action_mean = self.action_mean(h)
@@ -141,10 +143,10 @@ class CommNet(nn.Module):
             # discrete actions, shape = (batch_size, n, action_type, action_num)
             action = F.log_softmax(self.action_head(h), dim=-1)
         return action, value_head
-    
+
     def forward(self, obs, info={}):
         return self.action(obs, info)
-    
+
     def init_weights(self, m):
         '''
         initialize the weights of parameters

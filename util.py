@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import numbers
 
 
 def merge_stat(src, dest):
@@ -41,15 +42,21 @@ def multinomials_log_densities(actions, log_probs):
     log_prob = torch.cat(log_prob, dim=-1)
     return log_prob
 
-def select_action(args, action_out):
+def select_action(args, action_out, status='train'):
     if args.continuous:
         action_mean, _, action_std = action_out
-        action = torch.normal(action_mean, action_std)
+        if status == 'train':
+            action = torch.normal(action_mean, action_std)
+        elif status == 'test':
+            action = action_mean
         return action.detach()
     else:
         log_p_a = action_out
         p_a = [[z.exp() for z in x] for x in log_p_a]
-        ret = torch.stack([torch.stack([torch.multinomial(x, 1).detach() for x in p]) for p in p_a])
+        if status == 'train':
+            ret = torch.stack([torch.stack([torch.multinomial(x, 1).detach() for x in p]) for p in p_a])
+        elif status == 'test':
+            ret = torch.stack([torch.stack([torch.argmax(x, dim=-1).detach().unsqueeze(0) for x in p]) for p in p_a])
         return ret
 
 def translate_action(args, env, action):
