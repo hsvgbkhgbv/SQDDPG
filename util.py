@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import numbers
+import math
 
 
 def merge_stat(src, dest):
@@ -61,13 +62,34 @@ def select_action(args, action_out, status='train'):
 
 def translate_action(args, env, action):
     if args.action_num > 0:
-        # This is different from the source code
-        action_tensor = torch.zeros(tuple(action.size()[:-1])+(args.action_num,))
-        action_tensor.scatter_(-1, action, 1)
-        # environment takes discrete action
-        actual = [action_tensor[:, i, :].squeeze().cpu().data.numpy() for i in range(action_tensor.size(1))]
-        action = np.array(actual)
-        return action, actual
+        if args.decomposition:
+            assert action.size()[-1] == 2
+            action_tensor = torch.zeros(tuple(action.size()[:-1])+(args.action_num,))
+            action = action.data[0].numpy()
+            cp_action = action.copy()
+            for i in range(len(action)):
+                if cp_action[i][0] < 0.2:
+                    action_tensor[:, i, 0] += 1
+                else:
+                    if cp_action[i][1] < 0.5*np.pi:
+                        action_tensor[:, i, 1] += 1
+                    elif 0.5*np.pi <= cp_action[i][1] < np.pi:
+                        action_tensor[:, i, 2] += 1
+                    elif np.pi <= cp_action[i][1] < 1.5*np.pi:
+                        action_tensor[:, i, 3] += 1
+                    else:
+                        action_tensor[:, i, 4] += 1
+            actual = [action_tensor[:, i, :].squeeze().cpu().data.numpy() for i in range(action_tensor.size(1))]
+            action = np.array(actual)
+            return action, actual
+        else:
+            # This is different from the source code
+            action_tensor = torch.zeros(tuple(action.size()[:-1])+(args.action_num,))
+            action_tensor.scatter_(-1, action, 1)
+            # environment takes discrete action
+            actual = [action_tensor[:, i, :].squeeze().cpu().data.numpy() for i in range(action_tensor.size(1))]
+            action = np.array(actual)
+            return action, actual
     else:
         if args.continuous:
             action = action.data[0].numpy()

@@ -27,7 +27,7 @@ class CommNet(nn.Module):
         'value_coeff': float,
         'entr': float,
         'action_num'=int,
-        'ifVanilla'=bool
+        'skip_connection'=bool
         )
         args is a namedtuple, e.g. args = collections.namedtuple()
         '''
@@ -67,6 +67,10 @@ class CommNet(nn.Module):
         # define communication encoder
         self.C_module = nn.Linear(self.args.hid_size, self.args.hid_size)
         self.C_modules = nn.ModuleList([self.C_module for _ in range(self.args.comm_iters)])
+        # if it is the skip connection then define another encoding transformation
+        if self.args.skip_connection:
+            self.E_module = nn.Linear(self.args.hid_size, self.args.hid_size)
+            self.E_modules = nn.ModuleList([self.E_module for _ in range(self.args.comm_iters)])
         # define value function
         self.value_head = nn.Linear(self.args.hid_size, 1)
         self.tanh = nn.Tanh()
@@ -103,7 +107,11 @@ class CommNet(nn.Module):
         with torch.no_grad():
             obs = torch.tensor(np.array(obs)).float().unsqueeze(0)
         # encode observation
-        h = self.state_encoder(obs)
+        if self.args.skip_connection:
+            e = self.state_encoder(obs)
+            h = torch.zeros_like(e)
+        else:
+            h = self.state_encoder(obs)
         # get the batch size
         batch_size = obs.size()[0]
         # get the total number of agents including dead
@@ -127,14 +135,25 @@ class CommNet(nn.Module):
             h_ = h_ / (num_agents_alive - 1)
             # calculate the communication vector
             c = h_.sum(dim=1) if i != 0 else torch.zeros_like(h) # shape = (batch_size, n, hid_size)
-            # h_{j}^{i+1} = \sigma(H_j * h_j^{i+1} + C_j * c_j^{i+1})
-            h = self.tanh(sum([self.f_modules[i](h), self.C_modules[i](c)]))
+            if self.args.skip_connection:
+                # h_{j}^{i+1} = \sigma(H_j * h_j^{i+1} + C_j * c_j^{i+1} + E_{j} * e_j^{i+1})
+                h = self.tanh(sum([self.f_modules[i](h), self.C_modules[i](c), self.E_modules[i](e)]))
+            else:
+                # h_{j}^{i+1} = \sigma(H_j * h_j^{i+1} + C_j * c_j^{i+1})
+                h = self.tanh(sum([self.f_modules[i](h), self.C_modules[i](c)]))
+
         # calculate the value function (baseline)
-        value_head = self.value_head(h)
+        if self.args.skip_connection:
+            value_head = self.value_head(e)
+        else:
+            value_head = self.value_head(h)
         # calculate the action vector (policy)
         if self.args.continuous:
             # shape = (batch_size, n, action_dim)
-            action_mean = self.action_mean(h)
+            if self.args.decomposition:
+                action_mean = torch.sigmoid(self.action_mean(h))
+            else:
+                action_mean = self.action_mean(h)
             action_log_std = self.action_log_std.expand_as(action_mean)
             action_std = torch.exp(action_log_std)
             # will be used later to sample

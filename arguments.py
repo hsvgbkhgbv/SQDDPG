@@ -36,7 +36,8 @@ Args = namedtuple('Args', ['agent_num',
                            'value_coeff',
                            'entr',
                            'action_num',
-                           'ifVanilla'
+                           'skip_connection',
+                           'decomposition'
                           ]
                  )
 
@@ -45,17 +46,19 @@ args = Args(agent_num=env.get_num_of_agents(),
             obs_size=np.max(env.get_shape_of_obs()),
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
-            comm_iters=1,
+            # action_dim=2,
+            comm_iters=2,
             init_std=0.1,
-            lrate=1e-6,
-            batch_size=32,
-            max_steps=100,
+            lrate=5e-4,
+            batch_size=1024,
+            max_steps=50,
             gamma=0.99,
             mean_ratio=0.0,
             normalize_rewards=False,
             advantages_per_action=False,
             value_coeff=1.0,
-            entr=0.01,
+            entr=0.001,
             action_num=np.max(env.get_input_shape_of_act()),
-            ifVanilla=True
+            skip_connection=False,
+            decomposition=False
            )

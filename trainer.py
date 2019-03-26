@@ -40,7 +40,7 @@ class Trainer(object):
             # decide the next action and return the correlated state value (baseline)
             action_out, value = self.policy_net.action(state, info)
             # return the sampled actions of all of agents
-            action = select_action(self.args, action_out)
+            action = select_action(self.args, action_out, 'train')
             # return the rescaled (clipped) actions
             _, actual = translate_action(self.args, self.env, action)
             # receive the reward and the next state
@@ -96,11 +96,14 @@ class Trainer(object):
             episode_mini_masks = torch.Tensor(batch.episode_mini_mask)
             batch_action = torch.stack(batch.action, dim=0).float()
             actions = torch.Tensor(batch_action)
-            actions = actions.transpose(1, 2).view(-1, n, 1)
+            actions = actions.transpose(1, 2).view(-1, n, action_dim)
 
         values = torch.cat(batch.value, dim=0)
         action_out = list(zip(*batch.action_out))
-        action_out = [torch.cat(a, dim=0) for a in action_out]
+        if self.args.decomposition:
+            action_out = [torch.cat(a, dim=0).contiguous().view(-1,action_dim) for a in action_out]
+        else:
+            action_out = [torch.cat(a, dim=0) for a in action_out]
 
         with torch.no_grad():
             alive_masks = torch.Tensor(np.concatenate([item['alive_mask'] for item in batch.misc])).view(-1)
@@ -138,8 +141,16 @@ class Trainer(object):
 
         # take the policy of the actions
         if self.args.continuous:
-            action_means, action_log_stds, action_stds = action_out
-            log_prob = normal_log_density(actions, action_means, action_log_stds, action_stds)
+            actions = actions.contiguous().view(-1, self.args.action_dim)
+            if self.args.decomposition:
+                log_prob = []
+                action_means, action_log_stds, action_stds = action_out
+                for i in range(action_dim):
+                    log_prob.append(normal_log_density(actions[:, i:i+1], action_means[:, i:i+1], action_log_stds[:, i:i+1], action_stds[:, i:i+1]))
+                log_prob = log_prob[0] * log_prob[1] 
+            else:
+                action_means, action_log_stds, action_stds = action_out
+                log_prob = normal_log_density(actions, action_means, action_log_stds, action_stds)
         else:
             log_p_a = action_out
             actions = actions.contiguous().view(-1, 1)
