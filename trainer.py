@@ -147,7 +147,7 @@ class Trainer(object):
                 action_means, action_log_stds, action_stds = action_out
                 for i in range(action_dim):
                     log_prob.append(normal_log_density(actions[:, i:i+1], action_means[:, i:i+1], action_log_stds[:, i:i+1], action_stds[:, i:i+1]))
-                log_prob = log_prob[0] * log_prob[1] 
+                log_prob = log_prob[0] * log_prob[1]
             else:
                 action_means, action_log_stds, action_stds = action_out
                 log_prob = normal_log_density(actions, action_means, action_log_stds, action_stds)

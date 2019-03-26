@@ -7,7 +7,7 @@ import os
 
 
 policy_net = CommNet(args)
-num_epoch = 100
+num_epoch = 1000
 epoch = 0
 
 with open(scenario_name+'.log', 'w+') as file:

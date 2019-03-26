@@ -1,2 +1,2 @@
-Args(agent_num=3, hid_size=1024, obs_size=18, continuous=False, action_dim=5, comm_iters=2, init_std=0.1, lrate=0.0005, batch_size=1024, max_steps=80, gamma=0.99, mean_ratio=0.0, normalize_rewards=False, advantages_per_action=False, value_coeff=1.0, entr=0.001, action_num=5, skip_connection=True, decomposition=False)
-100
+Args(agent_num=3, hid_size=1024, obs_size=18, continuous=False, action_dim=5, comm_iters=2, init_std=0.1, lrate=0.0001, batch_size=1024, max_steps=50, gamma=0.99, mean_ratio=0.0, normalize_rewards=False, advantages_per_action=False, value_coeff=0.001, entr=1e-05, action_num=5, skip_connection=True, decomposition=False)
+1000

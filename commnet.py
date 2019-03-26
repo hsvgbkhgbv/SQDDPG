@@ -141,12 +141,8 @@ class CommNet(nn.Module):
             else:
                 # h_{j}^{i+1} = \sigma(H_j * h_j^{i+1} + C_j * c_j^{i+1})
                 h = self.tanh(sum([self.f_modules[i](h), self.C_modules[i](c)]))
-
         # calculate the value function (baseline)
-        if self.args.skip_connection:
-            value_head = self.value_head(e)
-        else:
-            value_head = self.value_head(h)
+        value_head = self.value_head(h)
         # calculate the action vector (policy)
         if self.args.continuous:
             # shape = (batch_size, n, action_dim)
