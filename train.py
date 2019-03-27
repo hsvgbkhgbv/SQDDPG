@@ -7,7 +7,7 @@ import os
 
 
 policy_net = CommNet(args)
-num_epoch = 100
+num_epoch = 1000
 epoch = 0
 
 with open(scenario_name+'.log', 'w+') as file:
@@ -17,8 +17,7 @@ with open(scenario_name+'.log', 'w+') as file:
 for i in range(num_epoch):
     train = Trainer(args, policy_net, env(), False)
     train.train_batch()
-    print ('This is the epoch: {}, the mean reward is {} and the current advantage is: {}\n'\
-    .format(epoch, train.stats['mean_reward'], train.stats['action_loss']))
+    print ('This is the epoch: {}, the mean reward is {:2.2f} and the current action loss to be minimized is: {:2.2f}\n'.format(epoch, train.stats['mean_reward'], train.stats['action_loss']))
     epoch += 1
     if i%10 == 9:
         print ('The model is saved!\n')

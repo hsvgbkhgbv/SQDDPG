@@ -16,7 +16,7 @@ class Trainer(object):
 
     def __init__(self, args, policy_net, env, replay):
         self.args = args
-        self.policy_net = policy_net
+        self.policy_net = policy_net.cuda() if torch.cuda.is_available() else policy_net
         self.env = env
         self.optimizer = optim.RMSprop(policy_net.parameters(), lr = args.lrate, alpha=0.97, eps=1e-6)
         self.params = [p for p in self.policy_net.parameters()]
@@ -41,6 +41,8 @@ class Trainer(object):
         for t in range(self.args.max_steps):
 
             misc = dict()
+
+            misc['start_step'] = True if t == 0 else False
 
             # decide the next action and return the correlated state value (baseline)
             action_out, value = self.policy_net.action(state, info)
@@ -145,17 +147,18 @@ class Trainer(object):
             for i in reversed(range(rewards.size(0))):
                 if batch.misc[i]['last_step']:
                     prev_coop_return = 0
-                    print (i)
                 coop_returns[i] = rewards[i] + self.args.gamma * prev_coop_return * episode_masks[i]
                 prev_coop_return = coop_returns[i]
                 returns[i] = coop_returns[i].mean()
         elif self.args.training_strategy == 'actor_critic':
             # calculate the estimated action value
-            for i in reversed(range(rewards.size(0))):
+            for i in range(rewards.size(0)):
+                if batch.misc[i]['start_step']:
+                    I = 1
                 coop_returns[i] = values[i] * episode_masks[i]
-                returns[i] = coop_returns[i].mean()
-                deltas[i] = rewards[i] + self.args.gamma * next_values[i].detach() * episode_masks[i] - values[i] * episode_masks[i]
-
+                deltas[i] = I * (rewards[i] + self.args.gamma * next_values[i].detach() * episode_masks[i] - coop_returns[i]).mean()
+                returns[i] = I * coop_returns[i].mean()
+                I *= self.args.gamma
         # calculate the advantage
         for i in reversed(range(rewards.size(0))):
             if self.args.training_strategy == 'reinforce':
