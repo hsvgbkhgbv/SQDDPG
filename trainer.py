@@ -6,15 +6,17 @@ from torch import optim
 import torch.nn as nn
 from util import *
 from replay_buffer import *
+import torch.multiprocessing as mp
 
 
 # define a transition of an episode
 Transition = namedtuple('Transition', ('state', 'action', 'action_out', 'value', 'episode_mask', 'episode_mini_mask', 'next_state', 'next_value', 'reward', 'misc'))
 
 
-class Trainer(object):
+class Trainer(mp.Process):
 
     def __init__(self, args, policy_net, env, replay):
+        super(Trainer, self).__init__()
         self.args = args
         self.policy_net = policy_net.cuda() if torch.cuda.is_available() else policy_net
         self.env = env
@@ -167,7 +169,8 @@ class Trainer(object):
                     I = 1
                 coop_returns[i] = values[i] * episode_masks[i]
                 deltas[i] = I * (rewards[i] + self.args.gamma * next_values[i].detach() * episode_masks[i] - coop_returns[i]).mean()
-                returns[i] = I * coop_returns[i].mean()
+                # returns[i] = I * coop_returns[i].mean()
+                returns[i] = deltas[i]
                 I *= self.args.gamma
         # calculate the advantage
         for i in reversed(range(rewards.size(0))):
@@ -230,7 +233,6 @@ class Trainer(object):
         batch = []
         self.stats = dict()
         self.stats['num_episodes'] = 0
-        # There is a bug!!!!! transition_num = batch_size
         while self.stats['num_episodes'] < self.args.batch_size:
             episode, episode_stat = self.get_episode()
             merge_stat(episode_stat, self.stats)
