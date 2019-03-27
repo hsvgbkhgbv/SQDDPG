@@ -21,7 +21,6 @@ class CommNet(nn.Module):
         'batch_size': int,
         'max_steps': int,
         'gamma': float,
-        'mean_ratio': float,
         'normalize_rewards': bool,
         'advantages_per_action': bool,
         'value_coeff': float,
@@ -71,8 +70,12 @@ class CommNet(nn.Module):
         if self.args.skip_connection:
             self.E_module = nn.Linear(self.args.hid_size, self.args.hid_size)
             self.E_modules = nn.ModuleList([self.E_module for _ in range(self.args.comm_iters)])
-        # define value function
-        self.value_head = nn.Linear(self.args.hid_size, 1)
+        if self.args.training_strategy == 'reinforce':
+            # define value function
+            self.value_head = nn.Linear(self.args.hid_size, 1)
+        elif self.args.training_strategy == 'actor_critic':
+            # define action value function
+            self.action_value_head = nn.Linear(self.args.hid_size, self.args.action_dim)
         self.tanh = nn.Tanh()
 
     def state_encoder(self, x):
@@ -141,15 +144,18 @@ class CommNet(nn.Module):
             else:
                 # h_{j}^{i+1} = \sigma(H_j * h_j^{i+1} + C_j * c_j^{i+1})
                 h = self.tanh(sum([self.f_modules[i](h), self.C_modules[i](c)]))
-        # calculate the value function (baseline)
-        value_head = self.value_head(h)
+        if self.args.training_strategy == 'reinforce':
+            # calculate the value function (baseline)
+            value_head = self.value_head(h)
+        elif self.args.training_strategy == 'actor_critic':
+            if self.args.continuous:
+                value_head = self.value_head(h)
+            else:
+                value_head = self.action_value_head(h)
         # calculate the action vector (policy)
         if self.args.continuous:
             # shape = (batch_size, n, action_dim)
-            if self.args.decomposition:
-                action_mean = torch.sigmoid(self.action_mean(h))
-            else:
-                action_mean = self.action_mean(h)
+            action_mean = self.action_mean(h)
             action_log_std = self.action_log_std.expand_as(action_mean)
             action_std = torch.exp(action_log_std)
             # will be used later to sample

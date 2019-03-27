@@ -26,7 +26,7 @@ class Tester(object):
                 if render:
                     self.env.render()
                 state, done = self.run_step(state)
-                time.sleep(1)
+                time.sleep(0.1)
                 if np.all(done):
                     print ('The episode {} is finished!'.format(ep))
                     break
