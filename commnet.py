@@ -44,7 +44,7 @@ class CommNet(nn.Module):
         for i in range(len(x_lens)):
             if x_lens[i] < x_len_max:
                 x[i] = np.concatenate((x[i], np.zeros(x_len_max-x_lens[i])), axis=0)
-        return torch.Tensor(x).cuda() if torch.cuda.is_available() else torch.Tensor(x)
+        return torch.Tensor(x).float().unsqueeze(0).cuda() if torch.cuda.is_available() else torch.Tensor(x).float().unsqueeze(0)
 
     def construct_model(self):
         '''
@@ -106,9 +106,8 @@ class CommNet(nn.Module):
         '''
         define the action process of vanilla CommNet
         '''
-        obs = self.mask_obs(obs)
         with torch.no_grad():
-            obs = torch.tensor(np.array(obs)).float().unsqueeze(0)
+            obs = self.mask_obs(obs)
         # encode observation
         if self.args.skip_connection:
             e = self.state_encoder(obs)
