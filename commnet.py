@@ -44,7 +44,7 @@ class CommNet(nn.Module):
         for i in range(len(x_lens)):
             if x_lens[i] < x_len_max:
                 x[i] = np.concatenate((x[i], np.zeros(x_len_max-x_lens[i])), axis=0)
-        return x
+        return torch.Tensor(x).cuda() if torch.cuda.is_available() else torch.Tensor(x)
 
     def construct_model(self):
         '''
@@ -80,7 +80,7 @@ class CommNet(nn.Module):
 
     def state_encoder(self, x):
         '''
-        define a single forward pass of communication inference
+        define a state encoder
         '''
         return self.tanh(self.encoder(x))
 
