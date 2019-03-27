@@ -60,7 +60,7 @@ def select_action(args, action_out, status='train'):
             ret = torch.stack([torch.stack([torch.argmax(x, dim=-1).detach().unsqueeze(0) for x in p]) for p in p_a])
         return ret
 
-def translate_action(args, env, action):
+def translate_action(args, action):
     if args.action_num > 0:
         action_tensor = torch.zeros(tuple(action.size()[:-1])+(args.action_num,))
         if torch.cuda.is_available():

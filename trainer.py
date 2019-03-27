@@ -6,17 +6,15 @@ from torch import optim
 import torch.nn as nn
 from util import *
 from replay_buffer import *
-import torch.multiprocessing as mp
 
 
 # define a transition of an episode
 Transition = namedtuple('Transition', ('state', 'action', 'action_out', 'value', 'episode_mask', 'episode_mini_mask', 'next_state', 'next_value', 'reward', 'misc'))
 
 
-class Trainer(mp.Process):
+class Trainer():
 
     def __init__(self, args, policy_net, env, replay):
-        super(Trainer, self).__init__()
         self.args = args
         self.policy_net = policy_net.cuda() if torch.cuda.is_available() else policy_net
         self.env = env
@@ -51,9 +49,13 @@ class Trainer(mp.Process):
             # return the sampled actions of all of agents
             action = select_action(self.args, action_out, 'train')
             # return the rescaled (clipped) actions
-            _, actual = translate_action(self.args, self.env, action)
+            _, actual = translate_action(self.args, action)
             if self.args.training_strategy == 'actor_critic':
                 act = action.squeeze()
+                try:
+                    act.size(0)
+                except:
+                    act = act.unsqueeze(0)
                 value = torch.cat([value[:, i, act[i]].unsqueeze(-1) for i in range(act.size(0))], dim=-1)
 
             # receive the reward and the next state
@@ -85,8 +87,11 @@ class Trainer(mp.Process):
             if self.args.training_strategy == 'actor_critic':
                 next_action = select_action(self.args, next_action_out, 'train')
                 next_act = next_action.squeeze()
+                try:
+                    next_act.size(0)
+                except:
+                    next_act = act.unsqueeze(0)
                 next_value = torch.cat([next_value[:, i, next_act[i]].unsqueeze(-1) for i in range(act.size(0))], dim=-1)
-
             mean_reward.append(reward)
 
             if done:
@@ -237,7 +242,6 @@ class Trainer(mp.Process):
             episode, episode_stat = self.get_episode()
             merge_stat(episode_stat, self.stats)
             self.stats['num_episodes'] += 1
-            # maybe here
             batch += episode
             if self.replay:
                 self.replay_buffer.add_experience(episode)

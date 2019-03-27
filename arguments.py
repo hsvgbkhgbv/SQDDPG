@@ -6,14 +6,15 @@ import numpy as np
 
 
 
-scenario_name = 'simple_spread'
+# scenario_name = 'simple_spread'
 # scenario_name = 'simple_world_comm'
-# scenario_name = 'simple'
+scenario_name = 'simple'
 
 # load scenario from script
 scenario = scenario.load(scenario_name + ".py").Scenario()
 # create world
 world = scenario.make_world()
+
 # create multiagent environment
 env = MultiAgentEnv(world, scenario.reset_world, scenario.reward, scenario.observation, info_callback=None, shared_viewer=True)
 
@@ -44,10 +45,10 @@ args = Args(agent_num=env.get_num_of_agents(),
             obs_size=np.max(env.get_shape_of_obs()),
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
-            comm_iters=2,
+            comm_iters=1,
             init_std=0.1,
             lrate=1e-3,
-            batch_size=128,
+            batch_size=32,
             max_steps=100,
             gamma=0.99,
             normalize_rewards=True,
@@ -55,5 +56,5 @@ args = Args(agent_num=env.get_num_of_agents(),
             entr=0.0,
             action_num=np.max(env.get_input_shape_of_act()),
             skip_connection=True,
-            training_strategy='actor_critic'
+            training_strategy='reinforce'
            )
