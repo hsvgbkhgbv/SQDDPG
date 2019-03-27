@@ -7,6 +7,7 @@ import os
 
 
 policy_net = CommNet(args)
+# policy_net = torch.nn.DataParallel(policy_net, device_ids=[0, 1])
 num_epoch = 1000
 epoch = 0
 

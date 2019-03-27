@@ -45,7 +45,7 @@ class Trainer(object):
             misc['start_step'] = True if t == 0 else False
 
             # decide the next action and return the correlated state value (baseline)
-            action_out, value = self.policy_net.action(state, info)
+            action_out, value = self.policy_net(state, info)
             # return the sampled actions of all of agents
             action = select_action(self.args, action_out, 'train')
             # return the rescaled (clipped) actions
@@ -124,9 +124,12 @@ class Trainer(object):
             rewards = torch.Tensor(batch.reward)
             episode_masks = torch.Tensor(batch.episode_mask)
             episode_mini_masks = torch.Tensor(batch.episode_mini_mask)
-            batch_action = torch.stack(batch.action, dim=0).float()
-            actions = torch.Tensor(batch_action)
+            actions = torch.stack(batch.action, dim=0).float()
             actions = actions.transpose(1, 2).view(-1, n, 1)
+            if torch.cuda.is_available():
+                rewards = rewards.cuda()
+                episode_masks = episode_masks.cuda()
+                episode_mini_masks = episode_mini_masks.cuda()
         values = torch.cat(batch.value, dim=0)
         next_values = torch.cat(batch.next_value, dim=0)
         action_out = list(zip(*batch.action_out))
@@ -137,9 +140,16 @@ class Trainer(object):
             returns = torch.Tensor(batch_size, n)
             if self.args.training_strategy == 'actor_critic':
                 deltas = torch.Tensor(batch_size, n)
+                if torch.cuda.is_available():
+                    deltas = deltas.cuda()
             advantages = torch.Tensor(batch_size, n)
-        values = values.view(batch_size, n)
-        next_values = next_values.view(batch_size, n)
+            if torch.cuda.is_available():
+                alive_masks = alive_masks.cuda()
+                coop_returns = coop_returns.cuda()
+                returns = returns.cuda()
+                advantages = advantages.cuda()
+            values = values.view(batch_size, n)
+            next_values = next_values.view(batch_size, n)
 
         # calculate the returns or estimated returns
         if self.args.training_strategy == 'reinforce':
