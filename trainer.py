@@ -12,7 +12,7 @@ from replay_buffer import *
 Transition = namedtuple('Transition', ('state', 'action', 'action_out', 'value', 'episode_mask', 'episode_mini_mask', 'next_state', 'next_value', 'reward', 'misc'))
 
 
-class Trainer():
+class Trainer(object):
 
     def __init__(self, args, policy_net, env, replay):
         self.args = args
@@ -175,7 +175,7 @@ class Trainer():
                 coop_returns[i] = values[i] * episode_masks[i]
                 deltas[i] = I * (rewards[i] + self.args.gamma * next_values[i].detach() * episode_masks[i] - coop_returns[i]).mean()
                 # returns[i] = I * coop_returns[i].mean()
-                returns[i] = deltas[i]
+                returns[i] = deltas[i].detach()
                 I *= self.args.gamma
         # calculate the advantage
         for i in reversed(range(rewards.size(0))):
@@ -199,7 +199,7 @@ class Trainer():
             log_prob = multinomials_log_density(actions, log_p_a)
 
         # calculate the advantages
-        action_loss = -advantages.view(-1) * log_prob.squeeze() / self.args.batch_size
+        action_loss = -advantages.view(-1) * log_prob.squeeze() / batch_size
         action_loss *= alive_masks
         action_loss = action_loss.sum()
         stat['action_loss'] = action_loss.item()
@@ -207,9 +207,9 @@ class Trainer():
         # calculate the value loss
         if self.args.training_strategy == 'reinforce':
             targets = returns
-            value_loss = (values - targets).pow(2).view(-1) / self.args.batch_size
+            value_loss = (values - targets).pow(2).view(-1) / batch_size
         elif self.args.training_strategy == 'actor_critic':
-            value_loss = deltas.pow(2).view(-1) / self.args.batch_size
+            value_loss = deltas.pow(2).view(-1) / batch_size
         value_loss *= alive_masks
         value_loss = value_loss.sum()
         stat['value_loss'] = value_loss.item()
@@ -238,7 +238,7 @@ class Trainer():
         batch = []
         self.stats = dict()
         self.stats['num_episodes'] = 0
-        while self.stats['num_episodes'] < self.args.batch_size:
+        while self.stats['num_episodes'] < self.args.epoch_size:
             episode, episode_stat = self.get_episode()
             merge_stat(episode_stat, self.stats)
             self.stats['num_episodes'] += 1
@@ -258,7 +258,7 @@ class Trainer():
         if self.replay:
             for i in range(20):
                 batch = self.replay_buffer.get_batch_episodes(\
-                                        self.args.batch_size)
+                                        self.args.epoch_size)
                 batch = Transition(*zip(*batch))
                 self.optimizer.zero_grad()
                 s = self.compute_grad(batch)
