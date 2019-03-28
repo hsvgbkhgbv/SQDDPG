@@ -6,9 +6,14 @@ import numpy as np
 
 
 
+<<<<<<< HEAD
 name = 'ic3net'
 scenario_name = 'simple_spread'
 # scenario_name = 'simple_tag'
+=======
+scenario_name = 'simple_spread'
+# scenario_name = 'simple_world_comm'
+>>>>>>> 641783ff83f01da4b272620d705dfe534ef594ea
 # scenario_name = 'simple'
 
 # load scenario from script
