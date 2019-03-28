@@ -6,9 +6,9 @@ import numpy as np
 
 
 
-# scenario_name = 'simple_spread'
+scenario_name = 'simple_spread'
 # scenario_name = 'simple_world_comm'
-scenario_name = 'simple'
+# scenario_name = 'simple'
 
 # load scenario from script
 scenario = scenario.load(scenario_name + ".py").Scenario()
