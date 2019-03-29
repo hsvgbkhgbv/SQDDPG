@@ -11,7 +11,7 @@ policy_net = IC3Net(args)
 num_epoch = 1000
 epoch = 0
 
-with open('./exp1/' + scenario_name + '_' + args.training_strategy + '_' + name + '.log', 'w+') as file:
+with open('./exp1/' + scenario_name + '_' + args.training_strategy + '_' + model_name + '.log', 'w+') as file:
     file.write(str(args)+'\n')
     file.write(str(num_epoch))
 
@@ -22,4 +22,4 @@ for i in range(num_epoch):
     epoch += 1
     if i%10 == 9:
         print ('The model is saved!\n')
-        torch.save(policy_net, './exp1/' + scenario_name + '_' + args.training_strategy + '_' + name + '.pt')
+        torch.save(policy_net, './exp1/' + scenario_name + '_' + args.training_strategy + '_' + model_name + '.pt')

@@ -38,14 +38,6 @@ class IC3Net(nn.Module):
         # map(self.init_weights, self.parameters())
         self.apply(self.init_weights)
 
-    def mask_obs(self, x):
-        x_lens = [len(x_) for x_ in x]
-        x_len_max = np.max(x_lens)
-        for i in range(len(x_lens)):
-            if x_lens[i] < x_len_max:
-                x[i] = np.concatenate((x[i], np.zeros(x_len_max-x_lens[i])), axis=0)
-        return torch.Tensor(x).float().unsqueeze(0).cuda() if torch.cuda.is_available() else torch.Tensor(x).float().unsqueeze(0)
-
     def construct_model(self):
         '''
         define the model of vanilla CommNet
@@ -103,14 +95,13 @@ class IC3Net(nn.Module):
 
     def action(self, obs, info={}):
         '''
-        define the action process of vanilla CommNet
+        define the action process of IC3Net
         '''
-        with torch.no_grad():
-            obs = self.mask_obs(obs)
+        # get the batch_size
+        batch_size = obs.size(0)
         # encode observation
         e = self.state_encoder(obs)
-        # get the batch_size \times
-        batch_size = obs.size(0)
+        if len(e.size()) == 2: e = e.unsqueeze(1)
         # get the initial state
         h, cell = self.init_hidden(batch_size)
         # get the total number of agents including dead
@@ -119,20 +110,19 @@ class IC3Net(nn.Module):
         num_agents_alive, agent_mask = self.get_agent_mask(batch_size, info)
         # conduct the main process of communication
         for i in range(self.args.comm_iters):
-            h_ = h.view(batch_size, n, self.args.hid_size)
+            h_ = h.contiguous().view(batch_size, n, self.args.hid_size)
             # define the gate function
             gate_ = torch.sigmoid(self.g_modules[i](h_))
             gate = torch.ceil(gate_)
             # shape = (batch_size, n, hid_size)->(batch_size, n, 1, hid_size)->(batch_size, n, n, hid_size)
-            h_ = h_.unsqueeze(-2).expand(-1, n, n, self.args.hid_size)
+            h_ = h_.unsqueeze(-2).expand(batch_size, n, n, self.args.hid_size)
             # construct the communication mask
             mask = self.comm_mask.view(1, n, n) # shape = (1, n, n)
             mask = mask.expand(batch_size, n, n) # shape = (batch_size, n, n)
             mask = mask.unsqueeze(-1) # shape = (batch_size, n, n, 1)
             mask = mask.expand_as(h_) # shape = (batch_size, n, n, hid_size)
             # construct the commnication gate
-            gate = gate.view(1, n, n) # shape = (1, n, n)
-            gate = gate.expand(batch_size, n, n) # shape = (batch_size, n, n)
+            gate = gate.view(batch_size, n, n) # shape = (batch_size, n, n)
             gate = gate.unsqueeze(-1) # shape = (batch_size, n, n, 1)
             gate = gate.expand_as(h_) # shape = (batch_size, n, n, hid_size)
             # mask each agent itself (collect the hidden state of other agents)
@@ -142,7 +132,7 @@ class IC3Net(nn.Module):
             # average the hidden state
             h_ = h_ / (num_agents_alive - 1)
             # calculate the communication vector
-            c = h_.sum(dim=1) if i != 0 else torch.zeros_like(h) # shape = (batch_size, n, hid_size)
+            c = h_.sum(dim=1) if i != 0 else torch.zeros_like(h.contiguous().view(batch_size, n, self.args.hid_size)) # shape = (batch_size, n, hid_size)
             inp = e+c
             inp = inp.view(batch_size*n, self.args.hid_size)
             # f_moudle
@@ -152,10 +142,7 @@ class IC3Net(nn.Module):
             # calculate the value function (baseline)
             value_head = self.value_head(h)
         elif self.args.training_strategy == 'actor_critic':
-            if self.args.continuous:
-                value_head = self.value_head(h)
-            else:
-                value_head = self.action_value_head(h)
+            value_head = self.action_value_head(h)
         # calculate the action vector (policy)
         if self.args.continuous:
             # shape = (batch_size, n, action_dim)

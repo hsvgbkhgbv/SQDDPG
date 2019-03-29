@@ -31,10 +31,7 @@ def normal_log_density(x, mean, log_std, std):
     return log_density.sum(1, keepdim=True)
 
 def multinomials_log_density(actions, log_probs):
-    log_prob = 0
-    for i in range(len(log_probs)):
-        log_prob += log_probs[i].gather(1, actions[:, i].long().unsqueeze(1))
-    return log_prob
+    return log_probs.gather(-1, actions.long())
 
 def multinomials_log_densities(actions, log_probs):
     log_prob = [0] * len(log_probs)
@@ -90,3 +87,8 @@ def translate_action(args, action):
                 actual[i] = action[i].data.squeeze()[0] * (high - low) / (args.naction_heads[i] - 1) + low
             action = [x.squeeze().data[0] for x in action]
             return action, actual
+
+def mask_obs(*state):
+    state = np.concatenate(state, axis=0)
+    if len(state.shape) == 4: state = state.squeeze()
+    return torch.tensor(state).float().cuda() if torch.cuda.is_available() else torch.tensor(state).float()

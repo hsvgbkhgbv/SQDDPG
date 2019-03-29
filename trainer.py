@@ -9,7 +9,7 @@ from replay_buffer import *
 
 
 # define a transition of an episode
-Transition = namedtuple('Transition', ('state', 'action', 'action_out', 'value', 'episode_mask', 'episode_mini_mask', 'next_state', 'next_value', 'reward', 'misc'))
+Transition = namedtuple('Transition', ('state', 'action', 'reward', 'next_state', 'start_step', 'last_step'))
 
 
 class Trainer(object):
@@ -25,169 +25,108 @@ class Trainer(object):
             self.replay_buffer = ReplayBuffer(int(1e7), 0.2)
 
     def get_episode(self):
-
+        # define a stat dict
+        stat = dict()
         # define the episode list
         episode = []
-
         # reset the environment
         state = self.env.reset()
-
-        # set up two auxilliary dictionaries
-        stat = dict()
-        info = dict()
-
         # define the main process of exploration
         mean_reward = []
         for t in range(self.args.max_steps):
-
-            misc = dict()
-
-            misc['start_step'] = True if t == 0 else False
-
+            start_step = True if t == 0 else False
             # decide the next action and return the correlated state value (baseline)
-            action_out, value = self.policy_net(state, info)
+            state_ = mask_obs([state])
+            action_out, value = self.policy_net(state_)
             # return the sampled actions of all of agents
             action = select_action(self.args, action_out, 'train')
             # return the rescaled (clipped) actions
             _, actual = translate_action(self.args, action)
-            if self.args.training_strategy == 'actor_critic':
-                act = action.squeeze()
-                try:
-                    act.size(0)
-                except:
-                    act = act.unsqueeze(0)
-                value = torch.cat([value[:, i, act[i]].unsqueeze(-1) for i in range(act.size(0))], dim=-1)
-
             # receive the reward and the next state
-            next_state, reward, done, info = self.env.step(actual)
-            done = np.sum(done)
-
-            # record the alive agents
-            if 'alive_mask' in info:
-                # serve for the starcraft environment
-                misc['alive_mask'] = info['alive_mask'].reshape(reward.shape)
-            else:
-                misc['alive_mask'] = np.ones_like(reward)
-
+            next_state, reward, done, _ = self.env.step(actual)
+            if isinstance(done, list): done = np.sum(done)
             # define the flag of the finish of exploration
             done = done or t == self.args.max_steps - 1
-
-            reward = np.array(reward)
-            episode_mask = np.ones(reward.shape)
-            episode_mini_mask = np.ones(reward.shape)
-            if done:
-                episode_mask = np.zeros(reward.shape)
-            else:
-                # serve for traffic environment
-                if 'is_completed' in info:
-                    episode_mini_mask = 1 - info['is_completed'].reshape(-1)
-
-            # take the next value or action value
-            next_action_out, next_value = self.policy_net.action(next_state, info)
-            if self.args.training_strategy == 'actor_critic':
-                next_action = select_action(self.args, next_action_out, 'train')
-                next_act = next_action.squeeze()
-                try:
-                    next_act.size(0)
-                except:
-                    next_act = act.unsqueeze(0)
-                next_value = torch.cat([next_value[:, i, next_act[i]].unsqueeze(-1) for i in range(act.size(0))], dim=-1)
             mean_reward.append(reward)
-
+            # justify whether the game is done
             if done:
-                misc['last_step'] = True
+                last_step = True
                 # record a transition
-                trans = Transition(state, action, action_out, value, episode_mask, episode_mini_mask, next_state, next_value, reward, misc)
-                # record the current transition to the whole episode
+                trans = Transition(state, action, np.array(reward), next_state, start_step, last_step)
                 episode.append(trans)
                 break
             else:
-                misc['last_step'] = False
+                last_step = False
                 # record a transition
-                trans = Transition(state, action, action_out, value, episode_mask, episode_mini_mask, next_state, next_value, reward, misc)
-                # record the current transition to the whole episode
+                trans = Transition(state, action, np.array(reward), next_state, start_step, last_step)
                 episode.append(trans)
-
             state = next_state
-
         mean_reward = np.array(mean_reward)
         mean_reward = mean_reward.mean()
         stat['num_steps'] = t + 1
         stat['mean_reward'] = mean_reward
-        stat['steps_taken'] = stat['num_steps']
-
         return (episode, stat)
 
     def compute_grad(self, batch):
-
         stat = dict()
-
         action_dim = self.args.action_dim
         n = self.args.agent_num
         batch_size = len(batch.state)
-
         # define some necessary containers
-        with torch.no_grad():
-            rewards = torch.Tensor(batch.reward)
-            episode_masks = torch.Tensor(batch.episode_mask)
-            episode_mini_masks = torch.Tensor(batch.episode_mini_mask)
-            actions = torch.stack(batch.action, dim=0).float()
-            actions = actions.transpose(1, 2).view(-1, n, 1)
+        rewards = torch.tensor(batch.reward, dtype=torch.float)
+        actions = torch.stack(batch.action, dim=0).float()
+        actions = actions.transpose(1, 2).view(-1, n, 1)
+        if torch.cuda.is_available():
+            rewards = rewards.cuda()
+        # action_out = list(zip(*batch.action_out))
+        # action_out = [torch.cat(a, dim=0) for a in action_out]
+        returns = torch.zeros((batch_size, n), dtype=torch.float)
+        if self.args.training_strategy == 'actor_critic':
+            deltas = torch.zeros((batch_size, n), dtype=torch.float)
             if torch.cuda.is_available():
-                rewards = rewards.cuda()
-                episode_masks = episode_masks.cuda()
-                episode_mini_masks = episode_mini_masks.cuda()
-        values = torch.cat(batch.value, dim=0)
-        next_values = torch.cat(batch.next_value, dim=0)
-        action_out = list(zip(*batch.action_out))
-        action_out = [torch.cat(a, dim=0) for a in action_out]
-        with torch.no_grad():
-            alive_masks = torch.Tensor(np.concatenate([item['alive_mask'] for item in batch.misc])).view(-1)
-            coop_returns = torch.Tensor(batch_size, n)
-            returns = torch.Tensor(batch_size, n)
-            if self.args.training_strategy == 'actor_critic':
-                deltas = torch.Tensor(batch_size, n)
-                if torch.cuda.is_available():
-                    deltas = deltas.cuda()
-            advantages = torch.Tensor(batch_size, n)
-            if torch.cuda.is_available():
-                alive_masks = alive_masks.cuda()
-                coop_returns = coop_returns.cuda()
-                returns = returns.cuda()
-                advantages = advantages.cuda()
-            values = values.view(batch_size, n)
-            next_values = next_values.view(batch_size, n)
-
+                deltas = deltas.cuda()
+        advantages = torch.zeros((batch_size, n), dtype=torch.float)
+        if torch.cuda.is_available():
+            returns = returns.cuda()
+            advantages = advantages.cuda()
+        # TODO: 
+        # wrap the batch of states
+        state = mask_obs(list(zip(batch.state)))
+        next_state = mask_obs(list(zip(batch.next_state)))
+        # construct the computational graph
+        action_out, values = self.policy_net(state)
+        next_action_out, next_values = self.policy_net(next_state)
+        action = select_action(self.args, action_out, 'train')
+        if self.args.training_strategy == 'actor_critic':
+            next_action = select_action(self.args, next_action_out, 'train')
+            next_values = torch.cat([next_values[:, i, next_action[:, i, 0]].unsqueeze(-1) for i in range(next_action.size(1))], dim=-1)
+            values = torch.cat([values[:, i, action[:, i, 0]].unsqueeze(-1) for i in range(action.size(1))], dim=-1)
+        values = values.contiguous().view(batch_size, n)
+        next_values = next_values.contiguous().view(batch_size, n)
         # calculate the returns or estimated returns
         if self.args.training_strategy == 'reinforce':
             # calculate the return reversely and the reward is shared
             for i in reversed(range(rewards.size(0))):
-                if batch.misc[i]['last_step']:
+                if batch.last_step:
                     prev_coop_return = 0
-                coop_returns[i] = rewards[i] + self.args.gamma * prev_coop_return * episode_masks[i]
-                prev_coop_return = coop_returns[i]
-                returns[i] = coop_returns[i].mean()
+                returns[i] = rewards[i] + self.args.gamma * prev_coop_return
+                prev_coop_return = returns[i]
         elif self.args.training_strategy == 'actor_critic':
             # calculate the estimated action value
             for i in range(rewards.size(0)):
-                if batch.misc[i]['start_step']:
+                if batch.start_step:
                     I = 1
-                coop_returns[i] = values[i] * episode_masks[i]
-                deltas[i] = I * (rewards[i] + self.args.gamma * next_values[i].detach() * episode_masks[i] - coop_returns[i]).mean()
-                # returns[i] = I * coop_returns[i].mean()
-                returns[i] = deltas[i].detach()
+                deltas[i] = I * (rewards[i] + self.args.gamma * next_values[i].detach() - values[i])
+                returns[i] = deltas[i]
                 I *= self.args.gamma
         # calculate the advantage
-        for i in reversed(range(rewards.size(0))):
-            if self.args.training_strategy == 'reinforce':
-                advantages[i] = returns[i] - values.data[i]
-            elif self.args.training_strategy == 'actor_critic':
-                advantages[i] = returns[i]
-
+        if self.args.training_strategy == 'reinforce':
+            advantages = returns - values.data
+        elif self.args.training_strategy == 'actor_critic':
+            advantages = returns.data
         # normalize the advantage
         if self.args.normalize_rewards:
-            advantages = (advantages - advantages.mean()) / advantages.std()
-
+            advantages = (advantages - advantages.mean(dim=0, keepdim=True)) / advantages.std(dim=0, keepdim=True)
         # take the policy of actions
         if self.args.continuous:
             actions = actions.contiguous().view(-1, self.args.action_dim)
@@ -195,28 +134,22 @@ class Trainer(object):
             log_prob = normal_log_density(actions, action_means, action_log_stds, action_stds)
         else:
             log_p_a = action_out
-            actions = actions.contiguous().view(-1, 1)
             log_prob = multinomials_log_density(actions, log_p_a)
-
+        assert log_prob.squeeze().size() == advantages.squeeze().size()
         # calculate the advantages
-        action_loss = -advantages.view(-1) * log_prob.squeeze() / batch_size
-        action_loss *= alive_masks
+        action_loss = -advantages.squeeze() * log_prob.squeeze() / batch_size
         action_loss = action_loss.sum()
         stat['action_loss'] = action_loss.item()
-
         # calculate the value loss
         if self.args.training_strategy == 'reinforce':
             targets = returns
             value_loss = (values - targets).pow(2).view(-1) / batch_size
         elif self.args.training_strategy == 'actor_critic':
             value_loss = deltas.pow(2).view(-1) / batch_size
-        value_loss *= alive_masks
         value_loss = value_loss.sum()
         stat['value_loss'] = value_loss.item()
-
         # combine the policy objective function and the value loss together
         loss = action_loss + self.args.value_coeff * value_loss
-
         # entropy regularization term, but it is obly available to discrete policy
         if not self.args.continuous:
             entropy = 0
@@ -225,13 +158,8 @@ class Trainer(object):
             stat['entropy'] = entropy.item()
             if self.args.entr > 0:
                 loss -= self.args.entr * entropy
-
         # do the backpropogation
-        if self.replay:
-            loss.backward(retain_graph=True)
-        else:
-            loss.backward()
-
+        loss.backward()
         return stat
 
     def run_batch(self):

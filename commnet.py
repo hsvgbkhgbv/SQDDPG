@@ -35,16 +35,7 @@ class CommNet(nn.Module):
         # create a model
         self.construct_model()
         # initialize parameters with normal distribution with mean of 0
-        # map(self.init_weights, self.parameters())
         self.apply(self.init_weights)
-
-    def mask_obs(self, x):
-        x_lens = [len(x_) for x_ in x]
-        x_len_max = np.max(x_lens)
-        for i in range(len(x_lens)):
-            if x_lens[i] < x_len_max:
-                x[i] = np.concatenate((x[i], np.zeros(x_len_max-x_lens[i])), axis=0)
-        return torch.Tensor(x).float().unsqueeze(0).cuda() if torch.cuda.is_available() else torch.Tensor(x).float().unsqueeze(0)
 
     def construct_model(self):
         '''
@@ -110,8 +101,6 @@ class CommNet(nn.Module):
         '''
         define the action process of vanilla CommNet
         '''
-        with torch.no_grad():
-            obs = self.mask_obs(obs)
         # encode observation
         if self.args.skip_connection:
             e = self.state_encoder(obs)
@@ -127,7 +116,7 @@ class CommNet(nn.Module):
         # conduct the main process of communication
         for i in range(self.args.comm_iters):
             # shape = (batch_size, n, hid_size)->(batch_size, n, 1, hid_size)->(batch_size, n, n, hid_size)
-            h_ = h.unsqueeze(-2).expand(-1, n, n, self.args.hid_size)
+            h_ = h.unsqueeze(-2).expand(batch_size, n, n, self.args.hid_size)
             # construct the communication mask
             mask = self.comm_mask.view(1, n, n) # shape = (1, n, n)
             mask = mask.expand(batch_size, n, n) # shape = (batch_size, n, n)
