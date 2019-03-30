@@ -88,7 +88,12 @@ def translate_action(args, action):
             action = [x.squeeze().data[0] for x in action]
             return action, actual
 
-def mask_obs(*state):
-    state = np.concatenate(state, axis=0)
-    if len(state.shape) == 4: state = state.squeeze()
+def prep_obs(state=[]):
+    state = np.array(state)
+    if len(state.shape) == 2:
+        state = np.stack(state, axis=0)
+    elif len(state.shape) == 4:
+        state = np.concatenate(state, axis=0)
+    else:
+        raise RuntimeError('The shape of the observation is incorrect!')
     return torch.tensor(state).float().cuda() if torch.cuda.is_available() else torch.tensor(state).float()

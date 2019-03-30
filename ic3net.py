@@ -101,7 +101,6 @@ class IC3Net(nn.Module):
         batch_size = obs.size(0)
         # encode observation
         e = self.state_encoder(obs)
-        if len(e.size()) == 2: e = e.unsqueeze(1)
         # get the initial state
         h, cell = self.init_hidden(batch_size)
         # get the total number of agents including dead
@@ -152,7 +151,7 @@ class IC3Net(nn.Module):
             # will be used later to sample
             action = (action_mean, action_log_std, action_std)
         else:
-            # discrete actions, shape = (batch_size, n, action_type, action_num)
+            # discrete actions, shape = (batch_size, n, action_num)
             action = F.log_softmax(self.action_head(h), dim=-1)
         return action, value_head
 

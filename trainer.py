@@ -36,12 +36,20 @@ class Trainer(object):
         for t in range(self.args.max_steps):
             start_step = True if t == 0 else False
             # decide the next action and return the correlated state value (baseline)
-            state_ = mask_obs([state])
-            action_out, value = self.policy_net(state_)
+            action_out, value = self.policy_net(prep_obs(state).contiguous().view(1, self.args.agent_num, self.args.obs_size))
+            # print ('action_out')
+            # print (action_out)
+            # print ()
             # return the sampled actions of all of agents
             action = select_action(self.args, action_out, 'train')
+            # print ('action')
+            # print (action)
+            # print ()
             # return the rescaled (clipped) actions
             _, actual = translate_action(self.args, action)
+            # print ('actual')
+            # print (actual)
+            # print ()
             # receive the reward and the next state
             next_state, reward, done, _ = self.env.step(actual)
             if isinstance(done, list): done = np.sum(done)
@@ -74,8 +82,13 @@ class Trainer(object):
         batch_size = len(batch.state)
         # define some necessary containers
         rewards = torch.tensor(batch.reward, dtype=torch.float)
-        actions = torch.stack(batch.action, dim=0).float()
-        actions = actions.transpose(1, 2).view(-1, n, 1)
+        if self.args.normalize_rewards:
+            rewards = (rewards - rewards.mean(dim=0, keepdim=True)) / rewards.std(dim=0, keepdim=True)
+        actions = list(zip(*batch.action))
+        # print (actions[0])
+        actions = torch.stack(actions[0], dim=0).float()
+        # print (actions)
+        # actions = actions.transpose(1, 2).view(-1, n, 1)
         if torch.cuda.is_available():
             rewards = rewards.cuda()
         # action_out = list(zip(*batch.action_out))
@@ -89,18 +102,28 @@ class Trainer(object):
         if torch.cuda.is_available():
             returns = returns.cuda()
             advantages = advantages.cuda()
-        # TODO: 
         # wrap the batch of states
-        state = mask_obs(list(zip(batch.state)))
-        next_state = mask_obs(list(zip(batch.next_state)))
+        state = prep_obs(list(zip(batch.state)))
+        next_state = prep_obs(list(zip(batch.next_state)))
+        # print ('state')
+        # print (state.shape)
         # construct the computational graph
         action_out, values = self.policy_net(state)
+        # print ('grad')
+        # print ('action_out')
+        # print (action_out)
+        # print ()
         next_action_out, next_values = self.policy_net(next_state)
-        action = select_action(self.args, action_out, 'train')
+        # action = select_action(self.args, action_out, 'train')
+        # print ('action')
+        # print (action)
+        # print ()
         if self.args.training_strategy == 'actor_critic':
-            next_action = select_action(self.args, next_action_out, 'train')
-            next_values = torch.cat([next_values[:, i, next_action[:, i, 0]].unsqueeze(-1) for i in range(next_action.size(1))], dim=-1)
-            values = torch.cat([values[:, i, action[:, i, 0]].unsqueeze(-1) for i in range(action.size(1))], dim=-1)
+            next_actions = select_action(self.args, next_action_out, 'train')
+            next_values = next_values.gather(-1, next_actions.long())
+            # next_values = torch.cat([next_values[:, i, next_actions[:, i, 0]].unsqueeze(-1) for i in range(next_actions.size(1))], dim=-1)
+            # values = torch.cat([values[:, i, actions[:, i, 0]].unsqueeze(-1) for i in range(action.size(1))], dim=-1)
+            values = values.gather(-1, actions.long())
         values = values.contiguous().view(batch_size, n)
         next_values = next_values.contiguous().view(batch_size, n)
         # calculate the returns or estimated returns
@@ -124,9 +147,6 @@ class Trainer(object):
             advantages = returns - values.data
         elif self.args.training_strategy == 'actor_critic':
             advantages = returns.data
-        # normalize the advantage
-        if self.args.normalize_rewards:
-            advantages = (advantages - advantages.mean(dim=0, keepdim=True)) / advantages.std(dim=0, keepdim=True)
         # take the policy of actions
         if self.args.continuous:
             actions = actions.contiguous().view(-1, self.args.action_dim)
@@ -134,19 +154,20 @@ class Trainer(object):
             log_prob = normal_log_density(actions, action_means, action_log_stds, action_stds)
         else:
             log_p_a = action_out
-            log_prob = multinomials_log_density(actions, log_p_a)
-        assert log_prob.squeeze().size() == advantages.squeeze().size()
+            log_prob = multinomials_log_density(actions, log_p_a).squeeze(dim=-1)
+
+        assert log_prob.size() == advantages.size()
         # calculate the advantages
-        action_loss = -advantages.squeeze() * log_prob.squeeze() / batch_size
-        action_loss = action_loss.sum()
+        action_loss = -advantages * log_prob
+        action_loss = action_loss.sum() / batch_size
         stat['action_loss'] = action_loss.item()
         # calculate the value loss
         if self.args.training_strategy == 'reinforce':
             targets = returns
-            value_loss = (values - targets).pow(2).view(-1) / batch_size
+            value_loss = (values - targets).pow(2).view(-1)
         elif self.args.training_strategy == 'actor_critic':
-            value_loss = deltas.pow(2).view(-1) / batch_size
-        value_loss = value_loss.sum()
+            value_loss = deltas.pow(2).view(-1)
+        value_loss = value_loss.sum() / batch_size
         stat['value_loss'] = value_loss.item()
         # combine the policy objective function and the value loss together
         loss = action_loss + self.args.value_coeff * value_loss

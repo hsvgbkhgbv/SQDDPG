@@ -6,14 +6,12 @@ import numpy as np
 
 
 
-<<<<<<< HEAD
-name = 'ic3net'
-scenario_name = 'simple_spread'
-# scenario_name = 'simple_tag'
-=======
+
+# model_name = 'commnet'
+model_name = 'ic3net'
+
 scenario_name = 'simple_spread'
 # scenario_name = 'simple_world_comm'
->>>>>>> 641783ff83f01da4b272620d705dfe534ef594ea
 # scenario_name = 'simple'
 
 # load scenario from script
@@ -42,7 +40,8 @@ Args = namedtuple('Args', ['agent_num',
                            'entr',
                            'action_num',
                            'skip_connection',
-                           'training_strategy'
+                           'training_strategy',
+                           'train_epoch_num'
                           ]
                  )
 
@@ -51,16 +50,17 @@ args = Args(agent_num=env.get_num_of_agents(),
             obs_size=np.max(env.get_shape_of_obs()),
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
-            comm_iters=2,
+            comm_iters=1,
             init_std=0.1,
-            lrate=1e-4,
+            lrate=1e-3,
             epoch_size=32,
-            max_steps=200,
+            max_steps=30,
             gamma=0.99,
             normalize_rewards=False,
             value_coeff=1e-3,
             entr=1e-5,
             action_num=np.max(env.get_input_shape_of_act()),
             skip_connection=True,
-            training_strategy='reinforce'
+            training_strategy='reinforce',
+            train_epoch_num=1000
            )
