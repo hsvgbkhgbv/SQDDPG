@@ -14,14 +14,15 @@ Transition = namedtuple('Transition', ('state', 'action', 'reward', 'next_state'
 
 class Trainer(object):
 
-    def __init__(self, args, policy_net, env, replay):
+    def __init__(self, args, policy_net, env):
         self.args = args
-        self.policy_net = policy_net.cuda() if torch.cuda.is_available() else policy_net
+        self.cuda = self.args.cuda and torch.cuda.is_available()
+        self.policy_net = policy_net.cuda() if self.cuda else policy_net
         self.env = env
-        # self.optimizer = optim.RMSprop(policy_net.parameters(), lr = args.lrate, alpha=0.97, eps=1e-6)
-        self.optimizer = optim.SGD(policy_net.parameters(), lr = args.lrate)
+        self.optimizer = optim.RMSprop(policy_net.parameters(), lr = args.lrate, alpha=0.97, eps=1e-6)
+        # self.optimizer = optim.SGD(policy_net.parameters(), lr = args.lrate, nesterov=True, momentum=0.1)
         self.params = [p for p in self.policy_net.parameters()]
-        self.replay = replay
+        self.replay = self.args.replay
         if self.replay:
             self.replay_buffer = ReplayBuffer(int(1e7), 0.2)
 
@@ -81,15 +82,15 @@ class Trainer(object):
             rewards = (rewards - rewards.mean(dim=0, keepdim=True)) / rewards.std(dim=0, keepdim=True)
         actions = list(zip(*batch.action))
         actions = torch.tensor(np.stack(actions[0], axis=0), dtype=torch.float32)
-        if torch.cuda.is_available():
+        if self.cuda:
             rewards = rewards.cuda()
         returns = torch.zeros((batch_size, n), dtype=torch.float)
         if self.args.training_strategy == 'actor_critic':
             deltas = torch.zeros((batch_size, n), dtype=torch.float)
-            if torch.cuda.is_available():
+            if self.cuda:
                 deltas = deltas.cuda()
         advantages = torch.zeros((batch_size, n), dtype=torch.float)
-        if torch.cuda.is_available():
+        if self.cuda:
             returns = returns.cuda()
             advantages = advantages.cuda()
         # wrap the batch of states
@@ -98,12 +99,14 @@ class Trainer(object):
         # construct the computational graph for the parameters
         action_out, values = self.policy_net(state)
         next_action_out, next_values = self.policy_net(next_state)
-        values, next_values = values.squeeze(), next_values.squeeze()
         if self.args.training_strategy == 'actor_critic':
             next_actions = select_action(self.args, next_action_out, 'train')
             next_values = next_values.gather(-1, next_actions.long())
             values = values.gather(-1, actions.long())
+        values = values.contiguous().view(-1, n)
+        next_values = next_values.contiguous().view(-1, n)
         if self.args.training_strategy == 'reinforce':
+            assert returns.size() == rewards.size()
             # calculate the return reversely and the reward is shared
             for i in reversed(range(rewards.size(0))):
                 if last_step[i]:
@@ -111,14 +114,22 @@ class Trainer(object):
                 returns[i] = rewards[i] + self.args.gamma * prev_coop_return
                 prev_coop_return = returns[i]
         elif self.args.training_strategy == 'actor_critic':
+            assert rewards.size() == next_values.size()
+            assert values.size() == next_values.size()
             # calculate the estimated action value
+            for i in reversed(range(rewards.size(0))):
+                if last_step[i]:
+                    deltas[i] = rewards[i] - values[i]
+                else:
+                    deltas[i] = rewards[i] + self.args.gamma * next_values[i].detach() - values[i]
             deltas = deltas.contiguous().view(-1, 1)
-            deltas = rewards + self.args.gamma * next_values.detach() - values
-            returns = values.detach()
+            returns = deltas.detach()
         # calculate the advantage
         if self.args.training_strategy == 'reinforce':
+            assert returns.size() == values.size()
             advantages = returns - values.detach()
         elif self.args.training_strategy == 'actor_critic':
+            assert advantages.size() == returns.size()
             advantages = returns
         advantages = advantages.contiguous().view(-1, 1)
         # take the policy of actions
