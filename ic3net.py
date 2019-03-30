@@ -152,7 +152,7 @@ class IC3Net(nn.Module):
             action = (action_mean, action_log_std, action_std)
         else:
             # discrete actions, shape = (batch_size, n, action_num)
-            action = F.log_softmax(self.action_head(h), dim=-1)
+            action = torch.log_softmax(self.action_head(h), dim=-1)
         return action, value_head
 
     def forward(self, obs, info={}):

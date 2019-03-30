@@ -31,14 +31,11 @@ def normal_log_density(x, mean, log_std, std):
     return log_density.sum(1, keepdim=True)
 
 def multinomials_log_density(actions, log_probs):
+    # print ('This is actions: ')
+    # print (actions)
+    # print ('This is log_probs: ')
+    # print (log_probs)
     return log_probs.gather(-1, actions.long())
-
-def multinomials_log_densities(actions, log_probs):
-    log_prob = [0] * len(log_probs)
-    for i in range(len(log_probs)):
-        log_prob[i] += log_probs[i].gather(1, actions[:, i].long().unsqueeze(1))
-    log_prob = torch.cat(log_prob, dim=-1)
-    return log_prob
 
 def select_action(args, action_out, status='train'):
     if args.continuous:
