@@ -41,7 +41,8 @@ Args = namedtuple('Args', ['agent_num',
                            'skip_connection',
                            'training_strategy',
                            'train_epoch_num',
-                           'replay',
+                           'replay_buffer_size',
+                           'replay_iters',
                            'cuda'
                           ]
                  )
@@ -59,11 +60,12 @@ args = Args(agent_num=env.get_num_of_agents(),
             gamma=0.99,
             normalize_rewards=False,
             value_coeff=1e-3,
-            entr=1e-5,
+            entr=1e-3,
             action_num=np.max(env.get_input_shape_of_act()),
-            skip_connection=None,
+            skip_connection=True,
             training_strategy='reinforce',
             train_epoch_num=10000,
-            replay=False,
+            replay_buffer_size=6.4e6,
+            replay_iters=1,
             cuda=False
            )

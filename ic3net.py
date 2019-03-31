@@ -59,19 +59,17 @@ class IC3Net(nn.Module):
         # define the gate function
         self.g_module = nn.Linear(self.args.hid_size, self.args.agent_num)
         self.g_modules = nn.ModuleList([self.g_module for _ in range(self.args.comm_iters)])
+        # define value function or the action value function
         if self.args.training_strategy == 'reinforce':
-            # define value function
             self.value_head = nn.Linear(self.args.hid_size, 1)
-        elif self.args.training_strategy == 'actor_critic':
-            # define action value function
+        elif self.args.training_strategy in ['actor_critic', 'ddpg']:
             self.action_value_head = nn.Linear(self.args.hid_size, self.args.action_dim)
-        self.tanh = nn.Tanh()
 
     def state_encoder(self, x):
         '''
         define a state encoder
         '''
-        return self.tanh(self.encoder(x))
+        return torch.tanh(self.encoder(x))
 
     def get_agent_mask(self, batch_size, info):
         '''
@@ -112,16 +110,16 @@ class IC3Net(nn.Module):
             h_ = h.contiguous().view(batch_size, n, self.args.hid_size)
             # define the gate function
             gate_ = torch.sigmoid(self.g_modules[i](h_))
-            gate = torch.ceil(gate_)
+            gate = torch.round(gate_)
             # shape = (batch_size, n, hid_size)->(batch_size, n, 1, hid_size)->(batch_size, n, n, hid_size)
             h_ = h_.unsqueeze(-2).expand(batch_size, n, n, self.args.hid_size)
             # construct the communication mask
-            mask = self.comm_mask.view(1, n, n) # shape = (1, n, n)
+            mask = self.comm_mask.contiguous().view(1, n, n) # shape = (1, n, n)
             mask = mask.expand(batch_size, n, n) # shape = (batch_size, n, n)
             mask = mask.unsqueeze(-1) # shape = (batch_size, n, n, 1)
             mask = mask.expand_as(h_) # shape = (batch_size, n, n, hid_size)
             # construct the commnication gate
-            gate = gate.view(batch_size, n, n) # shape = (batch_size, n, n)
+            gate = gate.contiguous().view(batch_size, n, n) # shape = (batch_size, n, n)
             gate = gate.unsqueeze(-1) # shape = (batch_size, n, n, 1)
             gate = gate.expand_as(h_) # shape = (batch_size, n, n, hid_size)
             # mask each agent itself (collect the hidden state of other agents)
@@ -129,18 +127,18 @@ class IC3Net(nn.Module):
             # mask the dead agent
             h_ = h_ * agent_mask * agent_mask.transpose(1, 2)
             # average the hidden state
-            h_ = h_ / (num_agents_alive - 1)
+            if num_agents_alive > 1: h_ = h_ / (num_agents_alive - 1)
             # calculate the communication vector
-            c = h_.sum(dim=1) if i != 0 else torch.zeros_like(h.contiguous().view(batch_size, n, self.args.hid_size)) # shape = (batch_size, n, hid_size)
-            inp = e+c
-            inp = inp.view(batch_size*n, self.args.hid_size)
+            c = h_.sum(dim=1) # shape = (batch_size, n, hid_size)
+            inp = e + c
+            inp = inp.contiguous().view(batch_size*n, self.args.hid_size)
             # f_moudle
             h, cell = self.f_module(inp, (h, cell))
-        h = h.view(batch_size, n, self.args.hid_size)
+        h = h.contiguous().view(batch_size, n, self.args.hid_size)
         if self.args.training_strategy == 'reinforce':
             # calculate the value function (baseline)
             value_head = self.value_head(h)
-        elif self.args.training_strategy == 'actor_critic':
+        elif self.args.training_strategy in ['actor_critic', 'ddpg']:
             value_head = self.action_value_head(h)
         # calculate the action vector (policy)
         if self.args.continuous:

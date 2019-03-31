@@ -31,10 +31,6 @@ def normal_log_density(x, mean, log_std, std):
     return log_density.sum(1, keepdim=True)
 
 def multinomials_log_density(actions, log_probs):
-    # print ('This is actions: ')
-    # print (actions)
-    # print ('This is log_probs: ')
-    # print (log_probs)
     return log_probs.gather(-1, actions.long())
 
 def select_action(args, action_out, status='train'):
@@ -55,9 +51,9 @@ def select_action(args, action_out, status='train'):
         return ret
 
 def translate_action(args, action):
-    if args.action_num > 0:
+    if args.action_num > 1:
         action_tensor = torch.zeros(tuple(action.size()[:-1])+(args.action_num,))
-        if torch.cuda.is_available():
+        if torch.cuda.is_available() and args.cuda:
             action_tensor = action_tensor.cuda()
         action_tensor.scatter_(-1, action, 1)
         # environment takes discrete action
@@ -93,4 +89,4 @@ def prep_obs(state=[]):
         state = np.concatenate(state, axis=0)
     else:
         raise RuntimeError('The shape of the observation is incorrect!')
-    return torch.tensor(state).float().cuda() if torch.cuda.is_available() else torch.tensor(state).float()
+    return torch.tensor(state).float()

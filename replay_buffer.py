@@ -3,16 +3,15 @@ import numpy as np
 
 class ReplayBuffer(object):
 
-    def __init__(self, size, forget_rate):
+    def __init__(self, size):
         self.size = size
         self.buffer = []
-        self.forget_rate = forget_rate
 
     def get_episode(self, index):
         return self.buffer[index]
 
     def offset(self):
-        self.buffer = self.buffer[int(self.size*self.forget_rate):]
+        self.buffer = []
 
     def get_batch_episodes(self, batch_size):
         length = len(self.buffer)

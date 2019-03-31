@@ -6,13 +6,14 @@ import time
 
 class Tester(object):
 
-    def __init__(self, env, policy_net, args):
+    def __init__(self, env, behaviour_net, args):
         self.env = env
-        self.policy_net = policy_net.eval()
+        self.behaviour_net = behaviour_net.eval()
         self.args = args
 
     def run_step(self, state):
-        action_out, value = self.policy_net(prep_obs(state).contiguous().view(1, self.args.agent_num, self.args.obs_size))
+        state = prep_obs(state).contiguous().view(1, self.args.agent_num, self.args.obs_size)
+        action_out, value = self.behaviour_net(state)
         action = select_action(self.args, action_out, 'test')
         _, actual = translate_action(self.args, action)
         next_state, reward, done, _ = self.env.step(actual)

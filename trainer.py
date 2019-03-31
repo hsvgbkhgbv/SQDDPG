@@ -1,5 +1,4 @@
 from collections import namedtuple
-from inspect import getargspec
 import numpy as np
 import torch
 from torch import optim
@@ -14,17 +13,16 @@ Transition = namedtuple('Transition', ('state', 'action', 'reward', 'next_state'
 
 class Trainer(object):
 
-    def __init__(self, args, policy_net, env):
+    def __init__(self, args, model, env):
         self.args = args
         self.cuda = self.args.cuda and torch.cuda.is_available()
-        self.policy_net = policy_net.cuda() if self.cuda else policy_net
+        self.behaviour_net = model(self.args).cuda() if self.cuda else model(self.args)
+        if self.args.training_strategy == 'ddpg':
+            self.target_net = model(self.args).cuda() if self.cuda else model(self.args)
+            self.target_net.load_state_dict(self.behaviour_net.state_dict())
+            self.replay_buffer = ReplayBuffer(int(self.args.replay_buffer_size))
         self.env = env
-        self.optimizer = optim.RMSprop(policy_net.parameters(), lr = args.lrate, alpha=0.97, eps=1e-6)
-        # self.optimizer = optim.SGD(policy_net.parameters(), lr = args.lrate, nesterov=True, momentum=0.1)
-        self.params = [p for p in self.policy_net.parameters()]
-        self.replay = self.args.replay
-        if self.replay:
-            self.replay_buffer = ReplayBuffer(int(1e7), 0.2)
+        self.optimizer = optim.RMSprop(self.behaviour_net.parameters(), lr = args.lrate, alpha=0.97, eps=1e-6)
 
     def get_episode(self):
         # define a stat dict
@@ -38,7 +36,9 @@ class Trainer(object):
         for t in range(self.args.max_steps):
             start_step = True if t == 0 else False
             # decide the next action and return the correlated state value (baseline)
-            action_out, value = self.policy_net(prep_obs(state).contiguous().view(1, self.args.agent_num, self.args.obs_size))
+            state_ = prep_obs(state).contiguous().view(1, self.args.agent_num, self.args.obs_size)
+            if self.cuda: state_ = state_.cuda()
+            action_out, value = self.behaviour_net(state_)
             # return the sampled actions of all of agents
             action = select_action(self.args, action_out, 'train')
             # return the rescaled (clipped) actions
@@ -96,18 +96,39 @@ class Trainer(object):
         # wrap the batch of states
         state = prep_obs(list(zip(batch.state)))
         next_state = prep_obs(list(zip(batch.next_state)))
+        if self.cuda:
+            state, next_state = state.cuda(), next_state.cuda()
         # construct the computational graph for the parameters
-        action_out, values = self.policy_net(state)
-        next_action_out, next_values = self.policy_net(next_state)
+        action_out, values = self.behaviour_net(state)
+        if self.args.training_strategy in ['ddpg']:
+            next_action_out, next_values = self.target_net(next_state)
+        else:
+            next_action_out, next_values = self.behaviour_net(next_state)
         if self.args.training_strategy == 'actor_critic':
+            assert values.size() == action_out.size()
+            values_mean = (values * torch.exp(action_out)).sum(dim=-1).detach()
+            values = values.gather(-1, actions.long())
             next_actions = select_action(self.args, next_action_out, 'train')
             next_values = next_values.gather(-1, next_actions.long())
-            values = values.gather(-1, actions.long())
+        elif self.args.training_strategy == 'ddpg':
+            if self.args.continuous:
+                pass
+            else:
+                action_tensor = torch.zeros(tuple(actions.size()[:-1])+(self.args.action_dim,))
+                if self.cuda: action_tensor = action_tensor.cuda()
+                action_tensor.scatter_(-1, actions.long(), 1)
+                tran_actions = action_tensor
+                assert tran_actions.size() == action_out.size()
+                assert action_out.size() == values.size()
+                values_ = (torch.ceil(action_out * tran_actions) * values).sum(dim=-1)
+                values = values.gather(-1, actions.long())
+                next_actions = select_action(self.args, next_action_out, 'train')
+                next_values = next_values.gather(-1, next_actions.long())
         values = values.contiguous().view(-1, n)
         next_values = next_values.contiguous().view(-1, n)
+        # construct the subparts for the loss function
         if self.args.training_strategy == 'reinforce':
             assert returns.size() == rewards.size()
-            # calculate the return reversely and the reward is shared
             for i in reversed(range(rewards.size(0))):
                 if last_step[i]:
                     prev_coop_return = 0
@@ -116,40 +137,51 @@ class Trainer(object):
         elif self.args.training_strategy == 'actor_critic':
             assert rewards.size() == next_values.size()
             assert values.size() == next_values.size()
-            # calculate the estimated action value
-            for i in reversed(range(rewards.size(0))):
-                if last_step[i]:
-                    deltas[i] = rewards[i] - values[i]
-                else:
-                    deltas[i] = rewards[i] + self.args.gamma * next_values[i].detach() - values[i]
-            deltas = deltas.contiguous().view(-1, 1)
-            returns = deltas.detach()
+            for i in range(rewards.size(0)):
+                if start_step[i]:
+                    I = 1
+                deltas[i] = I * (rewards[i] + self.args.gamma * next_values[i].detach() - values[i])
+                returns[i] = I * values[i].detach()
+                values_mean[i] = I * values_mean[i]
+                I *= self.args.gamma
+        elif self.args.training_strategy == 'ddpg':
+            assert rewards.size() == next_values.size()
+            assert values.size() == next_values.size()
+            deltas = rewards + self.args.gamma * next_values.detach() - values
+            returns = values_
         # calculate the advantage
         if self.args.training_strategy == 'reinforce':
             assert returns.size() == values.size()
             advantages = returns - values.detach()
         elif self.args.training_strategy == 'actor_critic':
             assert advantages.size() == returns.size()
+            assert returns.size() == values_mean.size()
+            advantages = returns - values_mean
+        elif self.args.training_strategy == 'ddpg':
             advantages = returns
         advantages = advantages.contiguous().view(-1, 1)
         # take the policy of actions
-        if self.args.continuous:
-            actions = actions.contiguous().view(-1, self.args.action_dim)
-            action_means, action_log_stds, action_stds = action_out
-            log_prob = normal_log_density(actions, action_means, action_log_stds, action_stds)
-        else:
+        if self.args.training_strategy in ['ddpg']:
             log_p_a = action_out
-            log_prob = multinomials_log_density(actions, log_p_a).contiguous().view(-1, 1)
-        # calculate the advantages
-        assert log_prob.size() == advantages.size()
-        action_loss = -advantages * log_prob
-        action_loss = action_loss.sum() / batch_size
+            action_loss = values_.sum() / batch_size
+        else:
+            if self.args.continuous:
+                actions = actions.contiguous().view(-1, self.args.action_dim)
+                action_means, action_log_stds, action_stds = action_out
+                log_prob = normal_log_density(actions, action_means, action_log_stds, action_stds)
+            else:
+                log_p_a = action_out
+                log_prob = multinomials_log_density(actions, log_p_a).contiguous().view(-1, 1)
+            # calculate the advantages
+            assert log_prob.size() == advantages.size()
+            action_loss = -advantages * log_prob
+            action_loss = action_loss.sum() / batch_size
         stat['action_loss'] = action_loss.item()
         # calculate the value loss
         if self.args.training_strategy == 'reinforce':
             targets = returns
             value_loss = (targets - values).pow(2).view(-1)
-        elif self.args.training_strategy == 'actor_critic':
+        elif self.args.training_strategy in ['actor_critic', 'ddpg']:
             value_loss = deltas.pow(2).view(-1)
         value_loss = value_loss.sum() / batch_size
         stat['value_loss'] = value_loss.item()
@@ -167,6 +199,21 @@ class Trainer(object):
         loss.backward()
         return stat
 
+    def params_clip(self):
+        for param in self.behaviour_net.parameters():
+            param.grad.data.clamp_(-2, 2)
+
+    def replay_process(self, stat):
+        for i in range(self.args.replay_iters):
+            batch = self.replay_buffer.get_batch_episodes(\
+                                    self.args.epoch_size*self.args.max_steps)
+            batch = Transition(*zip(*batch))
+            self.optimizer.zero_grad()
+            s = self.compute_grad(batch)
+            merge_stat(s, stat)
+            # self.params_clip()
+            self.optimizer.step()
+
     def run_batch(self):
         batch = []
         self.stats = dict()
@@ -176,25 +223,25 @@ class Trainer(object):
             merge_stat(episode_stat, self.stats)
             self.stats['num_episodes'] += 1
             batch += episode
-            if self.replay:
+            if self.args.training_strategy == 'ddpg':
                 self.replay_buffer.add_experience(episode)
         self.stats['num_steps'] = len(batch)
         batch = Transition(*zip(*batch))
         return batch, self.stats
 
-    def train_batch(self):
+    def train_batch(self, t):
         batch, stat = self.run_batch()
         self.optimizer.zero_grad()
-        s = self.compute_grad(batch)
-        merge_stat(s, stat)
-        self.optimizer.step()
-        if self.replay:
-            for i in range(20):
-                batch = self.replay_buffer.get_batch_episodes(\
-                                        self.args.epoch_size)
-                batch = Transition(*zip(*batch))
-                self.optimizer.zero_grad()
-                s = self.compute_grad(batch)
-                self.optimizer.step()
-            print ('Finish replay in 20 iterations!')
+        if self.args.training_strategy == 'ddpg':
+            self.replay_process(stat)
+            if t%10 == 9:
+                params_target = list(self.target_net.parameters())
+                params_behaviour = list(self.behaviour_net.parameters())
+                for i in range(len(params_target)):
+                    params_target[i] = 0.99 * params_target[i] + (1 - 0.99) * params_behaviour[i]
+        else:
+            s = self.compute_grad(batch)
+            merge_stat(s, stat)
+            # self.params_clip()
+            self.optimizer.step()
         return stat

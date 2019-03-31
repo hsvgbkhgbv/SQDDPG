@@ -66,7 +66,7 @@ class CommNet(nn.Module):
         if self.args.training_strategy == 'reinforce':
             # define value function
             self.value_head = nn.Linear(self.args.hid_size, 1)
-        elif self.args.training_strategy == 'actor_critic':
+        elif self.args.training_strategy in ['actor_critic', 'ddpg']:
             # define action value function
             self.action_value_head = nn.Linear(self.args.hid_size, self.args.action_dim)
         self.tanh = nn.Tanh()
@@ -127,7 +127,7 @@ class CommNet(nn.Module):
             # mask the dead agent
             h_ = h_ * agent_mask * agent_mask.transpose(1, 2)
             # average the hidden state
-            h_ = h_ / (num_agents_alive - 1)
+            if num_agents_alive > 1: h_ = h_ / (num_agents_alive - 1)
             # calculate the communication vector
             c = h_.sum(dim=1) if i != 0 else torch.zeros_like(h) # shape = (batch_size, n, hid_size)
             if self.args.skip_connection:
@@ -139,7 +139,7 @@ class CommNet(nn.Module):
         if self.args.training_strategy == 'reinforce':
             # calculate the value function (baseline)
             value_head = self.value_head(h)
-        elif self.args.training_strategy == 'actor_critic':
+        elif self.args.training_strategy in ['actor_critic', 'ddpg']:
             if self.args.continuous:
                 value_head = self.value_head(h)
             else:
@@ -154,7 +154,7 @@ class CommNet(nn.Module):
             action = (action_mean, action_log_std, action_std)
         else:
             # discrete actions, shape = (batch_size, n, action_type, action_num)
-            action = F.log_softmax(self.action_head(h), dim=-1)
+            action = torch.log_softmax(self.action_head(h), dim=-1)
         return action, value_head
 
     def forward(self, obs, info={}):
