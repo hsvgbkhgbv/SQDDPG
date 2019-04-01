@@ -22,7 +22,8 @@ class Trainer(object):
             self.target_net.load_state_dict(self.behaviour_net.state_dict())
             self.replay_buffer = ReplayBuffer(int(self.args.replay_buffer_size))
         self.env = env
-        self.optimizer = optim.RMSprop(self.behaviour_net.parameters(), lr = args.lrate, alpha=0.97, eps=1e-6)
+        # self.optimizer = optim.RMSprop(self.behaviour_net.parameters(), lr = args.lrate, alpha=0.97, eps=1e-6)
+        self.optimizer = optim.SGD(self.behaviour_net.parameters(), lr = args.lrate)
 
     def get_episode(self):
         # define a stat dict
@@ -78,31 +79,24 @@ class Trainer(object):
         rewards = torch.tensor(batch.reward, dtype=torch.float)
         last_step = torch.tensor(batch.last_step, dtype=torch.float).contiguous().view(-1, 1)
         start_step = torch.tensor(batch.start_step, dtype=torch.float).contiguous().view(-1, 1)
-        if self.args.normalize_rewards:
-            rewards = (rewards - rewards.mean(dim=0, keepdim=True)) / rewards.std(dim=0, keepdim=True)
         actions = list(zip(*batch.action))
-        actions = torch.tensor(np.stack(actions[0], axis=0), dtype=torch.float32)
-        if self.cuda:
-            rewards = rewards.cuda()
+        actions = torch.tensor(np.stack(actions[0], axis=0), dtype=torch.float)
+        if self.cuda: rewards = rewards.cuda()
         returns = torch.zeros((batch_size, n), dtype=torch.float)
         if self.args.training_strategy == 'actor_critic':
             deltas = torch.zeros((batch_size, n), dtype=torch.float)
-            if self.cuda:
-                deltas = deltas.cuda()
+            if self.cuda: deltas = deltas.cuda()
         advantages = torch.zeros((batch_size, n), dtype=torch.float)
-        if self.cuda:
-            returns = returns.cuda()
-            advantages = advantages.cuda()
+        if self.cuda: returns, advantages = returns.cuda(), advantages.cuda()
         # wrap the batch of states
         state = prep_obs(list(zip(batch.state)))
         next_state = prep_obs(list(zip(batch.next_state)))
-        if self.cuda:
-            state, next_state = state.cuda(), next_state.cuda()
+        if self.cuda: state, next_state = state.cuda(), next_state.cuda()
         # construct the computational graph for the parameters
         action_out, values = self.behaviour_net(state)
-        if self.args.training_strategy in ['ddpg']:
+        if self.args.training_strategy == 'ddpg':
             next_action_out, next_values = self.target_net(next_state)
-        else:
+        elif self.args.training_strategy == 'actor_critic':
             next_action_out, next_values = self.behaviour_net(next_state)
         if self.args.training_strategy == 'actor_critic':
             assert values.size() == action_out.size()
@@ -125,7 +119,8 @@ class Trainer(object):
                 next_actions = select_action(self.args, next_action_out, 'train')
                 next_values = next_values.gather(-1, next_actions.long())
         values = values.contiguous().view(-1, n)
-        next_values = next_values.contiguous().view(-1, n)
+        if self.args.training_strategy in ['actor_critic', 'ddpg']:
+            next_values = next_values.contiguous().view(-1, n)
         # construct the subparts for the loss function
         if self.args.training_strategy == 'reinforce':
             assert returns.size() == rewards.size()
@@ -147,19 +142,25 @@ class Trainer(object):
         elif self.args.training_strategy == 'ddpg':
             assert rewards.size() == next_values.size()
             assert values.size() == next_values.size()
-            deltas = rewards + self.args.gamma * next_values.detach() - values
-            returns = values_
+            for i in range(deltas.size(0)):
+                deltas[i] = rewards[i] + self.args.gamma * next_values[i].detach() - values[i]
+                returns[i] = values_[i]
         # calculate the advantage
         if self.args.training_strategy == 'reinforce':
             assert returns.size() == values.size()
-            advantages = returns - values.detach()
+            for i in range(advantages.size(0)):
+                advantages[i] = returns[i].detach() - values[i].detach()
         elif self.args.training_strategy == 'actor_critic':
             assert advantages.size() == returns.size()
             assert returns.size() == values_mean.size()
-            advantages = returns - values_mean
+            for i in range(advantages.size(0)):
+                advantages[i] = returns[i] - values_mean[i]
         elif self.args.training_strategy == 'ddpg':
-            advantages = returns
+            for i in range(advantages.size(0)):
+                advantages[i] = returns[i]
         advantages = advantages.contiguous().view(-1, 1)
+        if self.args.normalize_rewards:
+            advantages = (advantages - advantages.mean()) / advantages.std()
         # take the policy of actions
         if self.args.training_strategy in ['ddpg']:
             log_p_a = action_out
@@ -211,7 +212,7 @@ class Trainer(object):
             self.optimizer.zero_grad()
             s = self.compute_grad(batch)
             merge_stat(s, stat)
-            # self.params_clip()
+            self.params_clip()
             self.optimizer.step()
 
     def run_batch(self):
@@ -231,7 +232,6 @@ class Trainer(object):
 
     def train_batch(self, t):
         batch, stat = self.run_batch()
-        self.optimizer.zero_grad()
         if self.args.training_strategy == 'ddpg':
             self.replay_process(stat)
             if t%10 == 9:
@@ -240,6 +240,7 @@ class Trainer(object):
                 for i in range(len(params_target)):
                     params_target[i] = 0.99 * params_target[i] + (1 - 0.99) * params_behaviour[i]
         else:
+            self.optimizer.zero_grad()
             s = self.compute_grad(batch)
             merge_stat(s, stat)
             # self.params_clip()

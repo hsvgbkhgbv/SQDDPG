@@ -32,6 +32,7 @@ class IC3Net(nn.Module):
         '''
         super(IC3Net, self).__init__()
         self.args = args
+        self.cuda = torch.cuda.is_available() and self.args.cuda
         # create a model
         self.construct_model()
         # initialize parameters with normal distribution with mean of 0
@@ -46,8 +47,7 @@ class IC3Net(nn.Module):
         self.encoder = nn.Linear(self.args.obs_size, self.args.hid_size)
         # communication mask where the diagnal should be 0
         self.comm_mask = torch.ones(self.args.agent_num, self.args.agent_num) - torch.eye(self.args.agent_num, self.args.agent_num)
-        if torch.cuda.is_available():
-            self.comm_mask = self.comm_mask.cuda()
+        if self.cuda: self.comm_mask = self.comm_mask.cuda()
         # decoder transforms hidden states to action vector
         if self.args.continuous:
             self.action_mean = nn.Linear(self.args.hid_size, self.args.action_dim)
@@ -87,8 +87,7 @@ class IC3Net(nn.Module):
         agent_mask = agent_mask.view(1, 1, n)
         # shape = (batch_size, n ,n, 1)
         agent_mask = agent_mask.expand(batch_size, n, n).unsqueeze(-1)
-        if torch.cuda.is_available():
-            agent_mask = agent_mask.cuda()
+        if self.cuda: agent_mask = agent_mask.cuda()
         return num_agents_alive, agent_mask
 
     def action(self, obs, info={}):
@@ -149,7 +148,7 @@ class IC3Net(nn.Module):
             # will be used later to sample
             action = (action_mean, action_log_std, action_std)
         else:
-            # discrete actions, shape = (batch_size, n, action_num)
+            # discrete actions, shape = (batch_size, n, action_dim)
             action = torch.log_softmax(self.action_head(h), dim=-1)
         return action, value_head
 

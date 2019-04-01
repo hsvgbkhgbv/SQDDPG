@@ -32,6 +32,7 @@ class CommNet(nn.Module):
         '''
         super(CommNet, self).__init__()
         self.args = args
+        self.cuda = torch.cuda.is_available() and self.args.cuda
         # create a model
         self.construct_model()
         # initialize parameters with normal distribution with mean of 0
@@ -45,8 +46,7 @@ class CommNet(nn.Module):
         self.encoder = nn.Linear(self.args.obs_size, self.args.hid_size)
         # communication mask where the diagnal should be 0
         self.comm_mask = torch.ones(self.args.agent_num, self.args.agent_num) - torch.eye(self.args.agent_num, self.args.agent_num)
-        if torch.cuda.is_available():
-            self.comm_mask = self.comm_mask.cuda()
+        if self.cuda: self.comm_mask = self.comm_mask.cuda()
         # decoder transforms hidden states to action vector
         if self.args.continuous:
             self.action_mean = nn.Linear(self.args.hid_size, self.args.action_dim)
@@ -93,8 +93,7 @@ class CommNet(nn.Module):
         agent_mask = agent_mask.view(1, 1, n)
         # shape = (batch_size, n ,n, 1)
         agent_mask = agent_mask.expand(batch_size, n, n).unsqueeze(-1)
-        if torch.cuda.is_available():
-            agent_mask = agent_mask.cuda()
+        if self.cuda: agent_mask = agent_mask.cuda()
         return num_agents_alive, agent_mask
 
     def action(self, obs, info={}):
@@ -127,7 +126,7 @@ class CommNet(nn.Module):
             # mask the dead agent
             h_ = h_ * agent_mask * agent_mask.transpose(1, 2)
             # average the hidden state
-            if num_agents_alive > 1: h_ = h_ / (num_agents_alive - 1)
+            h_ = h_ / (num_agents_alive - 1) if num_agents_alive > 1 else torch.zeros_like(h_)
             # calculate the communication vector
             c = h_.sum(dim=1) if i != 0 else torch.zeros_like(h) # shape = (batch_size, n, hid_size)
             if self.args.skip_connection:
