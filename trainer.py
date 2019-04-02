@@ -22,8 +22,8 @@ class Trainer(object):
             self.target_net.load_state_dict(self.behaviour_net.state_dict())
             self.replay_buffer = ReplayBuffer(int(self.args.replay_buffer_size))
         self.env = env
-        # self.optimizer = optim.RMSprop(self.behaviour_net.parameters(), lr = args.lrate, alpha=0.97, eps=1e-6)
-        self.optimizer = optim.SGD(self.behaviour_net.parameters(), lr = args.lrate)
+        self.optimizer = optim.RMSprop(self.behaviour_net.parameters(), lr = args.lrate, alpha=0.97, eps=1e-6)
+        # self.optimizer = optim.SGD(self.behaviour_net.parameters(), lr = args.lrate)
 
     def get_episode(self):
         # define a stat dict
@@ -133,12 +133,11 @@ class Trainer(object):
             assert rewards.size() == next_values.size()
             assert values.size() == next_values.size()
             for i in range(rewards.size(0)):
-                if start_step[i]:
-                    I = 1
-                deltas[i] = I * (rewards[i] + self.args.gamma * next_values[i].detach() - values[i])
-                returns[i] = I * values[i].detach()
-                values_mean[i] = I * values_mean[i]
-                I *= self.args.gamma
+                if last_step[i]:
+                    deltas[i] = rewards[i] - values[i]
+                else:
+                    deltas[i] = rewards[i] + self.args.gamma * next_values[i].detach() - values[i]
+                returns[i] = values[i].detach()
         elif self.args.training_strategy == 'ddpg':
             assert rewards.size() == next_values.size()
             assert values.size() == next_values.size()
@@ -202,7 +201,7 @@ class Trainer(object):
 
     def params_clip(self):
         for param in self.behaviour_net.parameters():
-            param.grad.data.clamp_(-2, 2)
+            param.grad.data.clamp_(-1, 1)
 
     def replay_process(self, stat):
         for i in range(self.args.replay_iters):

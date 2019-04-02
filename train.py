@@ -11,10 +11,11 @@ if model_name == 'ic3net':
 elif model_name == 'commnet':
     model = CommNet
 
+train = Trainer(args, model, env())
+
 epoch = 0
 
 for i in range(args.train_epoch_num):
-    train = Trainer(args, model, env())
     train.train_batch(i)
     print ('This is the epoch: {}, the mean reward is {:2.4f} and the current action loss to be minimized is: {:2.4f}\n'.format(epoch, train.stats['mean_reward'], train.stats['action_loss']))
     epoch += 1
