@@ -66,6 +66,12 @@ class CommNet(nn.Module):
         if self.args.training_strategy == 'reinforce':
             # define value function
             self.value_head = nn.Linear(self.args.hid_size, 1)
+
+        ##### By: Yuan Zhang     
+        elif self.args.training_strategy == 'actor_critic':
+            # define value function
+            self.value_head = nn.Linear(self.args.hid_size, 1)    
+
         elif self.args.training_strategy in ['actor_critic', 'ddpg']:
             # define action value function
             self.action_value_head = nn.Linear(self.args.hid_size, self.args.action_dim)
@@ -138,11 +144,17 @@ class CommNet(nn.Module):
         if self.args.training_strategy == 'reinforce':
             # calculate the value function (baseline)
             value_head = self.value_head(h)
-        elif self.args.training_strategy in ['actor_critic', 'ddpg']:
-            if self.args.continuous:
-                value_head = self.value_head(h)
-            else:
-                value_head = self.action_value_head(h)
+        ##### By: Yuan Zhang
+        elif self.args.training_strategy == 'actor_critic':
+            # calculate the value function (baseline)
+            value_head = self.value_head(h)
+
+#        elif self.args.training_strategy in ['actor_critic', 'ddpg']:
+#            if self.args.continuous:
+#                value_head = self.value_head(h)
+#            else:
+#                value_head = self.action_value_head(h)
+
         # calculate the action vector (policy)
         if self.args.continuous:
             # shape = (batch_size, n, action_dim)

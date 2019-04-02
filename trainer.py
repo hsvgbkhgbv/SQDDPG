@@ -99,11 +99,13 @@ class Trainer(object):
         elif self.args.training_strategy == 'actor_critic':
             next_action_out, next_values = self.behaviour_net(next_state)
         if self.args.training_strategy == 'actor_critic':
-            assert values.size() == action_out.size()
-            values_mean = (values * torch.exp(action_out)).sum(dim=-1).detach()
-            values = values.gather(-1, actions.long())
-            next_actions = select_action(self.args, next_action_out, 'train')
-            next_values = next_values.gather(-1, next_actions.long())
+            ##### By: Yuan Zhang
+            pass
+#            assert values.size() == action_out.size()
+#            values_mean = (values * torch.exp(action_out)).sum(dim=-1).detach()
+#            values = values.gather(-1, actions.long())
+#            next_actions = select_action(self.args, next_action_out, 'train')
+#            next_values = next_values.gather(-1, next_actions.long())
         elif self.args.training_strategy == 'ddpg':
             if self.args.continuous:
                 pass
@@ -134,7 +136,10 @@ class Trainer(object):
             assert values.size() == next_values.size()
             for i in range(rewards.size(0)):
                 if last_step[i]:
-                    deltas[i] = rewards[i] - values[i]
+                    ##### By: Yuan Zhang
+                    deltas[i] = rewards[i] + self.args.gamma * next_values[i].detach() - values[i]
+#                    deltas[i] = rewards[i] - values[i]
+
                 else:
                     deltas[i] = rewards[i] + self.args.gamma * next_values[i].detach() - values[i]
                 returns[i] = values[i].detach()
@@ -150,10 +155,14 @@ class Trainer(object):
             for i in range(advantages.size(0)):
                 advantages[i] = returns[i].detach() - values[i].detach()
         elif self.args.training_strategy == 'actor_critic':
-            assert advantages.size() == returns.size()
-            assert returns.size() == values_mean.size()
+            ##### By: Yuan Zhang 
             for i in range(advantages.size(0)):
-                advantages[i] = returns[i] - values_mean[i]
+                advantages[i] = deltas[i].detach()
+#            assert advantages.size() == returns.size()
+#            assert returns.size() == values_mean.size()
+#            for i in range(advantages.size(0)):
+#                advantages[i] = returns[i] - values_mean[i]
+
         elif self.args.training_strategy == 'ddpg':
             for i in range(advantages.size(0)):
                 advantages[i] = returns[i]
