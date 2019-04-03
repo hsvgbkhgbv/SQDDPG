@@ -63,13 +63,12 @@ class CommNet(nn.Module):
         if self.args.skip_connection:
             self.E_module = nn.Linear(self.args.hid_size, self.args.hid_size)
             self.E_modules = nn.ModuleList([self.E_module for _ in range(self.args.comm_iters)])
-        if self.args.training_strategy == 'reinforce':
+        if self.args.training_strategy in ['reinforce', 'actor_critic']:
             # define value function
             self.value_head = nn.Linear(self.args.hid_size, 1)
-        elif self.args.training_strategy in ['actor_critic', 'ddpg']:
+        elif self.args.training_strategy in ['ddpg']:
             # define action value function
             self.action_value_head = nn.Linear(self.args.hid_size, self.args.action_dim)
-        self.tanh = nn.Tanh()
 
     def state_encoder(self, x):
         '''
@@ -131,14 +130,14 @@ class CommNet(nn.Module):
             c = h_.sum(dim=1) if i != 0 else torch.zeros_like(h) # shape = (batch_size, n, hid_size)
             if self.args.skip_connection:
                 # h_{j}^{i+1} = \sigma(H_j * h_j^{i+1} + C_j * c_j^{i+1} + E_{j} * e_j^{i+1})
-                h = self.tanh(sum([self.f_modules[i](h), self.C_modules[i](c), self.E_modules[i](e)]))
+                h = torch.tanh(sum([self.f_modules[i](h), self.C_modules[i](c), self.E_modules[i](e)]))
             else:
                 # h_{j}^{i+1} = \sigma(H_j * h_j^{i+1} + C_j * c_j^{i+1})
-                h = self.tanh(sum([self.f_modules[i](h), self.C_modules[i](c)]))
-        if self.args.training_strategy == 'reinforce':
+                h = torch.tanh(sum([self.f_modules[i](h), self.C_modules[i](c)]))
+        if self.args.training_strategy in ['reinforce', 'actor_critic']:
             # calculate the value function (baseline)
             value_head = self.value_head(h)
-        elif self.args.training_strategy in ['actor_critic', 'ddpg']:
+        elif self.args.training_strategy in ['ddpg']:
             if self.args.continuous:
                 value_head = self.value_head(h)
             else:

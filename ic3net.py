@@ -60,9 +60,9 @@ class IC3Net(nn.Module):
         self.g_module = nn.Linear(self.args.hid_size, self.args.agent_num)
         self.g_modules = nn.ModuleList([self.g_module for _ in range(self.args.comm_iters)])
         # define value function or the action value function
-        if self.args.training_strategy == 'reinforce':
+        if self.args.training_strategy in ['reinforce', 'actor_critic']:
             self.value_head = nn.Linear(self.args.hid_size, 1)
-        elif self.args.training_strategy in ['actor_critic', 'ddpg']:
+        elif self.args.training_strategy in ['ddpg']:
             self.action_value_head = nn.Linear(self.args.hid_size, self.args.action_dim)
 
     def state_encoder(self, x):
@@ -134,10 +134,10 @@ class IC3Net(nn.Module):
             # f_moudle
             h, cell = self.f_module(inp, (h, cell))
         h = h.contiguous().view(batch_size, n, self.args.hid_size)
-        if self.args.training_strategy == 'reinforce':
+        if self.args.training_strategy in ['reinforce', 'actor_critic']:
             # calculate the value function (baseline)
             value_head = self.value_head(h)
-        elif self.args.training_strategy in ['actor_critic', 'ddpg']:
+        elif self.args.training_strategy in ['ddpg']:
             value_head = self.action_value_head(h)
         # calculate the action vector (policy)
         if self.args.continuous:

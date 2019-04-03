@@ -88,5 +88,21 @@ def prep_obs(state=[]):
     elif len(state.shape) == 4:
         state = np.concatenate(state, axis=0)
     else:
-        raise RuntimeError('The shape of the observation is incorrect!')
+        raise RuntimeError('The shape of the observation is incorrect.')
     return torch.tensor(state).float()
+
+def cuda_wrapper(tensor, cuda):
+    if isinstance(tensor, torch.Tensor):
+        if cuda:
+            return tensor.cuda()
+        else:
+            return tensor
+    else:
+        raise RuntimeError('Please enter a pytorch tensor, now a {} is received.'.format(type(tensor)))
+
+def batchnorm(self, batch):
+    if isinstance(batch, torch.Tensor):
+        batch_norm = (batch - batch.mean()) / batch.std()
+        return batch_norm
+    else:
+        raise RuntimeError('Please enter a pytorch tensor, now a {} is received.'.format(type(batch)))
