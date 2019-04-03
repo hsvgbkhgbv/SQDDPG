@@ -61,7 +61,7 @@ class REINFORCE(ReinforcementLearning):
             prev_coop_return = returns[i]
         # construct the action loss and the value loss
         deltas = returns - values
-        advantages = deltas.detach()
+        advantages = deltas.contiguous().view(-1, 1).detach()
         if self.args.continuous:
             actions = actions.contiguous().view(-1, self.args.action_dim)
             action_means, action_log_stds, action_stds = action_out
