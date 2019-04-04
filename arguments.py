@@ -7,11 +7,11 @@ import numpy as np
 
 
 
-model_name = 'commnet'
-# model_name = 'ic3net'
+# model_name = 'commnet'
+model_name = 'ic3net'
 
-# scenario_name = 'simple_spread'
-scenario_name = 'simple'
+scenario_name = 'simple_spread'
+# scenario_name = 'simple'
 
 # load scenario from script
 scenario = scenario.load(scenario_name + ".py").Scenario()
@@ -60,7 +60,7 @@ args = Args(agent_num=env.get_num_of_agents(),
             max_steps=100,
             gamma=0.99,
             normalize_advantages=True,
-            value_coeff=1e-4,
+            value_coeff=1e-3,
             entr=1e-5,
             action_num=np.max(env.get_input_shape_of_act()),
             skip_connection=True,

@@ -125,6 +125,7 @@ class ActorCritic(ReinforcementLearning):
         else:
             log_p_a = action_out
             log_prob = multinomials_log_density(actions, log_p_a).contiguous().view(-1, 1)
+        advantages = advantages.contiguous().view(-1, 1)
         assert log_prob.size() == advantages.size()
         action_loss = -advantages * log_prob
         action_loss = action_loss.sum() / batch_size
