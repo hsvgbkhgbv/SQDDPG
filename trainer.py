@@ -11,9 +11,11 @@ from rl_algorithms import *
 # define a transition of an episode
 Transition = namedtuple('Transition', ('state', 'action', 'reward', 'next_state', 'start_step', 'last_step'))
 
+# define the hash map of rl algorithms
 rl_algo_map = dict(
     reinforce=REINFORCE,
-    actor_critic=ActorCritic
+    actor_critic=ActorCritic,
+    ddpg=DDPG
 )
 
 
@@ -207,19 +209,13 @@ class Trainer(object):
         stat['action_loss'] = action_loss.item()
         stat['value_loss'] = value_loss.item()
         loss = action_loss + self.args.value_coeff * value_loss
-        # entropy regularization term, but it is only available to discrete policy
-        if not self.args.continuous:
-            entropy = 0
-            for i in range(log_p_a.size(0)):
-                entropy -= (log_p_a[i] * log_p_a[i].exp()).sum()
-            stat['entropy'] = entropy.item()
-            if self.args.entr > 0:
-                loss -= self.args.entr * entropy
+        if self.args.entr > 0:
+            loss -= self.args.entr * multinomial_entropy(log_p_a)
         # do the backpropogation
         loss.backward()
         return stat
 
-    def params_clip(self):
+    def grad_clip(self):
         for param in self.behaviour_net.parameters():
             param.grad.data.clamp_(-1, 1)
 
@@ -231,7 +227,7 @@ class Trainer(object):
             self.optimizer.zero_grad()
             s = self.compute_grad(batch)
             merge_stat(s, stat)
-            self.params_clip()
+            self.grad_clip()
             self.optimizer.step()
 
     def run_batch(self):
@@ -262,6 +258,6 @@ class Trainer(object):
             self.optimizer.zero_grad()
             s = self.compute_grad(batch)
             merge_stat(s, stat)
-            # self.params_clip()
+            self.grad_clip()
             self.optimizer.step()
         return stat

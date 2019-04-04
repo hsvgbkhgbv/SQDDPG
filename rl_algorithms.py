@@ -27,6 +27,18 @@ class ReinforcementLearning(object):
     def step(self):
         raise NotImplementedError()
 
+    def unpack_data(self, batch):
+        batch_size = len(batch.state)
+        n = self.args.agent_num
+        action_dim = self.args.action_dim
+        rewards = cuda_wrapper(torch.tensor(batch.reward, dtype=torch.float), self.cuda)
+        last_step = cuda_wrapper(torch.tensor(batch.last_step, dtype=torch.float).contiguous().view(-1, 1), self.cuda)
+        start_step = cuda_wrapper(torch.tensor(batch.start_step, dtype=torch.float).contiguous().view(-1, 1), self.cuda)
+        actions = cuda_wrapper(torch.tensor(np.stack(list(zip(*batch.action))[0], axis=0), dtype=torch.float), self.cuda)
+        returns = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda)
+        state = cuda_wrapper(prep_obs(list(zip(batch.state))), self.cuda)
+        return (rewards, last_step, start_step, actions, returns, state)
+
 
 
 class REINFORCE(ReinforcementLearning):
@@ -38,16 +50,11 @@ class REINFORCE(ReinforcementLearning):
         return self.get_loss(batch, behaviour_net)
 
     def get_loss(self, batch, behaviour_net):
-        # collect the transition data
         batch_size = len(batch.state)
         n = self.args.agent_num
         action_dim = self.args.action_dim
-        rewards = cuda_wrapper(torch.tensor(batch.reward, dtype=torch.float), self.cuda)
-        last_step = cuda_wrapper(torch.tensor(batch.last_step, dtype=torch.float).contiguous().view(-1, 1), self.cuda)
-        start_step = cuda_wrapper(torch.tensor(batch.start_step, dtype=torch.float).contiguous().view(-1, 1), self.cuda)
-        actions = cuda_wrapper(torch.tensor(np.stack(list(zip(*batch.action))[0], axis=0), dtype=torch.float), self.cuda)
-        returns = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda)
-        state = cuda_wrapper(prep_obs(list(zip(batch.state))), self.cuda)
+        # collect the transition data
+        rewards, last_step, start_step, actions, returns, state = self.unpack_data(batch)
         # construct the computational graph
         next_state = cuda_wrapper(prep_obs(list(zip(batch.next_state))), self.cuda)
         action_out, values = behaviour_net(state)
@@ -62,6 +69,8 @@ class REINFORCE(ReinforcementLearning):
         # construct the action loss and the value loss
         deltas = returns - values
         advantages = deltas.contiguous().view(-1, 1).detach()
+        if self.args.normalize_advantages:
+            advantages = batchnorm(advantages)
         if self.args.continuous:
             actions = actions.contiguous().view(-1, self.args.action_dim)
             action_means, action_log_stds, action_stds = action_out
@@ -86,16 +95,11 @@ class ActorCritic(ReinforcementLearning):
         return self.get_loss(batch, behaviour_net)
 
     def get_loss(self, batch, behaviour_net):
-        # collect the transition data
         batch_size = len(batch.state)
         n = self.args.agent_num
         action_dim = self.args.action_dim
-        rewards = cuda_wrapper(torch.tensor(batch.reward, dtype=torch.float), self.cuda)
-        last_step = cuda_wrapper(torch.tensor(batch.last_step, dtype=torch.float).contiguous().view(-1, 1), self.cuda)
-        start_step = cuda_wrapper(torch.tensor(batch.start_step, dtype=torch.float).contiguous().view(-1, 1), self.cuda)
-        actions = cuda_wrapper(torch.tensor(np.stack(list(zip(*batch.action))[0], axis=0), dtype=torch.float), self.cuda)
-        returns = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda)
-        state = cuda_wrapper(prep_obs(list(zip(batch.state))), self.cuda)
+        # collect the transition data
+        rewards, last_step, start_step, actions, returns, state = self.unpack_data(batch)
         # construct the computational graph
         next_state = cuda_wrapper(prep_obs(list(zip(batch.next_state))), self.cuda)
         action_out, values = behaviour_net(state)
@@ -106,15 +110,14 @@ class ActorCritic(ReinforcementLearning):
         deltas = cuda_wrapper(torch.zeros_like(values), self.cuda)
         assert values.size() == next_values.size()
         for i in range(rewards.size(0)):
-            if start_step[i]:
-                I = 1
             if last_step[i]:
-                deltas[i] = I * (rewards[i] - values[i])
+                deltas[i] = rewards[i] - values[i]
             else:
-                deltas[i] = I * (rewards[i] + self.args.gamma * next_values[i].detach() - values[i])
-            I *= self.args.gamma
+                deltas[i] = rewards[i] + self.args.gamma * next_values[i].detach() - values[i]
         # construct the action loss and the value loss
         advantages = deltas.detach()
+        if self.args.normalize_advantages:
+            advantages = batchnorm(advantages)
         if self.args.continuous:
             actions = actions.contiguous().view(-1, self.args.action_dim)
             action_means, action_log_stds, action_stds = action_out
@@ -139,16 +142,11 @@ class DDPG(ReinforcementLearning):
         return self.get_loss(batch, behaviour_net, target_net)
 
     def get_loss(self, batch, behaviour_net, target_net):
-        # collect the transition data
         batch_size = len(batch.state)
         n = self.args.agent_num
         action_dim = self.args.action_dim
-        rewards = cuda_wrapper(torch.tensor(batch.reward, dtype=torch.float), self.cuda)
-        last_step = cuda_wrapper(torch.tensor(batch.last_step, dtype=torch.float).contiguous().view(-1, 1), self.cuda)
-        start_step = cuda_wrapper(torch.tensor(batch.start_step, dtype=torch.float).contiguous().view(-1, 1), self.cuda)
-        actions = cuda_wrapper(torch.tensor(np.stack(list(zip(*batch.action))[0], axis=0), dtype=torch.float), self.cuda)
-        returns = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda)
-        state = cuda_wrapper(prep_obs(list(zip(batch.state))), self.cuda)
+        # collect the transition data
+        rewards, last_step, start_step, actions, returns, state = self.unpack_data(batch)
         # construct the computational graph
         next_state = cuda_wrapper(prep_obs(list(zip(batch.next_state))), self.cuda)
         action_out, values = behaviour_net(state)

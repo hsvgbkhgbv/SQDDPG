@@ -74,7 +74,7 @@ class CommNet(nn.Module):
         '''
         define a state encoder
         '''
-        return self.tanh(self.encoder(x))
+        return torch.tanh(self.encoder(x))
 
     def get_agent_mask(self, batch_size, info):
         '''

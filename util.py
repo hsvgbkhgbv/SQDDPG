@@ -25,6 +25,13 @@ def normal_entropy(std):
     entropy = 0.5 + 0.5 * torch.log(2 * var * math.pi)
     return entropy.sum(1, keepdim=True)
 
+def multinomial_entropy(log_p_a):
+    assert log_p_a.size(-1) > 1
+    entropy = 0
+    for i in range(log_p_a.size(0)):
+        entropy -= (log_p_a[i] * log_p_a[i].exp()).sum()
+    return entropy
+
 def normal_log_density(x, mean, log_std, std):
     var = std.pow(2)
     log_density = -(x - mean).pow(2) / (2 * var) - 0.5 * math.log(2 * math.pi) - log_std
@@ -100,7 +107,7 @@ def cuda_wrapper(tensor, cuda):
     else:
         raise RuntimeError('Please enter a pytorch tensor, now a {} is received.'.format(type(tensor)))
 
-def batchnorm(self, batch):
+def batchnorm(batch):
     if isinstance(batch, torch.Tensor):
         batch_norm = (batch - batch.mean()) / batch.std()
         return batch_norm
