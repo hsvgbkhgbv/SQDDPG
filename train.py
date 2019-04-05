@@ -6,10 +6,11 @@ from arguments import *
 import os
 from ic3net import *
 
-if model_name == 'ic3net':
-    model = IC3Net
-elif model_name == 'commnet':
-    model = CommNet
+model_map = dict(commnet=CommNet,
+                 ic3net=IC3Net
+)
+
+model = model_map[model_name]
 
 train = Trainer(args, model, env())
 

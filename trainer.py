@@ -48,9 +48,11 @@ class Trainer(object):
             start_step = True if t == 0 else False
             # decide the next action and return the correlated state value (baseline)
             state_ = cuda_wrapper(prep_obs(state).contiguous().view(1, self.args.agent_num, self.args.obs_size), self.cuda)
-            action_out, value = self.behaviour_net(state_)
+            action_out = self.behaviour_net.policy(state_)
             # return the sampled actions of all of agents
             action = select_action(self.args, action_out, 'train')
+            # get the value
+            value = self.behaviour_net.value(action)
             # return the rescaled (clipped) actions
             _, actual = translate_action(self.args, action)
             # receive the reward and the next state

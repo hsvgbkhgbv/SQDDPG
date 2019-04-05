@@ -4,6 +4,7 @@ import numbers
 import math
 
 
+
 def merge_stat(src, dest):
     for k, v in src.items():
         if not k in dest:
@@ -20,52 +21,36 @@ def merge_stat(src, dest):
             else:
                 dest[k] = [dest[k], v]
 
-def normal_entropy(std):
-    var = std.pow(2)
-    entropy = 0.5 + 0.5 * torch.log(2 * var * math.pi)
-    return entropy.sum(1, keepdim=True)
+def normal_entropy(mean, std):
+    return torch.distributions.normal.Normal(mean, std).entropy()
 
-def multinomial_entropy(log_p_a):
-    assert log_p_a.size(-1) > 1
-    entropy = 0
-    for i in range(log_p_a.size(0)):
-        entropy -= (log_p_a[i] * log_p_a[i].exp()).sum()
-    return entropy
+def multinomial_entropy(log_probs):
+    assert log_probs.size(-1) > 1
+    return torch.distributions.one_hot_categorical.OneHotCategorical(logits=log_probs).entropy().sum()
 
-def normal_log_density(x, mean, log_std, std):
-    var = std.pow(2)
-    log_density = -(x - mean).pow(2) / (2 * var) - 0.5 * math.log(2 * math.pi) - log_std
-    return log_density.sum(1, keepdim=True)
+def normal_log_density(x, mean, std):
+    return torch.distributions.normal.Normal(mean, std).log_prob(x)
 
 def multinomials_log_density(actions, log_probs):
-    return log_probs.gather(-1, actions.long())
+    return torch.distributions.one_hot_categorical.OneHotCategorical(logits=log_probs).log_prob(actions)
 
 def select_action(args, action_out, status='train'):
     if args.continuous:
-        action_mean, _, action_std = action_out
+        act_mean, act_std = action_out
         if status == 'train':
-            action = torch.normal(action_mean, action_std)
+            return torch.distributions.normal.Normal(act_mean, act_std).sample()
         elif status == 'test':
-            action = action_mean
-        return action.detach()
+            return act_mean
     else:
         log_p_a = action_out
-        p_a = [[z.exp() for z in x] for x in log_p_a]
         if status == 'train':
-            ret = torch.stack([torch.stack([torch.multinomial(x, 1).detach() for x in p]) for p in p_a])
+            return torch.distributions.one_hot_categorical.OneHotCategorical(logits=log_p_a).sample()
         elif status == 'test':
-            ret = torch.stack([torch.stack([torch.argmax(x, dim=-1).detach().unsqueeze(0) for x in p]) for p in p_a])
-        return ret
+            return torch.distributions.relaxed_categorical.RelaxedOneHotCategorical(1e-35, logits=log_p_a).sample()
 
 def translate_action(args, action):
     if args.action_num > 1:
-        action_tensor = torch.zeros(tuple(action.size()[:-1])+(args.action_num,))
-        if torch.cuda.is_available() and args.cuda:
-            action_tensor = action_tensor.cuda()
-        action_tensor.scatter_(-1, action, 1)
-        # environment takes discrete action
-        actual = [action_tensor[:, i, :].squeeze().cpu().data.numpy() for i in range(action_tensor.size(1))]
-        action = np.array(actual)
+        actual = [act.squeeze().numpy() for act in torch.unbind(action, 1)]
         return action, actual
     else:
         if args.continuous:

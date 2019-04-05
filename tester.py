@@ -13,7 +13,7 @@ class Tester(object):
 
     def run_step(self, state):
         state = prep_obs(state).contiguous().view(1, self.args.agent_num, self.args.obs_size)
-        action_out, value = self.behaviour_net(state)
+        action_out = self.behaviour_net.policy(state)
         action = select_action(self.args, action_out, 'test')
         _, actual = translate_action(self.args, action)
         next_state, reward, done, _ = self.env.step(actual)

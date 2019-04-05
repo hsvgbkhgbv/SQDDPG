@@ -1,42 +1,13 @@
 import torch
-import torch.autograd as autograd
-from torch.autograd import Variable
 import torch.nn as nn
-import torch.nn.functional as F
 import numpy as np
+from model import Model
 
-class CommNet(nn.Module):
+
+class CommNet(Model):
 
     def __init__(self, args):
-        '''
-        args = (
-        agent_num: int,
-        hid_size: int,
-        obs_size: [int],
-        continuous: bool,
-        action_dim: [int],
-        comm_iters: int,
-        init_std: float,
-        'lrate': float,
-        'batch_size': int,
-        'max_steps': int,
-        'gamma': float,
-        'normalize_rewards': bool,
-        'advantages_per_action': bool,
-        'value_coeff': float,
-        'entr': float,
-        'action_num'=int,
-        'skip_connection'=bool
-        )
-        args is a namedtuple, e.g. args = collections.namedtuple()
-        '''
-        super(CommNet, self).__init__()
-        self.args = args
-        self.cuda = torch.cuda.is_available() and self.args.cuda
-        # create a model
-        self.construct_model()
-        # initialize parameters with normal distribution with mean of 0
-        self.apply(self.init_weights)
+        super(CommNet, self).__init__(args)
 
     def construct_model(self):
         '''
@@ -68,7 +39,7 @@ class CommNet(nn.Module):
             self.value_head = nn.Linear(self.args.hid_size, 1)
         elif self.args.training_strategy in ['ddpg']:
             # define action value function
-            self.action_value_head = nn.Linear(self.args.hid_size, self.args.action_dim)
+            self.value_head = nn.Linear(self.args.hid_size+self.args.action_dim, 1)
 
     def state_encoder(self, x):
         '''
@@ -76,26 +47,7 @@ class CommNet(nn.Module):
         '''
         return torch.tanh(self.encoder(x))
 
-    def get_agent_mask(self, batch_size, info):
-        '''
-        define the getter of agent mask to confirm the living agent
-        '''
-        n = self.args.agent_num
-        with torch.no_grad():
-            if 'alive_mask' in info:
-                agent_mask = torch.from_numpy(info['alive_mask'])
-                num_agents_alive = agent_mask.sum()
-            else:
-                agent_mask = torch.ones(n)
-                num_agents_alive = n
-        # shape = (1, 1, n)
-        agent_mask = agent_mask.view(1, 1, n)
-        # shape = (batch_size, n ,n, 1)
-        agent_mask = agent_mask.expand(batch_size, n, n).unsqueeze(-1)
-        if self.cuda: agent_mask = agent_mask.cuda()
-        return num_agents_alive, agent_mask
-
-    def action(self, obs, info={}):
+    def policy(self, obs, info={}):
         '''
         define the action process of vanilla CommNet
         '''
@@ -134,14 +86,7 @@ class CommNet(nn.Module):
             else:
                 # h_{j}^{i+1} = \sigma(H_j * h_j^{i+1} + C_j * c_j^{i+1})
                 h = torch.tanh(sum([self.f_modules[i](h), self.C_modules[i](c)]))
-        if self.args.training_strategy in ['reinforce', 'actor_critic']:
-            # calculate the value function (baseline)
-            value_head = self.value_head(h)
-        elif self.args.training_strategy in ['ddpg']:
-            if self.args.continuous:
-                value_head = self.value_head(h)
-            else:
-                value_head = self.action_value_head(h)
+        self.hidden = h
         # calculate the action vector (policy)
         if self.args.continuous:
             # shape = (batch_size, n, action_dim)
@@ -149,18 +94,19 @@ class CommNet(nn.Module):
             action_log_std = self.action_log_std.expand_as(action_mean)
             action_std = torch.exp(action_log_std)
             # will be used later to sample
-            action = (action_mean, action_log_std, action_std)
+            action = (action_mean, action_std)
         else:
             # discrete actions, shape = (batch_size, n, action_type, action_num)
             action = torch.log_softmax(self.action_head(h), dim=-1)
+        if self.args.training_strategy in ['reinforce', 'actor_critic']:
+            # calculate the value function (baseline)
+            value_head = self.value_head(h)
+        elif self.args.training_strategy in ['ddpg']:
+            value_head = self.action_value_head(h)
         return action, value_head
 
-    def forward(self, obs, info={}):
-        return self.action(obs, info)
-
-    def init_weights(self, m):
-        '''
-        initialize the weights of parameters
-        '''
-        if type(m) == nn.Linear:
-            m.weight.data.normal_(0, self.args.init_std)
+    def value(self, action):
+        if self.args.training_strategy in ['ddpg']:
+            return self.value_head(torch.cat((self.hidden, action), -1))
+        else:
+            return self.value_head(self.hidden)

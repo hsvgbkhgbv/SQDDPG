@@ -57,8 +57,9 @@ class REINFORCE(ReinforcementLearning):
         rewards, last_step, start_step, actions, returns, state = self.unpack_data(batch)
         # construct the computational graph
         next_state = cuda_wrapper(prep_obs(list(zip(batch.next_state))), self.cuda)
-        action_out, values = behaviour_net(state)
-        values = values.contiguous().view(-1, n)
+        action_out = behaviour_net.policy(state)
+        # TODO: How to construct the backprop at this node for ddpg when the action is discrete
+        values = behaviour_net.value(actions).contiguous().view(-1, n)
         # calculate the return
         assert returns.size() == rewards.size()
         for i in reversed(range(rewards.size(0))):
@@ -73,8 +74,8 @@ class REINFORCE(ReinforcementLearning):
             advantages = batchnorm(advantages)
         if self.args.continuous:
             actions = actions.contiguous().view(-1, self.args.action_dim)
-            action_means, action_log_stds, action_stds = action_out
-            log_prob = normal_log_density(actions, action_means, action_log_stds, action_stds)
+            action_means, action_stds = action_out
+            log_prob = normal_log_density(actions, action_means, action_stds)
         else:
             log_p_a = action_out
             log_prob = multinomials_log_density(actions, log_p_a).contiguous().view(-1, 1)
@@ -102,10 +103,13 @@ class ActorCritic(ReinforcementLearning):
         rewards, last_step, start_step, actions, returns, state = self.unpack_data(batch)
         # construct the computational graph
         next_state = cuda_wrapper(prep_obs(list(zip(batch.next_state))), self.cuda)
-        action_out, values = behaviour_net(state)
-        values = values.contiguous().view(-1, n)
-        next_action_out, next_values = behaviour_net(next_state)
-        next_values = next_values.contiguous().view(-1, n)
+        action_out = behaviour_net.policy(state)
+        # TODO: How to construct the backprop at this node for ddpg when the action is discrete
+        values = behaviour_net.value(actions).contiguous().view(-1, n)
+        next_action_out = behaviour_net.policy(next_state)
+        # TODO: How to construct the backprop at this node for ddpg when the action is discrete
+        next_actions = select_action(self.args, next_action_out, 'train')
+        next_values = behaviour_net.value(next_actions).contiguous().view(-1, n)
         # calculate the advantages
         deltas = cuda_wrapper(torch.zeros_like(values), self.cuda)
         assert values.size() == next_values.size()
@@ -154,3 +158,16 @@ class DDPG(ReinforcementLearning):
         values = values.contiguous().view(-1, n)
         next_action_out, next_values = target_net(next_state)
         next_values = next_values.contiguous().view(-1, n)
+        if self.args.continuous:
+            action_tensor = cuda_wrapper(torch.zeros(tuple(actions.size()[:-1])+(self.args.action_dim,)))
+            action_tensor.scatter_(-1, actions.long(), 1)
+            action_means, action_log_stds, action_stds = action_out
+        else:
+
+            tran_actions = action_tensor
+            assert tran_actions.size() == action_out.size()
+            assert action_out.size() == values.size()
+            values_ = (torch.ceil(action_out * tran_actions) * values).sum(dim=-1)
+            values = values.gather(-1, actions.long())
+            next_actions = select_action(self.args, next_action_out, 'train')
+            next_values = next_values.gather(-1, next_actions.long())
