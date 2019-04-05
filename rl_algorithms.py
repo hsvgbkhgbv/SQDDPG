@@ -118,8 +118,8 @@ class ActorCritic(ReinforcementLearning):
                 deltas[i] = rewards[i] - values[i]
             else:
                 deltas[i] = rewards[i] + self.args.gamma * next_values[i].detach() - values[i]
-        # construct the action loss and the value loss
         advantages = deltas.detach()
+        # construct the action loss and the value loss
         if self.args.normalize_advantages:
             advantages = batchnorm(advantages)
         if self.args.continuous:
@@ -154,20 +154,15 @@ class DDPG(ReinforcementLearning):
         rewards, last_step, start_step, actions, returns, state = self.unpack_data(batch)
         # construct the computational graph
         next_state = cuda_wrapper(prep_obs(list(zip(batch.next_state))), self.cuda)
-        action_out, values = behaviour_net(state)
-        values = values.contiguous().view(-1, n)
-        next_action_out, next_values = target_net(next_state)
-        next_values = next_values.contiguous().view(-1, n)
-        if self.args.continuous:
-            action_tensor = cuda_wrapper(torch.zeros(tuple(actions.size()[:-1])+(self.args.action_dim,)))
-            action_tensor.scatter_(-1, actions.long(), 1)
-            action_means, action_log_stds, action_stds = action_out
-        else:
-
-            tran_actions = action_tensor
-            assert tran_actions.size() == action_out.size()
-            assert action_out.size() == values.size()
-            values_ = (torch.ceil(action_out * tran_actions) * values).sum(dim=-1)
-            values = values.gather(-1, actions.long())
-            next_actions = select_action(self.args, next_action_out, 'train')
-            next_values = next_values.gather(-1, next_actions.long())
+        action_out = behaviour_net.policy(state)
+        values = behaviour_net.value(actions).contiguous().view(-1, n)
+        next_action_out = target_net.policy(next_state)
+        next_actions = select_action(self.args, next_action_out, 'train')
+        next_values = target_net.value(next_actions).contiguous().view(-1, n)
+        assert values.size() == next_values.size()
+        for i in range(rewards.size(0)):
+            if last_step[i]:
+                deltas[i] = rewards[i] - values[i]
+            else:
+                deltas[i] = rewards[i] + self.args.gamma * next_values[i].detach() - values[i]
+        advantages = values

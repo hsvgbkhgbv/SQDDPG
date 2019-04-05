@@ -32,6 +32,7 @@ def normal_log_density(x, mean, std):
     return torch.distributions.normal.Normal(mean, std).log_prob(x)
 
 def multinomials_log_density(actions, log_probs):
+    assert log_probs.size(-1) > 1
     return torch.distributions.one_hot_categorical.OneHotCategorical(logits=log_probs).log_prob(actions)
 
 def select_action(args, action_out, status='train'):

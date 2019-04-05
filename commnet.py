@@ -98,12 +98,7 @@ class CommNet(Model):
         else:
             # discrete actions, shape = (batch_size, n, action_type, action_num)
             action = torch.log_softmax(self.action_head(h), dim=-1)
-        if self.args.training_strategy in ['reinforce', 'actor_critic']:
-            # calculate the value function (baseline)
-            value_head = self.value_head(h)
-        elif self.args.training_strategy in ['ddpg']:
-            value_head = self.action_value_head(h)
-        return action, value_head
+        return action
 
     def value(self, action):
         if self.args.training_strategy in ['ddpg']:
