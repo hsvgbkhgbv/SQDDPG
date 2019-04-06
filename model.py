@@ -8,7 +8,7 @@ class Model(nn.Module):
     def __init__(self, args):
         super(Model, self).__init__()
         self.args = args
-        self.cuda = torch.cuda.is_available() and self.args.cuda
+        self.cuda_ = torch.cuda.is_available() and self.args.cuda
         self.construct_model()
         self.apply(self.init_weights)
 
@@ -33,7 +33,7 @@ class Model(nn.Module):
         # shape = (1, 1, n)
         agent_mask = agent_mask.view(1, 1, n)
         # shape = (batch_size, n ,n, 1)
-        agent_mask = cuda_wrapper(agent_mask.expand(batch_size, n, n).unsqueeze(-1), self.cuda)
+        agent_mask = cuda_wrapper(agent_mask.expand(batch_size, n, n).unsqueeze(-1), self.cuda_)
         return num_agents_alive, agent_mask
 
     def policy(self, obs, info={}):

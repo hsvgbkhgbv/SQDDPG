@@ -18,7 +18,7 @@ class CommNet(Model):
         # encoder transforms observation to latent variables
         self.encoder = nn.Linear(self.args.obs_size, self.args.hid_size)
         # communication mask where the diagnal should be 0
-        self.comm_mask = cuda_wrapper(torch.ones(self.args.agent_num, self.args.agent_num) - torch.eye(self.args.agent_num, self.args.agent_num), self.cuda)
+        self.comm_mask = cuda_wrapper(torch.ones(self.args.agent_num, self.args.agent_num) - torch.eye(self.args.agent_num, self.args.agent_num), self.cuda_)
         # decoder transforms hidden states to action vector
         if self.args.continuous:
             self.action_mean = nn.Linear(self.args.hid_size, self.args.action_dim)

@@ -31,13 +31,13 @@ class ReinforcementLearning(object):
         batch_size = len(batch.state)
         n = self.args.agent_num
         action_dim = self.args.action_dim
-        rewards = cuda_wrapper(torch.tensor(batch.reward, dtype=torch.float), self.cuda)
-        last_step = cuda_wrapper(torch.tensor(batch.last_step, dtype=torch.float).contiguous().view(-1, 1), self.cuda)
-        start_step = cuda_wrapper(torch.tensor(batch.start_step, dtype=torch.float).contiguous().view(-1, 1), self.cuda)
-        actions = cuda_wrapper(torch.tensor(np.stack(list(zip(*batch.action))[0], axis=0), dtype=torch.float), self.cuda)
-        # actions = cuda_wrapper(torch.stack(list(zip(*batch.action))[0], dim=0), self.cuda)
-        returns = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda)
-        state = cuda_wrapper(prep_obs(list(zip(batch.state))), self.cuda)
+        rewards = cuda_wrapper(torch.tensor(batch.reward, dtype=torch.float), self.cuda_)
+        last_step = cuda_wrapper(torch.tensor(batch.last_step, dtype=torch.float).contiguous().view(-1, 1), self.cuda_)
+        start_step = cuda_wrapper(torch.tensor(batch.start_step, dtype=torch.float).contiguous().view(-1, 1), self.cuda_)
+        actions = cuda_wrapper(torch.tensor(np.stack(list(zip(*batch.action))[0], axis=0), dtype=torch.float), self.cuda_)
+        # actions = cuda_wrapper(torch.stack(list(zip(*batch.action))[0], dim=0), self.cuda_)
+        returns = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda_)
+        state = cuda_wrapper(prep_obs(list(zip(batch.state))), self.cuda_)
         return (rewards, last_step, start_step, actions, returns, state)
 
 
@@ -57,7 +57,7 @@ class REINFORCE(ReinforcementLearning):
         # collect the transition data
         rewards, last_step, start_step, actions, returns, state = self.unpack_data(batch)
         # construct the computational graph
-        next_state = cuda_wrapper(prep_obs(list(zip(batch.next_state))), self.cuda)
+        next_state = cuda_wrapper(prep_obs(list(zip(batch.next_state))), self.cuda_)
         action_out = behaviour_net.policy(state)
         # TODO: How to construct the backprop at this node for ddpg when the action is discrete
         values = behaviour_net.value(actions.detach()).contiguous().view(-1, n)
@@ -79,7 +79,7 @@ class REINFORCE(ReinforcementLearning):
             advantages = batchnorm(advantages)
         if self.args.continuous:
             action_means = actions.contiguous().view(-1, self.args.action_dim)
-            action_stds = cuda_wrapper(torch.ones_like(action_means), self.cuda)
+            action_stds = cuda_wrapper(torch.ones_like(action_means), self.cuda_)
             log_prob = normal_log_density(actions, action_means, action_stds)
         else:
             log_p_a = action_out

@@ -68,6 +68,6 @@ args = Args(agent_num=env.get_num_of_agents(),
             train_epoch_num=10000,
             replay_buffer_size=6.4e6,
             replay_iters=1,
-            cuda=False,
+            cuda=True,
             grad_clip=True
            )

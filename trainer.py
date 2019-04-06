@@ -24,11 +24,11 @@ class Trainer(object):
 
     def __init__(self, args, model, env):
         self.args = args
-        self.cuda = self.args.cuda and torch.cuda.is_available()
-        self.behaviour_net = model(self.args).cuda() if self.cuda else model(self.args)
+        self.cuda_ = self.args.cuda and torch.cuda.is_available()
+        self.behaviour_net = model(self.args).cuda() if self.cuda_ else model(self.args)
         self.rl = rl_algo_map[self.args.training_strategy](args)
         if self.args.training_strategy == 'ddpg':
-            self.target_net = model(self.args).cuda() if self.cuda else model(self.args)
+            self.target_net = model(self.args).cuda() if self.cuda_ else model(self.args)
             self.target_net.load_state_dict(self.behaviour_net.state_dict())
             self.replay_buffer = ReplayBuffer(int(self.args.replay_buffer_size))
         self.env = env
@@ -47,7 +47,7 @@ class Trainer(object):
         for t in range(self.args.max_steps):
             start_step = True if t == 0 else False
             # decide the next action and return the correlated state value (baseline)
-            state_ = cuda_wrapper(prep_obs(state).contiguous().view(1, self.args.agent_num, self.args.obs_size), self.cuda)
+            state_ = cuda_wrapper(prep_obs(state).contiguous().view(1, self.args.agent_num, self.args.obs_size), self.cuda_)
             action_out = self.behaviour_net.policy(state_)
             # return the sampled actions of all of agents
             action = select_action(self.args, action_out, status='train')
