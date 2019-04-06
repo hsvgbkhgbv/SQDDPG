@@ -106,5 +106,5 @@ class IC3Net(Model):
 
     def init_hidden(self, batch_size):
         # dim 0 = num of layers * num of direction
-        return tuple((torch.zeros(batch_size * self.args.agent_num, self.args.hid_size),
-                      torch.zeros(batch_size * self.args.agent_num, self.args.hid_size)))
+        return (cuda_wrapper(torch.zeros(batch_size * self.args.agent_num, self.args.hid_size), self.cuda_),
+                cuda_wrapper(torch.zeros(batch_size * self.args.agent_num, self.args.hid_size), self.cuda_))

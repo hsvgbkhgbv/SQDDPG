@@ -12,7 +12,7 @@ class ReinforcementLearning(object):
     def __init__(self, name, args):
         self.name = name
         self.args = args
-        self.cuda = self.args.cuda
+        self.cuda_ = self.args.cuda
         print (args)
 
     def __str__(self):
@@ -107,7 +107,7 @@ class ActorCritic(ReinforcementLearning):
         # collect the transition data
         rewards, last_step, start_step, actions, returns, state = self.unpack_data(batch)
         # construct the computational graph
-        next_state = cuda_wrapper(prep_obs(list(zip(batch.next_state))), self.cuda)
+        next_state = cuda_wrapper(prep_obs(list(zip(batch.next_state))), self.cuda_)
         action_out = behaviour_net.policy(state)
         # TODO: How to construct the backprop at this node for ddpg when the action is discrete
         values = behaviour_net.value(actions.detach()).contiguous().view(-1, n)
@@ -116,14 +116,14 @@ class ActorCritic(ReinforcementLearning):
         next_actions = select_action(self.args, next_action_out.detach(), status='train')
         next_values = behaviour_net.value(next_actions).contiguous().view(-1, n)
         # calculate the advantages
-        deltas = cuda_wrapper(torch.zeros_like(values), self.cuda)
+        deltas = cuda_wrapper(torch.zeros_like(values), self.cuda_)
         assert values.size() == next_values.size()
         deltas = rewards + self.args.gamma * next_values.detach() - values
         advantages = deltas.detach()
         # construct the action loss and the value loss
         if self.args.continuous:
             action_means = actions.contiguous().view(-1, self.args.action_dim)
-            action_stds = cuda_wrapper(torch.ones_like(action_means), self.cuda)
+            action_stds = cuda_wrapper(torch.ones_like(action_means), self.cuda_)
             log_prob = normal_log_density(actions, action_means, action_stds)
         else:
             log_p_a = action_out
@@ -161,7 +161,7 @@ class DDPG(ReinforcementLearning):
         # do the exploration action on the value loss
         values = behaviour_net.value(actions).contiguous().view(-1, n)
         # do the argmax action on the next value loss
-        next_state = cuda_wrapper(prep_obs(list(zip(batch.next_state))), self.cuda)
+        next_state = cuda_wrapper(prep_obs(list(zip(batch.next_state))), self.cuda_)
         next_action_out = target_net.policy(next_state)
         next_actions = select_action(self.args, next_action_out.detach(), status='train', exploration=False)
         next_values_ = target_net.value(next_actions.detach()).contiguous().view(-1, n)
@@ -173,7 +173,7 @@ class DDPG(ReinforcementLearning):
             advantages = batchnorm(advantages)
         if self.args.continuous:
             action_means = actions.contiguous().view(-1, self.args.action_dim)
-            action_stds = cuda_wrapper(torch.ones_like(action_means), self.cuda)
+            action_stds = cuda_wrapper(torch.ones_like(action_means), self.cuda_)
             log_prob = normal_log_density(actions, action_means, action_stds)
         else:
             log_p_a = action_out

@@ -64,14 +64,14 @@ class Trainer(object):
             if done:
                 last_step = True
                 # record a transition
-                trans = Transition(state, action.numpy(), np.array(reward), next_state, start_step, last_step)
+                trans = Transition(state, action.cpu().numpy(), np.array(reward), next_state, start_step, last_step)
                 # trans = Transition(state, action, np.array(reward), next_state, start_step, last_step)
                 episode.append(trans)
                 break
             else:
                 last_step = False
                 # record a transition
-                trans = Transition(state, action.numpy(), np.array(reward), next_state, start_step, last_step)
+                trans = Transition(state, action.cpu().numpy(), np.array(reward), next_state, start_step, last_step)
                 # trans = Transition(state, action, np.array(reward), next_state, start_step, last_step)
                 episode.append(trans)
             state = next_state

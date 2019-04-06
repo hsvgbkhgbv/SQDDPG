@@ -83,7 +83,7 @@ def select_action(args, action_out, status='train', exploration=True):
 
 def translate_action(args, action):
     if args.action_num > 1:
-        actual = [act.detach().squeeze().numpy() for act in torch.unbind(action, 1)]
+        actual = [act.detach().squeeze().cpu().numpy() for act in torch.unbind(action, 1)]
         return action, actual
     else:
         if args.continuous:
