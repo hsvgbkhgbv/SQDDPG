@@ -75,7 +75,7 @@ def select_action(args, action_out, status='train', exploration=True):
         log_p_a = action_out
         if status == 'train':
             if exploration:
-                return GumbelSoftmax(logits=log_p_a, temperature=.5).sample()
+                return GumbelSoftmax(logits=log_p_a, temperature=.2).sample()
             else:
                 return GumbelSoftmax(logits=log_p_a).rsample()
         elif status == 'test':

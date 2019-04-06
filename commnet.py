@@ -33,8 +33,8 @@ class CommNet(Model):
         self.C_modules = nn.ModuleList([nn.Linear(self.args.hid_size, self.args.hid_size) for _ in range(self.args.comm_iters)])
         # if it is the skip connection then define another encoding transformation
         if self.args.skip_connection:
-            self.E_module = nn.Linear(self.args.hid_size, self.args.hid_size)
-            self.E_modules = nn.ModuleList([self.E_module for _ in range(self.args.comm_iters)])
+#             self.E_module = nn.Linear(self.args.hid_size, self.args.hid_size)
+            self.E_modules = nn.ModuleList([nn.Linear(self.args.hid_size, self.args.hid_size) for _ in range(self.args.comm_iters)])
         if self.args.training_strategy in ['reinforce', 'actor_critic']:
             # define value function
             self.value_head = nn.Linear(self.args.hid_size, 1)

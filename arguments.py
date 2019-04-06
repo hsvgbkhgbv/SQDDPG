@@ -7,8 +7,8 @@ import numpy as np
 
 
 
-# model_name = 'commnet'
-model_name = 'ic3net'
+model_name = 'commnet'
+# model_name = 'ic3net'
 
 # scenario_name = 'simple_spread'
 scenario_name = 'simple'
