@@ -35,6 +35,7 @@ class ReinforcementLearning(object):
         last_step = cuda_wrapper(torch.tensor(batch.last_step, dtype=torch.float).contiguous().view(-1, 1), self.cuda)
         start_step = cuda_wrapper(torch.tensor(batch.start_step, dtype=torch.float).contiguous().view(-1, 1), self.cuda)
         actions = cuda_wrapper(torch.tensor(np.stack(list(zip(*batch.action))[0], axis=0), dtype=torch.float), self.cuda)
+        # actions = cuda_wrapper(torch.stack(list(zip(*batch.action))[0], dim=0), self.cuda)
         returns = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda)
         state = cuda_wrapper(prep_obs(list(zip(batch.state))), self.cuda)
         return (rewards, last_step, start_step, actions, returns, state)
@@ -59,12 +60,16 @@ class REINFORCE(ReinforcementLearning):
         next_state = cuda_wrapper(prep_obs(list(zip(batch.next_state))), self.cuda)
         action_out = behaviour_net.policy(state)
         # TODO: How to construct the backprop at this node for ddpg when the action is discrete
-        values = behaviour_net.value(actions).contiguous().view(-1, n)
+        values = behaviour_net.value(actions.detach()).contiguous().view(-1, n)
+        # get the next actions and the next values
+        next_action_out = behaviour_net.policy(next_state)
+        next_actions = select_action(self.args, next_action_out.detach(), status='train')
+        next_values = behaviour_net.value(next_actions.detach()).contiguous().view(-1, n)
         # calculate the return
         assert returns.size() == rewards.size()
         for i in reversed(range(rewards.size(0))):
             if last_step[i]:
-                prev_coop_return = 0
+                prev_coop_return = next_values[i].detach()
             returns[i] = rewards[i] + self.args.gamma * prev_coop_return
             prev_coop_return = returns[i]
         # construct the action loss and the value loss
@@ -73,12 +78,12 @@ class REINFORCE(ReinforcementLearning):
         if self.args.normalize_advantages:
             advantages = batchnorm(advantages)
         if self.args.continuous:
-            actions = actions.contiguous().view(-1, self.args.action_dim)
-            action_means, action_stds = action_out
+            action_means = actions.contiguous().view(-1, self.args.action_dim)
+            action_stds = cuda_wrapper(torch.ones_like(action_means), self.cuda)
             log_prob = normal_log_density(actions, action_means, action_stds)
         else:
             log_p_a = action_out
-            log_prob = multinomials_log_density(actions, log_p_a).contiguous().view(-1, 1)
+            log_prob = multinomials_log_density(actions.detach(), log_p_a).contiguous().view(-1, 1)
         assert log_prob.size() == advantages.size()
         action_loss = -advantages * log_prob
         action_loss = action_loss.sum() / batch_size
@@ -105,31 +110,31 @@ class ActorCritic(ReinforcementLearning):
         next_state = cuda_wrapper(prep_obs(list(zip(batch.next_state))), self.cuda)
         action_out = behaviour_net.policy(state)
         # TODO: How to construct the backprop at this node for ddpg when the action is discrete
-        values = behaviour_net.value(actions).contiguous().view(-1, n)
+        values = behaviour_net.value(actions.detach()).contiguous().view(-1, n)
         next_action_out = behaviour_net.policy(next_state)
         # TODO: How to construct the backprop at this node for ddpg when the action is discrete
-        next_actions = select_action(self.args, next_action_out, 'train')
+        next_actions = select_action(self.args, next_action_out.detach(), status='train')
         next_values = behaviour_net.value(next_actions).contiguous().view(-1, n)
         # calculate the advantages
         deltas = cuda_wrapper(torch.zeros_like(values), self.cuda)
         assert values.size() == next_values.size()
-        for i in range(rewards.size(0)):
-            if last_step[i]:
-                deltas[i] = rewards[i] - values[i]
-            else:
-                deltas[i] = rewards[i] + self.args.gamma * next_values[i].detach() - values[i]
+        # for i in range(rewards.size(0)):
+            # if last_step[i]:
+            #     deltas[i] = rewards[i] - values[i]
+            # else:
+        deltas = rewards + self.args.gamma * next_values.detach() - values
         advantages = deltas.detach()
         # construct the action loss and the value loss
-        if self.args.normalize_advantages:
-            advantages = batchnorm(advantages)
         if self.args.continuous:
-            actions = actions.contiguous().view(-1, self.args.action_dim)
-            action_means, action_log_stds, action_stds = action_out
-            log_prob = normal_log_density(actions, action_means, action_log_stds, action_stds)
+            action_means = actions.contiguous().view(-1, self.args.action_dim)
+            action_stds = cuda_wrapper(torch.ones_like(action_means), self.cuda)
+            log_prob = normal_log_density(actions, action_means, action_stds)
         else:
             log_p_a = action_out
-            log_prob = multinomials_log_density(actions, log_p_a).contiguous().view(-1, 1)
+            log_prob = multinomials_log_density(actions.detach(), log_p_a).contiguous().view(-1, 1)
         advantages = advantages.contiguous().view(-1, 1)
+        if self.args.normalize_advantages:
+            advantages = batchnorm(advantages)
         assert log_prob.size() == advantages.size()
         action_loss = -advantages * log_prob
         action_loss = action_loss.sum() / batch_size
@@ -141,7 +146,7 @@ class ActorCritic(ReinforcementLearning):
 class DDPG(ReinforcementLearning):
 
     def __init__(self, args):
-        super(ActorCritic, self).__init__('DDPG', args)
+        super(DDPG, self).__init__('DDPG', args)
 
     def __call__(self, batch, behaviour_net, target_net):
         return self.get_loss(batch, behaviour_net, target_net)
@@ -153,16 +158,31 @@ class DDPG(ReinforcementLearning):
         # collect the transition data
         rewards, last_step, start_step, actions, returns, state = self.unpack_data(batch)
         # construct the computational graph
-        next_state = cuda_wrapper(prep_obs(list(zip(batch.next_state))), self.cuda)
+        # do the argmax action on the action loss
         action_out = behaviour_net.policy(state)
+        actions_ = select_action(args, action_out, status='train', exploration=False)
+        values_ = behaviour_net.value(actions_).contiguous().view(-1, n)
+        # do the exploration action on the value loss
         values = behaviour_net.value(actions).contiguous().view(-1, n)
+        # do the argmax action on the next value loss
+        next_state = cuda_wrapper(prep_obs(list(zip(batch.next_state))), self.cuda)
         next_action_out = target_net.policy(next_state)
-        next_actions = select_action(self.args, next_action_out, 'train')
-        next_values = target_net.value(next_actions).contiguous().view(-1, n)
-        assert values.size() == next_values.size()
-        for i in range(rewards.size(0)):
-            if last_step[i]:
-                deltas[i] = rewards[i] - values[i]
-            else:
-                deltas[i] = rewards[i] + self.args.gamma * next_values[i].detach() - values[i]
-        advantages = values
+        next_actions = select_action(self.args, next_action_out.detach(), status='train', exploration=False)
+        next_values_ = target_net.value(next_actions.detach()).contiguous().view(-1, n)
+        assert values_.size() == next_values_.size()
+        deltas = rewards + self.args.gamma * next_values_.detach() - values
+        advantages = values_
+        advantages = advantages.contiguous().view(-1, 1)
+        if self.args.normalize_advantages:
+            advantages = batchnorm(advantages)
+        if self.args.continuous:
+            action_means = actions.contiguous().view(-1, self.args.action_dim)
+            action_stds = cuda_wrapper(torch.ones_like(action_means), self.cuda)
+            log_prob = normal_log_density(actions, action_means, action_stds)
+        else:
+            log_p_a = action_out
+            log_prob = multinomials_log_density(actions.detach(), log_p_a).contiguous().view(-1, 1)
+        action_loss = -advantages
+        action_loss = action_loss.sum() / batch_size
+        value_loss = deltas.pow(2).view(-1).sum() / batch_size
+        return action_loss, value_loss, log_p_a

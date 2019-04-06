@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import numpy as np
 from model import Model
+from util import *
+
 
 
 class CommNet(Model):
@@ -16,20 +18,19 @@ class CommNet(Model):
         # encoder transforms observation to latent variables
         self.encoder = nn.Linear(self.args.obs_size, self.args.hid_size)
         # communication mask where the diagnal should be 0
-        self.comm_mask = torch.ones(self.args.agent_num, self.args.agent_num) - torch.eye(self.args.agent_num, self.args.agent_num)
-        if self.cuda: self.comm_mask = self.comm_mask.cuda()
+        self.comm_mask = cuda_wrapper(torch.ones(self.args.agent_num, self.args.agent_num) - torch.eye(self.args.agent_num, self.args.agent_num), self.cuda)
         # decoder transforms hidden states to action vector
         if self.args.continuous:
             self.action_mean = nn.Linear(self.args.hid_size, self.args.action_dim)
-            self.action_log_std = nn.Parameter(torch.zeros(1, self.args.action_dim))
+            # self.action_log_std = nn.Parameter(torch.zeros(1, self.args.action_dim))
         else:
             self.action_head = nn.Linear(self.args.hid_size, self.args.action_dim)
         # define communication inference
-        self.f_module = nn.Linear(self.args.hid_size, self.args.hid_size)
-        self.f_modules = nn.ModuleList([self.f_module for _ in range(self.args.comm_iters)])
+        # self.f_module = nn.Linear(self.args.hid_size, self.args.hid_size)
+        self.f_modules = nn.ModuleList([nn.Linear(self.args.hid_size, self.args.hid_size) for _ in range(self.args.comm_iters)])
         # define communication encoder
-        self.C_module = nn.Linear(self.args.hid_size, self.args.hid_size)
-        self.C_modules = nn.ModuleList([self.C_module for _ in range(self.args.comm_iters)])
+        # self.C_module = nn.Linear(self.args.hid_size, self.args.hid_size)
+        self.C_modules = nn.ModuleList([nn.Linear(self.args.hid_size, self.args.hid_size) for _ in range(self.args.comm_iters)])
         # if it is the skip connection then define another encoding transformation
         if self.args.skip_connection:
             self.E_module = nn.Linear(self.args.hid_size, self.args.hid_size)
@@ -51,16 +52,16 @@ class CommNet(Model):
         '''
         define the action process of vanilla CommNet
         '''
+        # get the batch size
+        batch_size = obs.size()[0]
+        # get the total number of agents including dead
+        n = self.args.agent_num
         # encode observation
         if self.args.skip_connection:
             e = self.state_encoder(obs)
             h = torch.zeros_like(e)
         else:
             h = self.state_encoder(obs)
-        # get the batch size
-        batch_size = obs.size()[0]
-        # get the total number of agents including dead
-        n = self.args.agent_num
         # get the agent mask
         num_agents_alive, agent_mask = self.get_agent_mask(batch_size, info)
         # conduct the main process of communication
@@ -91,13 +92,11 @@ class CommNet(Model):
         if self.args.continuous:
             # shape = (batch_size, n, action_dim)
             action_mean = self.action_mean(h)
-            action_log_std = self.action_log_std.expand_as(action_mean)
-            action_std = torch.exp(action_log_std)
             # will be used later to sample
-            action = (action_mean, action_std)
+            action = action_mean
         else:
             # discrete actions, shape = (batch_size, n, action_type, action_num)
-            action = torch.log_softmax(self.action_head(h), dim=-1)
+            action = self.action_head(h)
         return action
 
     def value(self, action):

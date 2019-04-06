@@ -2,8 +2,36 @@ import numpy as np
 import torch
 import numbers
 import math
+from torch.distributions.one_hot_categorical import OneHotCategorical
+from torch.distributions.normal import Normal
 
 
+
+class GumbelSoftmax(OneHotCategorical):
+
+    def __init__(self, logits, temperature=0.1):
+        super(GumbelSoftmax, self).__init__(logits=logits)
+        self.eps = 1e-20
+        self.temperature = temperature
+
+    def sample_gumbel(self):
+        U = self.logits.clone()
+        U.uniform_(0, 1)
+        return -torch.log( -torch.log( U + self.eps ) )
+
+    def gumbel_softmax_sample(self):
+        y = self.logits + self.sample_gumbel()
+        return torch.softmax( y / self.temperature, dim=-1)
+
+    def gumbel_softmax(self):
+        y = self.gumbel_softmax_sample()
+        return torch.round(y)
+
+    def rsample(self):
+        return self.gumbel_softmax()
+
+    def sample(self):
+        return self.rsample().detach()
 
 def merge_stat(src, dest):
     for k, v in src.items():
@@ -22,36 +50,40 @@ def merge_stat(src, dest):
                 dest[k] = [dest[k], v]
 
 def normal_entropy(mean, std):
-    return torch.distributions.normal.Normal(mean, std).entropy()
+    return Normal(mean, std).entropy().sum()
 
 def multinomial_entropy(log_probs):
     assert log_probs.size(-1) > 1
-    return torch.distributions.one_hot_categorical.OneHotCategorical(logits=log_probs).entropy().sum()
+    return GumbelSoftmax(logits=log_probs).entropy().sum()
 
 def normal_log_density(x, mean, std):
-    return torch.distributions.normal.Normal(mean, std).log_prob(x)
+    return Normal(mean, std).log_prob(x)
 
 def multinomials_log_density(actions, log_probs):
     assert log_probs.size(-1) > 1
-    return torch.distributions.one_hot_categorical.OneHotCategorical(logits=log_probs).log_prob(actions)
+    return GumbelSoftmax(logits=log_probs).log_prob(actions)
 
-def select_action(args, action_out, status='train'):
+def select_action(args, action_out, status='train', exploration=True):
     if args.continuous:
-        act_mean, act_std = action_out
+        act_mean = action_out
+        act_std = cuda_wrapper(torch.ones_like(act_mean), args.cuda)
         if status == 'train':
-            return torch.distributions.normal.Normal(act_mean, act_std).sample()
+            return Normal(act_mean, act_std).rsample()
         elif status == 'test':
             return act_mean
     else:
         log_p_a = action_out
         if status == 'train':
-            return torch.distributions.one_hot_categorical.OneHotCategorical(logits=log_p_a).sample()
+            if exploration:
+                return GumbelSoftmax(logits=log_p_a, temperature=.5).sample()
+            else:
+                return GumbelSoftmax(logits=log_p_a).rsample()
         elif status == 'test':
-            return torch.distributions.relaxed_categorical.RelaxedOneHotCategorical(1e-35, logits=log_p_a).sample()
+            return  GumbelSoftmax(logits=log_p_a).sample()
 
 def translate_action(args, action):
     if args.action_num > 1:
-        actual = [act.squeeze().numpy() for act in torch.unbind(action, 1)]
+        actual = [act.detach().squeeze().numpy() for act in torch.unbind(action, 1)]
         return action, actual
     else:
         if args.continuous:
@@ -86,16 +118,13 @@ def prep_obs(state=[]):
 
 def cuda_wrapper(tensor, cuda):
     if isinstance(tensor, torch.Tensor):
-        if cuda:
-            return tensor.cuda()
-        else:
-            return tensor
+        return tensor.cuda() if cuda else tensor
     else:
         raise RuntimeError('Please enter a pytorch tensor, now a {} is received.'.format(type(tensor)))
 
 def batchnorm(batch):
     if isinstance(batch, torch.Tensor):
-        batch_norm = (batch - batch.mean()) / batch.std()
-        return batch_norm
+        assert batch.size(-1) == 1
+        return (batch - batch.mean()) / batch.std()
     else:
         raise RuntimeError('Please enter a pytorch tensor, now a {} is received.'.format(type(batch)))
