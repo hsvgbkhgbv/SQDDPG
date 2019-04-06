@@ -118,10 +118,6 @@ class ActorCritic(ReinforcementLearning):
         # calculate the advantages
         deltas = cuda_wrapper(torch.zeros_like(values), self.cuda)
         assert values.size() == next_values.size()
-        # for i in range(rewards.size(0)):
-            # if last_step[i]:
-            #     deltas[i] = rewards[i] - values[i]
-            # else:
         deltas = rewards + self.args.gamma * next_values.detach() - values
         advantages = deltas.detach()
         # construct the action loss and the value loss
