@@ -20,11 +20,7 @@ class IC3Net(Model):
         # communication mask where the diagnal should be 0
         self.comm_mask = cuda_wrapper(torch.ones(self.args.agent_num, self.args.agent_num) - torch.eye(self.args.agent_num, self.args.agent_num), self.cuda_)
         # decoder transforms hidden states to action vector
-        if self.args.continuous:
-            self.action_mean = nn.Linear(self.args.hid_size, self.args.action_dim)
-            # self.action_log_std = nn.Parameter(torch.zeros(1, self.args.action_dim))
-        else:
-            self.action_head = nn.Linear(self.args.hid_size, self.args.action_dim)
+        self.action_head = nn.Linear(self.args.hid_size, self.args.action_dim)
         # define communication inference
         self.f_module = nn.LSTMCell(self.args.hid_size, self.args.hid_size)
         # define the gate function
@@ -35,7 +31,17 @@ class IC3Net(Model):
             self.value_head = nn.Linear(self.args.hid_size, 1)
         elif self.args.training_strategy in ['ddpg']:
             self.value_head = nn.Linear(self.args.hid_size+self.args.action_dim, 1)
-
+        self.actor = nn.ModuleDict({'encoder': self.encoder,\
+                                    'action': self.action_head,\
+                                    'f_modules': self.f_module,\
+                                    'g_modules': self.g_modules
+                                       })
+        self.critic = nn.ModuleDict({'encoder': self.encoder,\
+                                     'value': self.value_head,\
+                                     'f_modules': self.f_module,\
+                                     'g_modules': self.g_modules
+                                       })
+        
     def state_encoder(self, x):
         '''
         define a state encoder
@@ -88,14 +94,7 @@ class IC3Net(Model):
         h = h.contiguous().view(batch_size, n, self.args.hid_size)
         self.hidden = h
         # calculate the action vector (policy)
-        if self.args.continuous:
-            # shape = (batch_size, n, action_dim)
-            action_mean = self.action_mean(h)
-            # will be used later to sample
-            action = action_mean
-        else:
-            # discrete actions, shape = (batch_size, n, action_dim)
-            action = self.action_head(h)
+        action = self.action_head(h)
         return action
 
     def value(self, action):

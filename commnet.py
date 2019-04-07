@@ -20,11 +20,7 @@ class CommNet(Model):
         # communication mask where the diagnal should be 0
         self.comm_mask = cuda_wrapper(torch.ones(self.args.agent_num, self.args.agent_num) - torch.eye(self.args.agent_num, self.args.agent_num), self.cuda_)
         # decoder transforms hidden states to action vector
-        if self.args.continuous:
-            self.action_mean = nn.Linear(self.args.hid_size, self.args.action_dim)
-            # self.action_log_std = nn.Parameter(torch.zeros(1, self.args.action_dim))
-        else:
-            self.action_head = nn.Linear(self.args.hid_size, self.args.action_dim)
+        self.action_head = nn.Linear(self.args.hid_size, self.args.action_dim)
         # define communication inference
         # self.f_module = nn.Linear(self.args.hid_size, self.args.hid_size)
         self.f_modules = nn.ModuleList([nn.Linear(self.args.hid_size, self.args.hid_size) for _ in range(self.args.comm_iters)])
@@ -89,14 +85,7 @@ class CommNet(Model):
                 h = torch.tanh(sum([self.f_modules[i](h), self.C_modules[i](c)]))
         self.hidden = h
         # calculate the action vector (policy)
-        if self.args.continuous:
-            # shape = (batch_size, n, action_dim)
-            action_mean = self.action_mean(h)
-            # will be used later to sample
-            action = action_mean
-        else:
-            # discrete actions, shape = (batch_size, n, action_type, action_num)
-            action = self.action_head(h)
+        action = self.action_head(h)
         return action
 
     def value(self, action):

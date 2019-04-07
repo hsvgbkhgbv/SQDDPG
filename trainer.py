@@ -32,7 +32,11 @@ class Trainer(object):
             self.target_net.load_state_dict(self.behaviour_net.state_dict())
             self.replay_buffer = ReplayBuffer(int(self.args.replay_buffer_size))
         self.env = env
-        self.optimizer = optim.RMSprop(self.behaviour_net.parameters(), lr = args.lrate, alpha=0.97, eps=1e-6)
+        if self.args.training_strategy in ['ddpg']:
+            self.actor_optimizer = optim.RMSprop(self.behaviour_net.actor.parameters(), lr = args.lrate, alpha=0.97, eps=1e-6)
+            self.critic_optimizer = optim.RMSprop(self.behaviour_net.critic.parameters(), lr = args.lrate*args.value_coeff, alpha=0.97, eps=1e-6)
+        else:
+            self.optimizer = optim.RMSprop(self.behaviour_net.parameters(), lr = args.lrate, alpha=0.97, eps=1e-6)
         # self.optimizer = optim.SGD(self.behaviour_net.parameters(), lr = args.lrate)
 
     def get_episode(self):
@@ -80,8 +84,8 @@ class Trainer(object):
         stat['num_steps'] = t + 1
         stat['mean_reward'] = mean_reward
         return (episode, stat)
-
-    def compute_grad(self, batch):
+    
+    def get_batch_results(self, batch):
         stat = dict()
         if self.args.training_strategy in ['ddpg']:
             action_loss, value_loss, log_p_a = self.rl(batch, self.behaviour_net, self.target_net)
@@ -89,15 +93,30 @@ class Trainer(object):
             action_loss, value_loss, log_p_a = self.rl(batch, self.behaviour_net)
         stat['action_loss'] = action_loss.item()
         stat['value_loss'] = value_loss.item()
+        return stat, (action_loss, value_loss, log_p_a)
+    
+    def compute_grad(self, batch_results):
+        action_loss, value_loss, log_p_a = batch_results
         loss = action_loss + self.args.value_coeff * value_loss
         if self.args.entr > 0:
             loss -= self.args.entr * multinomial_entropy(log_p_a)
         # do the backpropogation
         loss.backward()
-        return stat
-
+    
+    def actor_compute_grad(self, batch_results):
+        action_loss, log_p_a = batch_results
+        if self.args.entr > 0:
+            action_loss -= self.args.entr * multinomial_entropy(log_p_a)
+        # do the backpropogation
+        action_loss.backward()
+        
+    def critic_compute_grad(self, batch_results):
+        value_loss = batch_results
+        # do the backpropogation
+        value_loss.backward(retain_graph=True)
+    
     def grad_clip(self):
-        for param in self.behaviour_net.parameters():
+        for name, param in self.behaviour_net.named_parameters():
             param.grad.data.clamp_(-1, 1)
 
     def replay_process(self, stat):
@@ -105,11 +124,21 @@ class Trainer(object):
             batch = self.replay_buffer.get_batch_episodes(\
                                     self.args.epoch_size*self.args.max_steps)
             batch = Transition(*zip(*batch))
-            self.optimizer.zero_grad()
-            s = self.compute_grad(batch)
+            s, (action_loss, value_loss, log_p_a) = self.get_batch_results(batch)
             merge_stat(s, stat)
-            self.grad_clip()
-            self.optimizer.step()
+            if self.args.training_strategy in ['ddpg']:
+                self.critic_optimizer.zero_grad()
+                self.critic_compute_grad(value_loss)
+                self.actor_optimizer.zero_grad()
+                self.actor_compute_grad((action_loss, log_p_a))
+                self.grad_clip()
+                self.actor_optimizer.step()
+                self.critic_optimizer.step()
+            else:
+                self.optimizer.zero_grad()
+                self.compute_grad((action_loss, value_loss, log_p_a))
+                self.grad_clip()
+                self.optimizer.step()
 
     def run_batch(self):
         batch = []
@@ -120,7 +149,7 @@ class Trainer(object):
             merge_stat(episode_stat, self.stats)
             self.stats['num_episodes'] += 1
             batch += episode
-            if self.args.training_strategy == 'ddpg':
+            if self.args.training_strategy in ['ddpg']:
                 self.replay_buffer.add_experience(episode)
         self.stats['num_steps'] = len(batch)
         batch = Transition(*zip(*batch))
@@ -128,7 +157,7 @@ class Trainer(object):
 
     def train_batch(self, t):
         batch, stat = self.run_batch()
-        if self.args.training_strategy == 'ddpg':
+        if self.args.training_strategy in ['ddpg']:
             self.replay_process(stat)
             if t%10 == 9:
                 params_target = list(self.target_net.parameters())
@@ -136,9 +165,10 @@ class Trainer(object):
                 for i in range(len(params_target)):
                     params_target[i] = 0.999 * params_target[i] + (1 - 0.999) * params_behaviour[i]
         else:
-            self.optimizer.zero_grad()
-            s = self.compute_grad(batch)
+            s, (action_loss, value_loss, log_p_a) = self.get_batch_results(batch)
             merge_stat(s, stat)
+            self.optimizer.zero_grad()
+            self.compute_grad((action_loss, value_loss, log_p_a))
             self.grad_clip()
             self.optimizer.step()
         return stat

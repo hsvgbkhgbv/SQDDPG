@@ -25,10 +25,10 @@ class GumbelSoftmax(OneHotCategorical):
 
     def gumbel_softmax(self):
         y = self.gumbel_softmax_sample()
-        return torch.round(y)
+        return (torch.max(y, dim=-1, keepdim=True)[0] == y).float()
 
     def rsample(self):
-        return self.gumbel_softmax()
+        return self.gumbel_softmax_sample()
 
     def sample(self):
         return self.rsample().detach()
@@ -75,11 +75,12 @@ def select_action(args, action_out, status='train', exploration=True):
         log_p_a = action_out
         if status == 'train':
             if exploration:
-                return GumbelSoftmax(logits=log_p_a, temperature=.2).sample()
+                return GumbelSoftmax(logits=log_p_a).sample()
             else:
                 return GumbelSoftmax(logits=log_p_a).rsample()
         elif status == 'test':
-            return  GumbelSoftmax(logits=log_p_a).sample()
+            p_a = torch.softmax(log_p_a, dim=-1)
+            return  (p_a == torch.max(p_a, dim=-1, keepdim=True)[0]).float()
 
 def translate_action(args, action):
     if args.action_num > 1:
