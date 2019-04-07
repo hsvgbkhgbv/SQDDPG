@@ -115,8 +115,8 @@ class Trainer(object):
         # do the backpropogation
         value_loss.backward(retain_graph=True)
     
-    def grad_clip(self):
-        for name, param in self.behaviour_net.named_parameters():
+    def grad_clip(self, module):
+        for name, param in module.named_parameters():
             param.grad.data.clamp_(-1, 1)
 
     def replay_process(self, stat):
@@ -129,15 +129,17 @@ class Trainer(object):
             if self.args.training_strategy in ['ddpg']:
                 self.critic_optimizer.zero_grad()
                 self.critic_compute_grad(value_loss)
+                self.grad_clip(self.behaviour_net.critic)
+                self.critic_optimizer.step()
                 self.actor_optimizer.zero_grad()
                 self.actor_compute_grad((action_loss, log_p_a))
-                self.grad_clip()
+                self.grad_clip(self.behaviour_net.actor)
                 self.actor_optimizer.step()
-                self.critic_optimizer.step()
+                
             else:
                 self.optimizer.zero_grad()
                 self.compute_grad((action_loss, value_loss, log_p_a))
-                self.grad_clip()
+                self.grad_clip(self.behaviour_net)
                 self.optimizer.step()
 
     def run_batch(self):
@@ -169,6 +171,6 @@ class Trainer(object):
             merge_stat(s, stat)
             self.optimizer.zero_grad()
             self.compute_grad((action_loss, value_loss, log_p_a))
-            self.grad_clip()
+            self.grad_clip(self.behaviour_net)
             self.optimizer.step()
         return stat

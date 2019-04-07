@@ -36,11 +36,8 @@ class IC3Net(Model):
                                     'f_modules': self.f_module,\
                                     'g_modules': self.g_modules
                                        })
-        self.critic = nn.ModuleDict({'encoder': self.encoder,\
-                                     'value': self.value_head,\
-                                     'f_modules': self.f_module,\
-                                     'g_modules': self.g_modules
-                                       })
+        self.critic = nn.ModuleDict({'value': self.value_head,\
+                                    })
         
     def state_encoder(self, x):
         '''
