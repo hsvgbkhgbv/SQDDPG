@@ -3,6 +3,7 @@ import torch.nn as nn
 from util import *
 
 
+
 class Model(nn.Module):
 
     def __init__(self, args):
@@ -41,7 +42,13 @@ class Model(nn.Module):
 
     def value(self):
         raise NotImplementedError()
-
+    
+    def construct_policy_net(self):
+        raise NotImplementedError()
+    
+    def construct_value_net(self):
+        raise NotImplementedError()
+        
     def init_weights(self, m):
         '''
         initialize the weights of parameters
