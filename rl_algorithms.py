@@ -38,7 +38,8 @@ class ReinforcementLearning(object):
         # actions = cuda_wrapper(torch.stack(list(zip(*batch.action))[0], dim=0), self.cuda_)
         returns = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda_)
         state = cuda_wrapper(prep_obs(list(zip(batch.state))), self.cuda_)
-        return (rewards, last_step, start_step, actions, returns, state)
+        next_state = cuda_wrapper(prep_obs(list(zip(batch.next_state))), self.cuda_)
+        return (rewards, last_step, start_step, actions, returns, state, next_state)
 
 
 
@@ -55,9 +56,8 @@ class REINFORCE(ReinforcementLearning):
         n = self.args.agent_num
         action_dim = self.args.action_dim
         # collect the transition data
-        rewards, last_step, start_step, actions, returns, state = self.unpack_data(batch)
+        rewards, last_step, start_step, actions, returns, state, next_state = self.unpack_data(batch)
         # construct the computational graph
-        next_state = cuda_wrapper(prep_obs(list(zip(batch.next_state))), self.cuda_)
         action_out = behaviour_net.policy(state)
         # TODO: How to construct the backprop at this node for ddpg when the action is discrete
         values = behaviour_net.value(state, actions.detach()).contiguous().view(-1, n)
@@ -105,9 +105,8 @@ class ActorCritic(ReinforcementLearning):
         n = self.args.agent_num
         action_dim = self.args.action_dim
         # collect the transition data
-        rewards, last_step, start_step, actions, returns, state = self.unpack_data(batch)
+        rewards, last_step, start_step, actions, returns, state, next_state = self.unpack_data(batch)
         # construct the computational graph
-        next_state = cuda_wrapper(prep_obs(list(zip(batch.next_state))), self.cuda_)
         action_out = behaviour_net.policy(state)
         # TODO: How to construct the backprop at this node for ddpg when the action is discrete
         values = behaviour_net.value(state, actions.detach()).contiguous().view(-1, n)
@@ -152,18 +151,19 @@ class DDPG(ReinforcementLearning):
         n = self.args.agent_num
         action_dim = self.args.action_dim
         # collect the transition data
-        rewards, last_step, start_step, actions, returns, state = self.unpack_data(batch)
+        rewards, last_step, start_step, actions, returns, state, next_state = self.unpack_data(batch)
         # construct the computational graph
         # do the argmax action on the action loss
         action_out = behaviour_net.policy(state)
-        actions_ = select_action(args, action_out, status='train', exploration=False)
+        # actions_ = select_action(args, action_out, status='train', exploration=False)
+        actions_ = torch.softmax(action_out, dim=-1)
         values_ = behaviour_net.value(state, actions_).contiguous().view(-1, n)
         # do the exploration action on the value loss
         values = behaviour_net.value(state, actions).contiguous().view(-1, n)
         # do the argmax action on the next value loss
-        next_state = cuda_wrapper(prep_obs(list(zip(batch.next_state))), self.cuda_)
         next_action_out = target_net.policy(next_state)
-        next_actions = select_action(self.args, next_action_out.detach(), status='train', exploration=False)
+        # next_actions = select_action(self.args, next_action_out, status='train', exploration=False)
+        next_actions = torch.softmax(next_action_out, dim=-1)
         next_values_ = target_net.value(next_state, next_actions.detach()).contiguous().view(-1, n)
         assert values_.size() == next_values_.size()
         deltas = rewards + self.args.gamma * next_values_.detach() - values

@@ -16,19 +16,22 @@ class GumbelSoftmax(OneHotCategorical):
 
     def sample_gumbel(self):
         U = self.logits.clone()
-        U.uniform_(0.35, 0.36)
+        U.uniform_(0, 1.0)
         return -torch.log( -torch.log( U + self.eps ) )
 
     def gumbel_softmax_sample(self):
         y = self.logits + self.sample_gumbel()
         return torch.softmax( y / self.temperature, dim=-1)
 
-    def gumbel_softmax(self):
+    def hard_gumbel_softmax(self):
         y = self.gumbel_softmax_sample()
         return (torch.max(y, dim=-1, keepdim=True)[0] == y).float()
 
     def rsample(self):
         return self.gumbel_softmax_sample()
+
+    def sample(self):
+        return self.rsample().detach()
 
 
 def merge_stat(src, dest):

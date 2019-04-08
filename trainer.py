@@ -161,11 +161,10 @@ class Trainer(object):
         batch, stat = self.run_batch()
         if self.args.training_strategy in ['ddpg']:
             self.replay_process(stat)
-            if t%10 == 9:
-                params_target = list(self.target_net.parameters())
-                params_behaviour = list(self.behaviour_net.parameters())
-                for i in range(len(params_target)):
-                    params_target[i] = 0.999 * params_target[i] + (1 - 0.999) * params_behaviour[i]
+            params_target = list(self.target_net.parameters())
+            params_behaviour = list(self.behaviour_net.parameters())
+            for i in range(len(params_target)):
+                params_target[i] = 0.95 * params_target[i] + (1 - 0.95) * params_behaviour[i]
         else:
             s, (action_loss, value_loss, log_p_a) = self.get_batch_results(batch)
             merge_stat(s, stat)
