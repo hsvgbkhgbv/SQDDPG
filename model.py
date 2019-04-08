@@ -22,9 +22,6 @@ class Model(nn.Module):
     def construct_model(self):
         raise NotImplementedError()
 
-    def state_encoder(self, x):
-        raise NotImplementedError()
-
     def get_agent_mask(self, batch_size, info):
         '''
         define the getter of agent mask to confirm the living agent

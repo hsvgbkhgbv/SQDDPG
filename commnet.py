@@ -11,64 +11,42 @@ class CommNet(Model):
     def __init__(self, args):
         super(CommNet, self).__init__(args)
 
-    def construct_model(self):
-        '''
-        define the model of vanilla CommNet
-        '''
-        # encoder transforms observation to latent variables
-        self.encoder = nn.Linear(self.args.obs_size, self.args.hid_size)
-        # communication mask where the diagnal should be 0
-        self.comm_mask = cuda_wrapper(torch.ones(self.args.agent_num, self.args.agent_num) - torch.eye(self.args.agent_num, self.args.agent_num), self.cuda_)
-        # decoder transforms hidden states to action vector
-        self.action_head = nn.Linear(self.args.hid_size, self.args.action_dim)
-        # define communication inference
-        self.f_module = nn.Linear(self.args.hid_size, self.args.hid_size)
-        self.f_modules = nn.ModuleList([self.f_module for _ in range(self.args.comm_iters)])
-        # define communication encoder
-        self.C_module = nn.Linear(self.args.hid_size, self.args.hid_size)
-        self.C_modules = nn.ModuleList([self.C_module for _ in range(self.args.comm_iters)])
-        # if it is the skip connection then define another encoding transformation
+    def construct_policy_net(self):
+        self.action_dict = nn.ModuleDict( {'encoder': nn.Linear(self.obs_dim, self.hid_dim),\
+                                           'f_module': nn.Linear(self.hid_dim, self.hid_dim),\
+                                           'c_module': nn.Linear(self.hid_dim, self.hid_dim),\
+                                           'action_head': nn.Linear(self.hid_dim, self.act_dim)
+                                          }
+                                        )
+        self.action_dict['f_modules'] = nn.ModuleList( [ self.action_dict['f_module'] for _ in range(self.comm_iters) ] )
+        self.action_dict['c_modules'] = nn.ModuleList( [ self.action_dict['c_module'] for _ in range(self.comm_iters) ] )
         if self.args.skip_connection:
-#             self.E_module = nn.Linear(self.args.hid_size, self.args.hid_size)
-            self.E_modules = nn.ModuleList([nn.Linear(self.args.hid_size, self.args.hid_size) for _ in range(self.args.comm_iters)])
-        self.value_body = nn.Linear(self.args.obs_size, self.args.hid_size)
-        if self.args.training_strategy in ['reinforce', 'actor_critic']:
-            # define value function
-            self.value_head = nn.Linear(self.args.hid_size, 1)
-        elif self.args.training_strategy in ['ddpg']:
-            # define action value function
-            self.value_head = nn.Linear(self.args.hid_size+self.args.action_dim, 1)
+            self.action_dict['e_module'] = nn.Linear(self.hid_dim, self.hid_dim)
+            self.action_dict['e_modules'] = nn.ModuleList( [ self.action_dict['e_module'] for _ in range(self.comm_iters) ] )
 
-    def state_encoder(self, x):
-        '''
-        define a state encoder
-        '''
-        return torch.tanh(self.encoder(x))
+    def construct_model(self):
+        self.comm_mask = cuda_wrapper(torch.ones(self.n_, self.n_) - torch.eye(self.n_, self.n_), self.cuda_)
+        self.construct_value_net()
+        self.construct_policy_net()
 
     def policy(self, obs, info={}):
-        '''
-        define the action process of vanilla CommNet
-        '''
-        self.obs = obs
         # get the batch size
-        batch_size = obs.size()[0]
-        # get the total number of agents including dead
-        n = self.args.agent_num
+        batch_size = obs.size(0)
         # encode observation
         if self.args.skip_connection:
-            e = self.state_encoder(obs)
+            e = torch.relu( self.action_dict['encoder'](obs) )
             h = torch.zeros_like(e)
         else:
-            h = self.state_encoder(obs)
+            h = torch.tanh( self.action_dict['encoder'](obs) )
         # get the agent mask
         num_agents_alive, agent_mask = self.get_agent_mask(batch_size, info)
         # conduct the main process of communication
-        for i in range(self.args.comm_iters):
+        for i in range(self.comm_iters):
             # shape = (batch_size, n, hid_size)->(batch_size, n, 1, hid_size)->(batch_size, n, n, hid_size)
-            h_ = h.unsqueeze(-2).expand(batch_size, n, n, self.args.hid_size)
+            h_ = h.unsqueeze(-2).expand(batch_size, self.n_, self.n_, self.hid_dim)
             # construct the communication mask
-            mask = self.comm_mask.view(1, n, n) # shape = (1, n, n)
-            mask = mask.expand(batch_size, n, n) # shape = (batch_size, n, n)
+            mask = self.comm_mask.view(1, self.n_, self.n_) # shape = (1, n, n)
+            mask = mask.expand(batch_size, self.n_, self.n_) # shape = (batch_size, n, n)
             mask = mask.unsqueeze(-1) # shape = (batch_size, n, n, 1)
             mask = mask.expand_as(h_) # shape = (batch_size, n, n, hid_size)
             # mask each agent itself (collect the hidden state of other agents)
@@ -81,19 +59,10 @@ class CommNet(Model):
             c = h_.sum(dim=1) if i != 0 else torch.zeros_like(h) # shape = (batch_size, n, hid_size)
             if self.args.skip_connection:
                 # h_{j}^{i+1} = \sigma(H_j * h_j^{i+1} + C_j * c_j^{i+1} + E_{j} * e_j^{i+1})
-                h = torch.tanh(sum([self.f_modules[i](h), self.C_modules[i](c), self.E_modules[i](e)]))
+                h = torch.tanh( sum( [ self.action_dict['f_modules'][i](h), self.action_dict['c_modules'][i](c), self.action_dict['e_modules'][i](e) ] ) )
             else:
                 # h_{j}^{i+1} = \sigma(H_j * h_j^{i+1} + C_j * c_j^{i+1})
-                h = torch.tanh(sum([self.f_modules[i](h), self.C_modules[i](c)]))
-        self.hidden = h
+                h = torch.tanh( sum( [ self.action_dict['f_modules'][i](h), self.action_dict['c_modules'][i](c) ] ) )
         # calculate the action vector (policy)
-        action = self.action_head(h)
+        action = self.action_dict['action_head'](h)
         return action
-
-    def value(self, action):
-        if self.args.training_strategy in ['ddpg']:
-            return self.value_head(torch.cat((self.hidden, action), -1))
-        else:
-            h = self.value_body(self.obs)
-            h = torch.relu(h)
-            return self.value_head(h)

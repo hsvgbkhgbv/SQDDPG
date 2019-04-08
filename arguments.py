@@ -7,8 +7,8 @@ import numpy as np
 
 
 
-# model_name = 'commnet'
-model_name = 'ic3net'
+model_name = 'commnet'
+# model_name = 'ic3net'
 
 scenario_name = 'simple_spread'
 # scenario_name = 'simple'
@@ -53,7 +53,7 @@ args = Args(agent_num=env.get_num_of_agents(),
             obs_size=np.max(env.get_shape_of_obs()),
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
-            comm_iters=1,
+            comm_iters=2,
             init_std=0.1,
             lrate=1e-2,
             epoch_size=32,
@@ -64,7 +64,7 @@ args = Args(agent_num=env.get_num_of_agents(),
             entr=1e-3,
             action_num=np.max(env.get_input_shape_of_act()),
             skip_connection=True,
-            training_strategy='actor_critic',
+            training_strategy='reinforce',
             train_epoch_num=10000,
             replay_buffer_size=6.4e6,
             replay_iters=1,
