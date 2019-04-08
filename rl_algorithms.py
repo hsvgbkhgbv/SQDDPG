@@ -60,11 +60,11 @@ class REINFORCE(ReinforcementLearning):
         next_state = cuda_wrapper(prep_obs(list(zip(batch.next_state))), self.cuda_)
         action_out = behaviour_net.policy(state)
         # TODO: How to construct the backprop at this node for ddpg when the action is discrete
-        values = behaviour_net.value(actions.detach()).contiguous().view(-1, n)
+        values = behaviour_net.value(state, actions.detach()).contiguous().view(-1, n)
         # get the next actions and the next values
         next_action_out = behaviour_net.policy(next_state)
         next_actions = select_action(self.args, next_action_out.detach(), status='train')
-        next_values = behaviour_net.value(next_actions.detach()).contiguous().view(-1, n)
+        next_values = behaviour_net.value(next_state, next_actions.detach()).contiguous().view(-1, n)
         # calculate the return
         assert returns.size() == rewards.size()
         for i in reversed(range(rewards.size(0))):
@@ -110,11 +110,11 @@ class ActorCritic(ReinforcementLearning):
         next_state = cuda_wrapper(prep_obs(list(zip(batch.next_state))), self.cuda_)
         action_out = behaviour_net.policy(state)
         # TODO: How to construct the backprop at this node for ddpg when the action is discrete
-        values = behaviour_net.value(actions.detach()).contiguous().view(-1, n)
+        values = behaviour_net.value(state, actions.detach()).contiguous().view(-1, n)
         next_action_out = behaviour_net.policy(next_state)
         # TODO: How to construct the backprop at this node for ddpg when the action is discrete
         next_actions = select_action(self.args, next_action_out.detach(), status='train')
-        next_values = behaviour_net.value(next_actions).contiguous().view(-1, n)
+        next_values = behaviour_net.value(next_state, next_actions).contiguous().view(-1, n)
         # calculate the advantages
         deltas = cuda_wrapper(torch.zeros_like(values), self.cuda_)
         assert values.size() == next_values.size()
@@ -157,14 +157,14 @@ class DDPG(ReinforcementLearning):
         # do the argmax action on the action loss
         action_out = behaviour_net.policy(state)
         actions_ = select_action(args, action_out, status='train', exploration=False)
-        values_ = behaviour_net.value(actions_).contiguous().view(-1, n)
+        values_ = behaviour_net.value(state, actions_).contiguous().view(-1, n)
         # do the exploration action on the value loss
-        values = behaviour_net.value(actions).contiguous().view(-1, n)
+        values = behaviour_net.value(state, actions).contiguous().view(-1, n)
         # do the argmax action on the next value loss
         next_state = cuda_wrapper(prep_obs(list(zip(batch.next_state))), self.cuda_)
         next_action_out = target_net.policy(next_state)
         next_actions = select_action(self.args, next_action_out.detach(), status='train', exploration=False)
-        next_values_ = target_net.value(next_actions.detach()).contiguous().view(-1, n)
+        next_values_ = target_net.value(next_state, next_actions.detach()).contiguous().view(-1, n)
         assert values_.size() == next_values_.size()
         deltas = rewards + self.args.gamma * next_values_.detach() - values
         advantages = values_

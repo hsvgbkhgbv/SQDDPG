@@ -10,8 +10,8 @@ import numpy as np
 # model_name = 'commnet'
 model_name = 'ic3net'
 
-# scenario_name = 'simple_spread'
-scenario_name = 'simple'
+scenario_name = 'simple_spread'
+# scenario_name = 'simple'
 
 # load scenario from script
 scenario = scenario.load(scenario_name + ".py").Scenario()
@@ -55,7 +55,7 @@ args = Args(agent_num=env.get_num_of_agents(),
             action_dim=np.max(env.get_output_shape_of_act()),
             comm_iters=1,
             init_std=0.1,
-            lrate=1e-3,
+            lrate=1e-2,
             epoch_size=32,
             max_steps=50,
             gamma=0.99,
@@ -64,10 +64,10 @@ args = Args(agent_num=env.get_num_of_agents(),
             entr=1e-3,
             action_num=np.max(env.get_input_shape_of_act()),
             skip_connection=True,
-            training_strategy='ddpg',
+            training_strategy='actor_critic',
             train_epoch_num=10000,
             replay_buffer_size=6.4e6,
             replay_iters=1,
-            cuda=True,
+            cuda=False,
             grad_clip=True
            )

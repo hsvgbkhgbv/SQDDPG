@@ -33,8 +33,8 @@ class Trainer(object):
             self.replay_buffer = ReplayBuffer(int(self.args.replay_buffer_size))
         self.env = env
         if self.args.training_strategy in ['ddpg']:
-            self.actor_optimizer = optim.RMSprop(self.behaviour_net.actor.parameters(), lr = args.lrate, alpha=0.97, eps=1e-6)
-            self.critic_optimizer = optim.RMSprop(self.behaviour_net.critic.parameters(), lr = args.lrate*args.value_coeff, alpha=0.97, eps=1e-6)
+            self.action_optimizer = optim.RMSprop(self.behaviour_net.action_dict.parameters(), lr = args.lrate, alpha=0.97, eps=1e-6)
+            self.value_optimizer = optim.RMSprop(self.behaviour_net.value_dict.parameters(), lr = args.lrate*args.value_coeff, alpha=0.97, eps=1e-6)
         else:
             self.optimizer = optim.RMSprop(self.behaviour_net.parameters(), lr = args.lrate, alpha=0.97, eps=1e-6)
         # self.optimizer = optim.SGD(self.behaviour_net.parameters(), lr = args.lrate)
@@ -84,7 +84,7 @@ class Trainer(object):
         stat['num_steps'] = t + 1
         stat['mean_reward'] = mean_reward
         return (episode, stat)
-    
+
     def get_batch_results(self, batch):
         stat = dict()
         if self.args.training_strategy in ['ddpg']:
@@ -94,7 +94,7 @@ class Trainer(object):
         stat['action_loss'] = action_loss.item()
         stat['value_loss'] = value_loss.item()
         return stat, (action_loss, value_loss, log_p_a)
-    
+
     def compute_grad(self, batch_results):
         action_loss, value_loss, log_p_a = batch_results
         loss = action_loss + self.args.value_coeff * value_loss
@@ -102,19 +102,19 @@ class Trainer(object):
             loss -= self.args.entr * multinomial_entropy(log_p_a)
         # do the backpropogation
         loss.backward()
-    
-    def actor_compute_grad(self, batch_results):
+
+    def action_compute_grad(self, batch_results):
         action_loss, log_p_a = batch_results
         if self.args.entr > 0:
             action_loss -= self.args.entr * multinomial_entropy(log_p_a)
         # do the backpropogation
         action_loss.backward()
-        
-    def critic_compute_grad(self, batch_results):
+
+    def value_compute_grad(self, batch_results):
         value_loss = batch_results
         # do the backpropogation
         value_loss.backward()
-    
+
     def grad_clip(self, module):
         for name, param in module.named_parameters():
             param.grad.data.clamp_(-1, 1)
@@ -127,15 +127,15 @@ class Trainer(object):
             s, (action_loss, value_loss, log_p_a) = self.get_batch_results(batch)
             merge_stat(s, stat)
             if self.args.training_strategy in ['ddpg']:
-                self.critic_optimizer.zero_grad()
-                self.critic_compute_grad(value_loss)
-                self.grad_clip(self.behaviour_net.critic)
-                self.critic_optimizer.step()
-                self.actor_optimizer.zero_grad()
-                self.actor_compute_grad((action_loss, log_p_a))
-                self.grad_clip(self.behaviour_net.actor)
-                self.actor_optimizer.step()
-                
+                self.value_optimizer.zero_grad()
+                self.value_compute_grad(value_loss)
+                self.grad_clip(self.behaviour_net.value_dict)
+                self.value_optimizer.step()
+                self.action_optimizer.zero_grad()
+                self.action_compute_grad((action_loss, log_p_a))
+                self.grad_clip(self.behaviour_net.action_dict)
+                self.action_optimizer.step()
+
             else:
                 self.optimizer.zero_grad()
                 self.compute_grad((action_loss, value_loss, log_p_a))
