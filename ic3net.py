@@ -24,19 +24,21 @@ class IC3Net(Model):
         # define communication inference
         self.f_module = nn.LSTMCell(self.args.hid_size, self.args.hid_size)
         # define the gate function
-        # self.g_module = nn.Linear(self.args.hid_size, self.args.agent_num)
-        self.g_modules = nn.ModuleList([nn.Linear(self.args.hid_size, self.args.agent_num) for _ in range(self.args.comm_iters)])
+        self.g_module = nn.Linear(self.args.hid_size, self.args.agent_num)
+        self.g_modules = nn.ModuleList([self.g_module for _ in range(self.args.comm_iters)])
         # define value function or the action value function
         if self.args.training_strategy in ['reinforce', 'actor_critic']:
             self.value_head = nn.Linear(self.args.hid_size, 1)
         elif self.args.training_strategy in ['ddpg']:
-            self.value_head = nn.Linear(self.args.hid_size+self.args.action_dim, 1)
-        self.actor = nn.ModuleDict({'encoder': self.encoder,\
-                                    'action': self.action_head,\
+            self.value_body = nn.Linear(self.args.obs_size+self.args.action_dim, self.args.hid_size)
+            self.value_head = nn.Linear(self.args.hid_size, 1)
+        self.actor = nn.ModuleDict({'action': self.action_head,\
+                                    'encoder': self.encoder,\
                                     'f_modules': self.f_module,\
                                     'g_modules': self.g_modules
-                                       })
-        self.critic = nn.ModuleDict({'value': self.value_head,\
+                                   })
+        self.critic = nn.ModuleDict({'value_head': self.value_head,\
+                                     'value_body': self.value_body
                                     })
         
     def state_encoder(self, x):
@@ -49,6 +51,7 @@ class IC3Net(Model):
         '''
         define the action process of IC3Net
         '''
+        self.obs = obs
         # get the batch_size
         batch_size = obs.size(0)
         # get the total number of agents including dead
@@ -96,7 +99,9 @@ class IC3Net(Model):
 
     def value(self, action):
         if self.args.training_strategy in ['ddpg']:
-            return self.value_head(torch.cat((self.hidden, action), -1))
+            h = self.value_body(torch.cat((self.obs, action), -1))
+            h = torch.relu(h)
+            return self.value_head(h)
         else:
             return self.value_head(self.hidden)
 

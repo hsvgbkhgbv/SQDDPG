@@ -22,15 +22,16 @@ class CommNet(Model):
         # decoder transforms hidden states to action vector
         self.action_head = nn.Linear(self.args.hid_size, self.args.action_dim)
         # define communication inference
-        # self.f_module = nn.Linear(self.args.hid_size, self.args.hid_size)
-        self.f_modules = nn.ModuleList([nn.Linear(self.args.hid_size, self.args.hid_size) for _ in range(self.args.comm_iters)])
+        self.f_module = nn.Linear(self.args.hid_size, self.args.hid_size)
+        self.f_modules = nn.ModuleList([self.f_module for _ in range(self.args.comm_iters)])
         # define communication encoder
-        # self.C_module = nn.Linear(self.args.hid_size, self.args.hid_size)
-        self.C_modules = nn.ModuleList([nn.Linear(self.args.hid_size, self.args.hid_size) for _ in range(self.args.comm_iters)])
+        self.C_module = nn.Linear(self.args.hid_size, self.args.hid_size)
+        self.C_modules = nn.ModuleList([self.C_module for _ in range(self.args.comm_iters)])
         # if it is the skip connection then define another encoding transformation
         if self.args.skip_connection:
 #             self.E_module = nn.Linear(self.args.hid_size, self.args.hid_size)
             self.E_modules = nn.ModuleList([nn.Linear(self.args.hid_size, self.args.hid_size) for _ in range(self.args.comm_iters)])
+        self.value_body = nn.Linear(self.args.obs_size, self.args.hid_size)
         if self.args.training_strategy in ['reinforce', 'actor_critic']:
             # define value function
             self.value_head = nn.Linear(self.args.hid_size, 1)
@@ -48,6 +49,7 @@ class CommNet(Model):
         '''
         define the action process of vanilla CommNet
         '''
+        self.obs = obs
         # get the batch size
         batch_size = obs.size()[0]
         # get the total number of agents including dead
@@ -92,4 +94,6 @@ class CommNet(Model):
         if self.args.training_strategy in ['ddpg']:
             return self.value_head(torch.cat((self.hidden, action), -1))
         else:
-            return self.value_head(self.hidden)
+            h = self.value_body(self.obs)
+            h = torch.relu(h)
+            return self.value_head(h)

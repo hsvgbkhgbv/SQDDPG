@@ -113,7 +113,7 @@ class Trainer(object):
     def critic_compute_grad(self, batch_results):
         value_loss = batch_results
         # do the backpropogation
-        value_loss.backward(retain_graph=True)
+        value_loss.backward()
     
     def grad_clip(self, module):
         for name, param in module.named_parameters():
