@@ -1,0 +1,2 @@
+Args(agent_num=3, hid_size=64, obs_size=18, continuous=False, action_dim=5, comm_iters=1, init_std=0.1, lrate=0.01, epoch_size=32, max_steps=50, gamma=0.99, normalize_advantages=False, value_coeff=0.01, entr=0.001, action_num=5, skip_connection=True, training_strategy='reinforce', train_epoch_num=10000, replay_buffer_size=6400000.0, replay_iters=1, cuda=True, grad_clip=True)
+10000
