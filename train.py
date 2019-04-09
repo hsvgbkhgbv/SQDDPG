@@ -5,10 +5,8 @@ import torch
 from arguments import *
 import os
 from ic3net import *
+from util import *
 
-model_map = dict(commnet=CommNet,
-                 ic3net=IC3Net
-)
 
 model = model_map[model_name]
 
@@ -21,8 +19,8 @@ for i in range(args.train_epoch_num):
     print ('This is the epoch: {}, the mean reward is {:2.4f} and the current action loss to be minimized is: {:2.4f}\n'.format(epoch, train.stats['mean_reward'], train.stats['action_loss']))
     epoch += 1
     if i%10 == 9:
+        torch.save({'model_state_dict': train.behaviour_net.state_dict()}, './exp1/' + scenario_name + '_' + args.training_strategy + '_' + model_name + '.pt')
         print ('The model is saved!\n')
-        torch.save(train.behaviour_net, './exp1/' + scenario_name + '_' + args.training_strategy + '_' + model_name + '.pt')
         with open('./exp1/' + scenario_name + '_' + args.training_strategy + '_' + model_name + '.log', 'w+') as file:
             file.write(str(args)+'\n')
             file.write(str(epoch))

@@ -10,6 +10,10 @@ class IC3Net(Model):
 
     def __init__(self, args):
         super(IC3Net, self).__init__(args)
+        if self.comm_iters == 0:
+            raise RuntimeError('Please guarantee the comm iters is at least greater equal to 1.')
+        elif self.comm_iters < 2:
+            raise RuntimeError('Please use IndependentIC3Net if the comm iters is set to 1.')
 
     def construct_policy_net(self):
         self.action_dict = nn.ModuleDict( {'encoder': nn.Linear(self.obs_dim, self.hid_dim),\
@@ -70,3 +74,9 @@ class IC3Net(Model):
         # dim 0 = num of layers * num of direction
         return (cuda_wrapper(torch.zeros(batch_size * self.n_, self.hid_dim), self.cuda_),
                 cuda_wrapper(torch.zeros(batch_size * self.n_, self.hid_dim), self.cuda_))
+
+
+class IndependentIC3Net(IC3Net):
+    def __init__(self, args):
+        super(IndependentIC3Net, self).__init__(args)
+        self.comm_iters = 1
