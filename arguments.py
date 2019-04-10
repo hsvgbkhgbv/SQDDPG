@@ -17,10 +17,10 @@ model_map = dict(commnet=CommNet,
 )
 
 # model_name = 'commnet'
-# model_name = 'ic3net'
+model_name = 'ic3net'
 # model_name = 'independent_commnet'
 # model_name = 'independent_ic3net'
-model_name = 'maddpg'
+# model_name = 'maddpg'
 
 scenario_name = 'simple_spread'
 # scenario_name = 'simple'
@@ -42,12 +42,12 @@ Args = namedtuple('Args', ['agent_num',
                            'action_dim',
                            'comm_iters',
                            'init_std',
-                           'lrate',
+                           'policy_lrate',
+                           'value_lrate',
                            'epoch_size',
                            'max_steps',
                            'gamma',
                            'normalize_advantages',
-                           'value_coeff',
                            'entr',
                            'action_num',
                            'skip_connection',
@@ -59,6 +59,7 @@ Args = namedtuple('Args', ['agent_num',
                            'grad_clip',
                            'target_lr',
                            'target_update_freq',
+                           'behaviour_update_freq',
                            'save_model_freq'
                           ]
                  )
@@ -70,22 +71,23 @@ args = Args(agent_num=env.get_num_of_agents(),
             action_dim=np.max(env.get_output_shape_of_act()),
             comm_iters=2,
             init_std=0.1,
-            lrate=1e-2,
+            policy_lrate=1e-2,
+            value_lrate=1e-2,
             epoch_size=32,
             max_steps=50,
-            gamma=0.99,
+            gamma=0.95,
             normalize_advantages=False,
-            value_coeff=10.0,
             entr=1e-3,
             action_num=np.max(env.get_input_shape_of_act()),
             skip_connection=True,
-            training_strategy='ddpg',
+            training_strategy='reinforce',
             train_epoch_num=10000,
             replay_buffer_size=1e6,
             replay_iters=1,
             cuda=False,
             grad_clip=True,
-            target_lr=1e-1,
-            target_update_freq=10,
+            target_lr=1e-2,
+            target_update_freq=2,
+            behaviour_update_freq=2,
             save_model_freq=10
            )

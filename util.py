@@ -34,22 +34,6 @@ class GumbelSoftmax(OneHotCategorical):
         return self.rsample().detach()
 
 
-def merge_stat(src, dest):
-    for k, v in src.items():
-        if not k in dest:
-            dest[k] = v
-        elif isinstance(v, numbers.Number):
-            dest[k] = dest.get(k, 0) + v
-        elif isinstance(v, np.ndarray): # for rewards in case of multi-agent
-            dest[k] = dest.get(k, 0) + v
-        else:
-            if isinstance(dest[k], list) and isinstance(v, list):
-                dest[k].extend(v)
-            elif isinstance(dest[k], list):
-                dest[k].append(v)
-            else:
-                dest[k] = [dest[k], v]
-
 def normal_entropy(mean, std):
     return Normal(mean, std).entropy().sum()
 
@@ -134,3 +118,9 @@ def batchnorm(batch):
         return (batch - batch.mean()) / batch.std()
     else:
         raise RuntimeError('Please enter a pytorch tensor, now a {} is received.'.format(type(batch)))
+
+def get_grad_norm(module):
+    grad_norms = []
+    for name, param in module.named_parameters():
+        grad_norms.append(torch.norm(param.grad))
+    return np.mean(grad_norms)

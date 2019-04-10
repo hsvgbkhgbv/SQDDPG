@@ -28,7 +28,7 @@ class IC3Net(Model):
         self.construct_value_net()
         self.construct_policy_net()
 
-    def policy(self, obs, info={}):
+    def policy(self, obs, info={}, stat={}):
         batch_size = obs.size(0)
         # encode observation
         e = torch.relu(self.action_dict['encoder'](obs))
@@ -68,6 +68,8 @@ class IC3Net(Model):
         h = h.contiguous().view(batch_size, self.n_, self.hid_dim)
         # calculate the action vector (policy)
         action = self.action_dict['action_head'](h)
+        if len(list(stat.keys())) != 0:
+            stat['comm_gate'] = gate_.cpu().numpy().squeeze()
         return action
 
     def init_hidden(self, batch_size):
