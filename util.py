@@ -122,5 +122,5 @@ def batchnorm(batch):
 def get_grad_norm(module):
     grad_norms = []
     for name, param in module.named_parameters():
-        grad_norms.append(torch.norm(param.grad))
+        grad_norms.append(torch.norm(param.grad).item())
     return np.mean(grad_norms)

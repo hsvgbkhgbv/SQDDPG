@@ -16,8 +16,8 @@ model_map = dict(commnet=CommNet,
                  maddpg=MADDPG
 )
 
-# model_name = 'commnet'
-model_name = 'ic3net'
+model_name = 'commnet'
+# model_name = 'ic3net'
 # model_name = 'independent_commnet'
 # model_name = 'independent_ic3net'
 # model_name = 'maddpg'
@@ -72,7 +72,7 @@ args = Args(agent_num=env.get_num_of_agents(),
             comm_iters=2,
             init_std=0.1,
             policy_lrate=1e-2,
-            value_lrate=5e-2,
+            value_lrate=1e-2,
             epoch_size=32,
             max_steps=50,
             gamma=0.95,
@@ -84,7 +84,7 @@ args = Args(agent_num=env.get_num_of_agents(),
             train_epoch_num=10000,
             replay_buffer_size=1e6,
             replay_iters=1,
-            cuda=False,
+            cuda=True,
             grad_clip=True,
             target_lr=1e-2,
             target_update_freq=2,

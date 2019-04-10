@@ -33,7 +33,7 @@ class CommNet(Model):
         self.construct_value_net()
         self.construct_policy_net()
 
-    def policy(self, obs, info={}):
+    def policy(self, obs, info={}, stat={}):
         # get the batch size
         batch_size = obs.size(0)
         # encode observation
