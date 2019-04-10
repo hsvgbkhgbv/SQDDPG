@@ -18,7 +18,7 @@ for i in range(args.train_epoch_num):
     train.train_batch(i)
     print ('This is the epoch: {}, the mean reward is {:2.4f} and the current action loss to be minimized is: {:2.4f}\n'.format(epoch, train.stats['mean_reward'], train.stats['action_loss']))
     epoch += 1
-    if i%10 == 9:
+    if i%args.save_model_freq == args.save_model_freq-1:
         torch.save({'model_state_dict': train.behaviour_net.state_dict()}, './exp1/' + scenario_name + '_' + args.training_strategy + '_' + model_name + '.pt')
         print ('The model is saved!\n')
         with open('./exp1/' + scenario_name + '_' + args.training_strategy + '_' + model_name + '.log', 'w+') as file:

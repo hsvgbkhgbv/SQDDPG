@@ -8,6 +8,7 @@ from ic3net import *
 from maddpg import *
 
 
+
 model_map = dict(commnet=CommNet,
                  ic3net=IC3Net,
                  independent_commnet=IndependentCommNet,
@@ -21,8 +22,8 @@ model_map = dict(commnet=CommNet,
 # model_name = 'independent_ic3net'
 model_name = 'maddpg'
 
-# scenario_name = 'simple_spread'
-scenario_name = 'simple'
+scenario_name = 'simple_spread'
+# scenario_name = 'simple'
 
 # load scenario from script
 scenario = scenario.load(scenario_name + ".py").Scenario()
@@ -56,7 +57,9 @@ Args = namedtuple('Args', ['agent_num',
                            'replay_iters',
                            'cuda',
                            'grad_clip',
-                           'target_lr'
+                           'target_lr',
+                           'target_update_freq',
+                           'save_model_freq'
                           ]
                  )
 
@@ -78,9 +81,11 @@ args = Args(agent_num=env.get_num_of_agents(),
             skip_connection=True,
             training_strategy='ddpg',
             train_epoch_num=10000,
-            replay_buffer_size=6.4e6,
+            replay_buffer_size=1e6,
             replay_iters=1,
             cuda=False,
             grad_clip=True,
-            target_lr=1e-1
+            target_lr=1e-1,
+            target_update_freq=10,
+            save_model_freq=10
            )

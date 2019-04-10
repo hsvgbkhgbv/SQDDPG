@@ -161,10 +161,12 @@ class Trainer(object):
         batch, stat = self.run_batch()
         if self.args.training_strategy in ['ddpg']:
             self.replay_process(stat)
-            params_target = list(self.target_net.parameters())
-            params_behaviour = list(self.behaviour_net.parameters())
-            for i in range(len(params_target)):
-                params_target[i] = (1 - self.args.target_lr) * params_target[i] + self.args.target_lr * params_behaviour[i]
+            if t%self.args.target_update_freq == self.args.target_update_freq - 1:
+                params_target = list(self.target_net.parameters())
+                params_behaviour = list(self.behaviour_net.parameters())
+                for i in range(len(params_target)):
+                    params_target[i] = (1 - self.args.target_lr) * params_target[i] + self.args.target_lr * params_behaviour[i]
+                print ('traget net is updated!\n')
         else:
             s, (action_loss, value_loss, log_p_a) = self.get_batch_results(batch)
             merge_stat(s, stat)

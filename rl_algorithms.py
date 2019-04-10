@@ -13,7 +13,7 @@ class ReinforcementLearning(object):
         self.name = name
         self.args = args
         self.cuda_ = self.args.cuda
-        print (args)
+        print ( '{}\n'.format(args) )
 
     def __str__(self):
         print (self.name)
