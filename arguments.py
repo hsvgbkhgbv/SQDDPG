@@ -16,11 +16,11 @@ model_map = dict(commnet=CommNet,
                  maddpg=MADDPG
 )
 
-model_name = 'commnet'
+# model_name = 'commnet'
 # model_name = 'ic3net'
 # model_name = 'independent_commnet'
 # model_name = 'independent_ic3net'
-# model_name = 'maddpg'
+model_name = 'maddpg'
 
 scenario_name = 'simple_spread'
 # scenario_name = 'simple'
@@ -80,14 +80,14 @@ args = Args(agent_num=env.get_num_of_agents(),
             entr=1e-3,
             action_num=np.max(env.get_input_shape_of_act()),
             skip_connection=True,
-            training_strategy='reinforce',
+            training_strategy='ddpg',
             train_epoch_num=10000,
             replay_buffer_size=1e6,
             replay_iters=1,
             cuda=True,
             grad_clip=True,
             target_lr=1e-2,
-            target_update_freq=2,
+            target_update_freq=4,
             behaviour_update_freq=1,
             save_model_freq=10
            )

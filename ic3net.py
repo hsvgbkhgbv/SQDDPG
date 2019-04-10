@@ -41,7 +41,8 @@ class IC3Net(Model):
             h_ = h.contiguous().view(batch_size, self.n_, self.hid_dim)
             # define the gate function
             gate_ = torch.sigmoid(self.action_dict['g_modules'][i](h_))
-            gate = torch.round(gate_)
+            gate_ = cuda_wrapper(torch.ones(self.n_, self.n_) - torch.eye(self.n_, self.n_), self.cuda_) * gate_
+            gate_ = torch.round(gate_)
             # shape = (batch_size, n, hid_size)->(batch_size, n, 1, hid_size)->(batch_size, n, n, hid_size)
             h_ = h_.unsqueeze(-2).expand(batch_size, self.n_, self.n_, self.hid_dim)
             # construct the communication mask
@@ -50,7 +51,7 @@ class IC3Net(Model):
             mask = mask.unsqueeze(-1) # shape = (batch_size, n, n, 1)
             mask = mask.expand_as(h_) # shape = (batch_size, n, n, hid_size)
             # construct the commnication gate
-            gate = gate.contiguous().view(batch_size, self.n_, self.n_) # shape = (batch_size, n, n)
+            gate = gate_.contiguous().view(batch_size, self.n_, self.n_) # shape = (batch_size, n, n)
             gate = gate.unsqueeze(-1) # shape = (batch_size, n, n, 1)
             gate = gate.expand_as(h_) # shape = (batch_size, n, n, hid_size)
             # mask each agent itself (collect the hidden state of other agents)
@@ -68,8 +69,8 @@ class IC3Net(Model):
         h = h.contiguous().view(batch_size, self.n_, self.hid_dim)
         # calculate the action vector (policy)
         action = self.action_dict['action_head'](h)
-        if len(list(stat.keys())) != 0:
-            stat['comm_gate'] = gate_.cpu().numpy().squeeze()
+        if batch_size == 1:
+            stat['comm_gate'] = gate_.squeeze().unsqueeze(-1).detach().cpu().numpy()
         return action
 
     def init_hidden(self, batch_size):
