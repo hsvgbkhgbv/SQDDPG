@@ -22,7 +22,10 @@ for i in range(args.train_epoch_num):
         stat = train.train_batch(i, batch, stat)
         print ('This is the epoch: {}, the mean reward is {:2.4f} and the current action loss to be minimized is: {:2.4f}\n'.format(i, stat['mean_reward'], stat['action_loss']))
         for tag, value in stat.items():
-            logger.scalar_summary(tag, value, i)
+            if isinstance(value, np.ndarray):
+                logger.image_summary(tag, value, i)
+            else:
+                logger.scalar_summary(tag, value, i)
     if i%args.save_model_freq == args.save_model_freq-1:
         if 'model_save' not in os.listdir('./'):
             os.mkdir('./model_save')

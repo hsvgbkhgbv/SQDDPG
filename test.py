@@ -7,7 +7,7 @@ from commnet import *
 
 model = model_map[model_name]
 
-PATH='./exp1/' + scenario_name + '_' + args.training_strategy + '_' + model_name + '.pt'
+PATH='./model_save/' + scenario_name + '_' + args.training_strategy + '_' + model_name + '.pt'
 behaviour_net = model(args)
 checkpoint = torch.load(PATH)
 behaviour_net.load_state_dict(checkpoint['model_state_dict'])
