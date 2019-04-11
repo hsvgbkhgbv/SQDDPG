@@ -3,9 +3,12 @@ import numpy as np
 import torch
 from torch import optim
 import torch.nn as nn
-from util import *
-from replay_buffer import *
-from rl_algorithms import *
+from utilities.util import *
+from utilities.replay_buffer import *
+from learning_algorithms.actor_critic import *
+from learning_algorithms.reinforce import *
+from learning_algorithms.ddpg import *
+
 
 
 # define a transition of an episode

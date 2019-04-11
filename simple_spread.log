@@ -1,2 +1,0 @@
-Args(agent_num=3, hid_size=128, obs_size=18, continuous=False, action_dim=5, comm_iters=1, init_std=0.1, lrate=0.001, batch_size=32, max_steps=100, gamma=0.99, normalize_rewards=True, value_coeff=0.001, entr=0.0, action_num=5, skip_connection=True, training_strategy='reinforce')
-1000

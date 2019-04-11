@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from util import *
+from utilities.util import *
 import time
 
 

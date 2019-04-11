@@ -1,16 +1,14 @@
 import numpy as np
-from commnet import *
 from trainer import *
 import torch
 from arguments import *
 import os
-from ic3net import *
-from util import *
-from logger import Logger
+from utilities.util import *
+from utilities.logger import Logger
 
 
 
-logger = Logger('./logs' + '_' + scenario_name + '_' + args.training_strategy + '_' + model_name)
+logger = Logger('./logs/' + log_name)
 
 model = model_map[model_name]
 
@@ -29,8 +27,10 @@ for i in range(args.train_epoch_num):
     if i%args.save_model_freq == args.save_model_freq-1:
         if 'model_save' not in os.listdir('./'):
             os.mkdir('./model_save')
-        torch.save({'model_state_dict': train.behaviour_net.state_dict()}, './model_save/' + scenario_name + '_' + args.training_strategy + '_' + model_name + '.pt')
+        if log_name not in os.listdir('./model_save/'):
+            os.mkdir('./model_save/'+log_name)
+        torch.save({'model_state_dict': train.behaviour_net.state_dict()}, './model_save/' + log_name + '/model.pt')
         print ('The model is saved!\n')
-        with open('./model_save/' + scenario_name + '_' + args.training_strategy + '_' + model_name + '.log', 'w+') as file:
+        with open('./model_save/' + log_name + '/log.txt', 'w+') as file:
             file.write(str(args)+'\n')
             file.write(str(i))

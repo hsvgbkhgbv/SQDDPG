@@ -1,11 +1,11 @@
 from collections import namedtuple
 from multiagent.environment import MultiAgentEnv
 import multiagent.scenarios as scenario
-from gym_wrapper import *
+from utilities.gym_wrapper import *
 import numpy as np
-from commnet import *
-from ic3net import *
-from maddpg import *
+from models.commnet import *
+from models.ic3net import *
+from models.maddpg import *
 
 
 
@@ -17,13 +17,15 @@ model_map = dict(commnet=CommNet,
 )
 
 # model_name = 'commnet'
-# model_name = 'ic3net'
+model_name = 'ic3net'
 # model_name = 'independent_commnet'
 # model_name = 'independent_ic3net'
-model_name = 'maddpg'
+# model_name = 'maddpg'
 
 scenario_name = 'simple_spread'
 # scenario_name = 'simple'
+
+alias = '_q_func'
 
 # load scenario from script
 scenario = scenario.load(scenario_name + ".py").Scenario()
@@ -52,6 +54,7 @@ Args = namedtuple('Args', ['agent_num',
                            'action_num',
                            'skip_connection',
                            'training_strategy',
+                           'q_func',
                            'train_epoch_num',
                            'replay_buffer_size',
                            'replay_iters',
@@ -80,14 +83,17 @@ args = Args(agent_num=env.get_num_of_agents(),
             entr=1e-3,
             action_num=np.max(env.get_input_shape_of_act()),
             skip_connection=True,
-            training_strategy='ddpg',
+            training_strategy='actor_critic',
+            q_func=True,
             train_epoch_num=10000,
             replay_buffer_size=1e6,
             replay_iters=1,
-            cuda=True,
+            cuda=False,
             grad_clip=True,
             target_lr=1e-2,
             target_update_freq=4,
             behaviour_update_freq=1,
             save_model_freq=10
            )
+
+log_name = scenario_name + '_' + args.training_strategy + '_' + model_name + alias
