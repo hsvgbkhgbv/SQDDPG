@@ -16,16 +16,16 @@ model_map = dict(commnet=CommNet,
                  maddpg=MADDPG
 )
 
-# model_name = 'commnet'
+model_name = 'commnet'
 # model_name = 'ic3net'
 # model_name = 'independent_commnet'
-model_name = 'independent_ic3net'
+# model_name = 'independent_ic3net'
 # model_name = 'maddpg'
 
 scenario_name = 'simple_spread'
 # scenario_name = 'simple'
 
-alias = '_q_func'
+alias = ''
 
 # load scenario from script
 scenario = scenario.load(scenario_name + ".py").Scenario()
@@ -76,7 +76,7 @@ args = Args(agent_num=env.get_num_of_agents(),
             comm_iters=2,
             init_std=0.1,
             policy_lrate=1e-2,
-            value_lrate=2e-2,
+            value_lrate=4e-2,
             epoch_size=32,
             max_steps=50,
             gamma=0.95,
@@ -84,8 +84,8 @@ args = Args(agent_num=env.get_num_of_agents(),
             entr=1e-3,
             action_num=np.max(env.get_input_shape_of_act()),
             skip_connection=False,
-            training_strategy='actor_critic',
-            q_func=True,
+            training_strategy='reinforce',
+            q_func=False,
             train_epoch_num=10000,
             replay_buffer_size=1e6,
             replay_iters=1,
