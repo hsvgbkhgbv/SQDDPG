@@ -122,3 +122,10 @@ def get_grad_norm(module):
     for name, param in module.named_parameters():
         grad_norms.append(torch.norm(param.grad).item())
     return np.mean(grad_norms)
+
+def merge_dict(stat, key, value):
+    if key in stat.keys():
+        stat[key] += value
+        stat[key] /= 2
+    else:
+        stat[key] = value

@@ -17,9 +17,9 @@ model_map = dict(commnet=CommNet,
 )
 
 # model_name = 'commnet'
-model_name = 'ic3net'
+# model_name = 'ic3net'
 # model_name = 'independent_commnet'
-# model_name = 'independent_ic3net'
+model_name = 'independent_ic3net'
 # model_name = 'maddpg'
 
 scenario_name = 'simple_spread'
@@ -63,7 +63,8 @@ Args = namedtuple('Args', ['agent_num',
                            'target_lr',
                            'target_update_freq',
                            'behaviour_update_freq',
-                           'save_model_freq'
+                           'save_model_freq',
+                           'replay'
                           ]
                  )
 
@@ -75,25 +76,26 @@ args = Args(agent_num=env.get_num_of_agents(),
             comm_iters=2,
             init_std=0.1,
             policy_lrate=1e-2,
-            value_lrate=1e-2,
+            value_lrate=2e-2,
             epoch_size=32,
             max_steps=50,
             gamma=0.95,
             normalize_advantages=False,
             entr=1e-3,
             action_num=np.max(env.get_input_shape_of_act()),
-            skip_connection=True,
+            skip_connection=False,
             training_strategy='actor_critic',
             q_func=True,
             train_epoch_num=10000,
             replay_buffer_size=1e6,
             replay_iters=1,
-            cuda=False,
+            cuda=True,
             grad_clip=True,
             target_lr=1e-2,
-            target_update_freq=4,
+            target_update_freq=8,
             behaviour_update_freq=1,
-            save_model_freq=10
+            save_model_freq=10,
+            replay=False
            )
 
 log_name = scenario_name + '_' + args.training_strategy + '_' + model_name + alias

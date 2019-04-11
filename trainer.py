@@ -31,8 +31,11 @@ class Trainer(object):
         self.behaviour_net = model(self.args).cuda() if self.cuda_ else model(self.args)
         self.rl = rl_algo_map[self.args.training_strategy](args)
         if self.args.training_strategy == 'ddpg':
+            assert self.args.replay == True
+            assert self.args.q_func == True
             self.target_net = model(self.args).cuda() if self.cuda_ else model(self.args)
             self.target_net.load_state_dict(self.behaviour_net.state_dict())
+        if self.args.replay:
             self.replay_buffer = ReplayBuffer(int(self.args.replay_buffer_size))
         self.env = env
         self.action_optimizer = optim.Adam(self.behaviour_net.action_dict.parameters(), lr = args.policy_lrate)
@@ -115,8 +118,8 @@ class Trainer(object):
                                     self.args.epoch_size*self.args.max_steps)
             batch = Transition(*zip(*batch))
             action_loss, value_loss, log_p_a = self.get_batch_results(batch)
-            action_loss_ += action_loss.mean().item()
-            value_loss_ += value_loss.mean().item()
+            action_loss_ += action_loss.item()
+            value_loss_ += value_loss.item()
             self.value_optimizer.zero_grad()
             self.value_compute_grad(value_loss)
             self.grad_clip(self.behaviour_net.value_dict)
@@ -127,10 +130,10 @@ class Trainer(object):
             self.grad_clip(self.behaviour_net.action_dict)
             policy_grad_norm += get_grad_norm(self.behaviour_net.action_dict)
             self.action_optimizer.step()
-        stat['action_loss'] = action_loss_ / self.args.replay_iters
-        stat['value_loss'] = value_loss_ / self.args.replay_iters
-        stat['policy_grad_norm'] = policy_grad_norm / self.args.replay_iters
-        stat['value_grad_norm'] = value_grad_norm / self.args.replay_iters
+        merge_dict(stat, 'action_loss', action_loss_ / self.args.replay_iters)
+        merge_dict(stat, 'value_loss', value_loss_ / self.args.replay_iters)
+        merge_dict(stat, 'policy_grad_norm', policy_grad_norm / self.args.replay_iters)
+        merge_dict(stat, 'value_grad_norm', value_grad_norm / self.args.replay_iters)
 
     def online_process(self, stat, batch):
         action_loss, value_loss, log_p_a = self.get_batch_results(batch)
@@ -144,8 +147,8 @@ class Trainer(object):
         self.grad_clip(self.behaviour_net.action_dict)
         stat['policy_grad_norm'] = get_grad_norm(self.behaviour_net.action_dict)
         self.action_optimizer.step()
-        stat['action_loss'] = action_loss.mean().item()
-        stat['value_loss'] = value_loss.mean().item()
+        stat['action_loss'] = action_loss.item()
+        stat['value_loss'] = value_loss.item()
 
     def run_batch(self):
         batch = []
@@ -159,7 +162,7 @@ class Trainer(object):
             average_num_steps += num_steps
             num_episodes += 1
             batch += episode
-            if self.args.training_strategy in ['ddpg']:
+            if self.args.replay:
                 self.replay_buffer.add_experience(episode)
         stats['batch_finish_steps'] = len(batch)
         stats['mean_reward'] = average_mean_reward / self.args.epoch_size
@@ -178,4 +181,6 @@ class Trainer(object):
                 print ('traget net is updated!\n')
         else:
             self.online_process(stat, batch)
+            if self.args.replay:
+                self.replay_process(stat)
         return stat
