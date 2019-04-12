@@ -30,9 +30,12 @@ class Trainer(object):
         self.cuda_ = self.args.cuda and torch.cuda.is_available()
         self.behaviour_net = model(self.args).cuda() if self.cuda_ else model(self.args)
         self.rl = rl_algo_map[self.args.training_strategy](args)
-        if self.args.training_strategy == 'ddpg':
+        if self.args.training_strategy in ['ddpg']:
             assert self.args.replay == True
             assert self.args.q_func == True
+        elif self.args.training_strategy in ['reinforce']:
+            assert self.args.replay == False
+        if self.args.training_strategy in ['ddpg', 'actor_critic']:
             self.target_net = model(self.args).cuda() if self.cuda_ else model(self.args)
             self.target_net.load_state_dict(self.behaviour_net.state_dict())
         if self.args.replay:
@@ -84,7 +87,7 @@ class Trainer(object):
         return episode, mean_reward, num_steps
 
     def get_batch_results(self, batch):
-        if self.args.training_strategy in ['ddpg']:
+        if self.args.training_strategy in ['ddpg', 'actor_critic']:
             action_loss, value_loss, log_p_a = self.rl(batch, self.behaviour_net, self.target_net)
         else:
             action_loss, value_loss, log_p_a = self.rl(batch, self.behaviour_net)
@@ -173,7 +176,7 @@ class Trainer(object):
     def train_batch(self, t, batch, stat):
         if self.args.training_strategy in ['ddpg']:
             self.replay_process(stat)
-            if t%self.args.target_update_freq == self.args.target_update_freq - 1:
+            if t%self.args.target_update_freq == self.args.target_update_freq-1:
                 params_target = list(self.target_net.parameters())
                 params_behaviour = list(self.behaviour_net.parameters())
                 for i in range(len(params_target)):
@@ -181,6 +184,13 @@ class Trainer(object):
                 print ('traget net is updated!\n')
         else:
             self.online_process(stat, batch)
+            if self.args.training_strategy in ['actor_critic']:
+                if t%self.args.target_update_freq == self.args.target_update_freq-1:
+                    params_target = list(self.target_net.parameters())
+                    params_behaviour = list(self.behaviour_net.parameters())
+                    for i in range(len(params_target)):
+                        params_target[i] = (1 - self.args.target_lr) * params_target[i] + self.args.target_lr * params_behaviour[i]
+                    print ('traget net is updated!\n')
             if self.args.replay:
                 self.replay_process(stat)
         return stat

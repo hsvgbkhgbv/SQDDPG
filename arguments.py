@@ -32,8 +32,8 @@ model_name = 'independent_commnet'
 # model_name = 'maddpg'
 
 '''define the scenario name'''
-scenario_name = 'simple_spread'
-# scenario_name = 'simple'
+# scenario_name = 'simple_spread'
+scenario_name = 'simple'
 
 '''define the training strategy'''
 training_strategy='actor_critic'
@@ -41,7 +41,7 @@ training_strategy='actor_critic'
 '''define the special property'''
 # commnetArgs = namedtuple( 'commnetArgs', ['skip_connection', 'comm_iters'] )
 # ic3netArgs = namedtuple( 'ic3netArgs', ['comm_iters'] )
-# maddpgArgs = namedtuple( 'maddpgArgs', ['target_lr', 'target_update_freq'] )
+# maddpgArgs = namedtuple( 'maddpgArgs', [] )
 aux_args = AuxArgs[model_name](skip_connection=False, comm_iters=2)
 alias = '_q_func'
 
@@ -78,7 +78,9 @@ Args = namedtuple('Args', ['agent_num',
                            'grad_clip',
                            'behaviour_update_freq',
                            'save_model_freq',
-                           'replay'
+                           'replay', 
+                           'target_lr',
+                           'target_update_freq'
                           ]
                  )
 
@@ -91,7 +93,7 @@ args = Args(agent_num=env.get_num_of_agents(),
             action_dim=np.max(env.get_output_shape_of_act()),
             init_std=0.1,
             policy_lrate=1e-2,
-            value_lrate=1e-2,
+            value_lrate=2e-2,
             epoch_size=32,
             max_steps=50,
             gamma=0.95,
@@ -99,15 +101,17 @@ args = Args(agent_num=env.get_num_of_agents(),
             entr=1e-3,
             action_num=np.max(env.get_input_shape_of_act()),
             training_strategy=training_strategy,
-            q_func=True,
+            q_func=False,
             train_epoch_num=10000,
             replay_buffer_size=1e6,
-            replay_iters=1,
+            replay_iters=10,
             cuda=True,
             grad_clip=True,
             behaviour_update_freq=1,
             save_model_freq=10,
-            replay=False
+            replay=True,
+            target_lr=1e-2,
+            target_update_freq=2
            )
 
 args = MergeArgs(*(args+aux_args))
