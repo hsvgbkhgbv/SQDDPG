@@ -33,7 +33,7 @@ class ActorCritic(ReinforcementLearning):
         deltas = cuda_wrapper(torch.zeros_like(values), self.cuda_)
         assert values.size() == next_values.size()
         deltas = rewards + self.args.gamma * next_values.detach() - values
-        advantages = values.detach()
+        advantages = deltas.detach()
         # construct the action loss and the value loss
         if self.args.continuous:
             action_means = actions.contiguous().view(-1, self.args.action_dim)

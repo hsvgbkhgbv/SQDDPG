@@ -6,6 +6,7 @@ import numpy as np
 from models.commnet import *
 from models.ic3net import *
 from models.maddpg import *
+from aux import *
 
 
 
@@ -16,30 +17,41 @@ model_map = dict(commnet=CommNet,
                  maddpg=MADDPG
 )
 
+AuxArgs = dict(commnet=commnetArgs,
+               independent_commnet=commnetArgs,
+               ic3net=ic3netArgs,
+               independent_ic3net=ic3netArgs,
+               maddpg=maddpgArgs
+              )
+
 '''define the model name'''
 # model_name = 'commnet'
 # model_name = 'ic3net'
-# model_name = 'independent_commnet'
+model_name = 'independent_commnet'
 # model_name = 'independent_ic3net'
-model_name = 'maddpg'
+# model_name = 'maddpg'
 
 '''define the scenario name'''
 scenario_name = 'simple_spread'
 # scenario_name = 'simple'
 
 '''define the special property'''
-alias = '_' + ''
+# commnetArgs = namedtuple( 'commnetArgs', ['skip_connection', 'comm_iters'] )
+# ic3netArgs = namedtuple( 'ic3netArgs', ['comm_iters'] )
+# maddpgArgs = namedtuple( 'maddpgArgs', ['target_lr', 'target_update_freq'] )
+aux_args = AuxArgs[model_name](skip_connection=True, comm_iters=2)
+alias = '_skip_connection'
 
 '''define the training strategy'''
-training_strategy='ddpg'
+training_strategy='reinforce'
 
-# load scenario from script
+'''load scenario from script'''
 scenario = scenario.load(scenario_name + ".py").Scenario()
 
-# create world
+'''create world'''
 world = scenario.make_world()
 
-# create multiagent environment
+'''create multiagent environment''' 
 env = MultiAgentEnv(world, scenario.reset_world, scenario.reward, scenario.observation, info_callback=None, shared_viewer=True)
 env = GymWrapper(env)
 
@@ -48,7 +60,6 @@ Args = namedtuple('Args', ['agent_num',
                            'obs_size',
                            'continuous',
                            'action_dim',
-                           'comm_iters',
                            'init_std',
                            'policy_lrate',
                            'value_lrate',
@@ -58,7 +69,6 @@ Args = namedtuple('Args', ['agent_num',
                            'normalize_advantages',
                            'entr',
                            'action_num',
-                           'skip_connection',
                            'training_strategy',
                            'q_func',
                            'train_epoch_num',
@@ -66,42 +76,40 @@ Args = namedtuple('Args', ['agent_num',
                            'replay_iters',
                            'cuda',
                            'grad_clip',
-                           'target_lr',
-                           'target_update_freq',
                            'behaviour_update_freq',
                            'save_model_freq',
                            'replay'
                           ]
                  )
 
+MergeArgs = namedtuple( 'MergeArgs', Args._fields+AuxArgs[model_name]._fields )
+
 args = Args(agent_num=env.get_num_of_agents(),
             hid_size=64,
             obs_size=np.max(env.get_shape_of_obs()),
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
-            comm_iters=2,
             init_std=0.1,
             policy_lrate=1e-2,
-            value_lrate=2e-2,
+            value_lrate=4e-2,
             epoch_size=32,
             max_steps=50,
             gamma=0.95,
             normalize_advantages=False,
             entr=1e-3,
             action_num=np.max(env.get_input_shape_of_act()),
-            skip_connection=False,
             training_strategy=training_strategy,
-            q_func=True,
+            q_func=False,
             train_epoch_num=10000,
             replay_buffer_size=1e6,
             replay_iters=1,
             cuda=True,
             grad_clip=True,
-            target_lr=1e-2,
-            target_update_freq=1,
             behaviour_update_freq=1,
             save_model_freq=10,
-            replay=True
+            replay=False
            )
+
+args = MergeArgs(*(args+aux_args))
 
 log_name = scenario_name + '_' + args.training_strategy + '_' + model_name + alias
