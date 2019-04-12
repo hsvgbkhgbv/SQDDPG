@@ -8,10 +8,10 @@ class ActorCritic(ReinforcementLearning):
     def __init__(self, args):
         super(ActorCritic, self).__init__('Actor_Critic', args)
 
-    def __call__(self, batch, behaviour_net, target_net):
-        return self.get_loss(batch, behaviour_net, target_net)
+    def __call__(self, batch, behaviour_net):
+        return self.get_loss(batch, behaviour_net)
 
-    def get_loss(self, batch, behaviour_net, target_net):
+    def get_loss(self, batch, behaviour_net):
         batch_size = len(batch.state)
         n = self.args.agent_num
         action_dim = self.args.action_dim
@@ -25,7 +25,7 @@ class ActorCritic(ReinforcementLearning):
         values = values.contiguous().view(-1, n)
         next_action_out = behaviour_net.policy(next_state)
         next_actions = select_action(self.args, next_action_out, status='train')
-        next_values = target_net.value(next_state, next_actions)
+        next_values = behaviour_net.value(next_state, next_actions)
         if self.args.q_func:
             next_values = torch.sum(next_values*next_actions, dim=-1)
         next_values = next_values.contiguous().view(-1, n)

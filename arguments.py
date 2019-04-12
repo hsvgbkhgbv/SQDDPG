@@ -32,8 +32,8 @@ model_name = 'independent_commnet'
 # model_name = 'maddpg'
 
 '''define the scenario name'''
-# scenario_name = 'simple_spread'
-scenario_name = 'simple'
+scenario_name = 'simple_spread'
+# scenario_name = 'simple'
 
 '''define the training strategy'''
 training_strategy='actor_critic'
@@ -92,8 +92,8 @@ args = Args(agent_num=env.get_num_of_agents(),
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
             init_std=0.1,
-            policy_lrate=1e-2,
-            value_lrate=2e-2,
+            policy_lrate=1e-1,
+            value_lrate=2e-1,
             epoch_size=32,
             max_steps=50,
             gamma=0.95,
@@ -101,17 +101,17 @@ args = Args(agent_num=env.get_num_of_agents(),
             entr=1e-3,
             action_num=np.max(env.get_input_shape_of_act()),
             training_strategy=training_strategy,
-            q_func=False,
+            q_func=True,
             train_epoch_num=10000,
             replay_buffer_size=1e6,
             replay_iters=10,
             cuda=True,
-            grad_clip=True,
+            grad_clip=False,
             behaviour_update_freq=1,
             save_model_freq=10,
-            replay=True,
+            replay=False,
             target_lr=1e-2,
-            target_update_freq=2
+            target_update_freq=4
            )
 
 args = MergeArgs(*(args+aux_args))
