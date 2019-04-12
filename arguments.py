@@ -26,8 +26,8 @@ AuxArgs = dict(commnet=commnetArgs,
 
 '''define the model name'''
 # model_name = 'commnet'
-# model_name = 'ic3net'
-model_name = 'independent_commnet'
+model_name = 'ic3net'
+# model_name = 'independent_commnet'
 # model_name = 'independent_ic3net'
 # model_name = 'maddpg'
 
@@ -36,14 +36,14 @@ scenario_name = 'simple_spread'
 # scenario_name = 'simple'
 
 '''define the training strategy'''
-training_strategy='actor_critic'
+training_strategy='reinforce'
 
 '''define the special property'''
 # commnetArgs = namedtuple( 'commnetArgs', ['skip_connection', 'comm_iters'] )
 # ic3netArgs = namedtuple( 'ic3netArgs', ['comm_iters'] )
 # maddpgArgs = namedtuple( 'maddpgArgs', [] )
-aux_args = AuxArgs[model_name](skip_connection=False, comm_iters=2)
-alias = '_q_func'
+aux_args = AuxArgs[model_name](2)
+alias = ''
 
 '''load scenario from script'''
 scenario = scenario.load(scenario_name + ".py").Scenario()
@@ -51,7 +51,7 @@ scenario = scenario.load(scenario_name + ".py").Scenario()
 '''create world'''
 world = scenario.make_world()
 
-'''create multiagent environment''' 
+'''create multiagent environment'''
 env = MultiAgentEnv(world, scenario.reset_world, scenario.reward, scenario.observation, info_callback=None, shared_viewer=True)
 env = GymWrapper(env)
 
@@ -78,7 +78,7 @@ Args = namedtuple('Args', ['agent_num',
                            'grad_clip',
                            'behaviour_update_freq',
                            'save_model_freq',
-                           'replay', 
+                           'replay',
                            'target_lr',
                            'target_update_freq'
                           ]
@@ -101,17 +101,17 @@ args = Args(agent_num=env.get_num_of_agents(),
             entr=1e-3,
             action_num=np.max(env.get_input_shape_of_act()),
             training_strategy=training_strategy,
-            q_func=True,
+            q_func=False,
             train_epoch_num=10000,
             replay_buffer_size=1e6,
-            replay_iters=10,
+            replay_iters=1,
             cuda=True,
             grad_clip=False,
             behaviour_update_freq=1,
             save_model_freq=10,
             replay=False,
             target_lr=1e-2,
-            target_update_freq=4
+            target_update_freq=2
            )
 
 args = MergeArgs(*(args+aux_args))

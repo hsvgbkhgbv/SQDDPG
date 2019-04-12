@@ -16,8 +16,6 @@ class Model(nn.Module):
         self.hid_dim = self.args.hid_size
         self.obs_dim = self.args.obs_size
         self.act_dim = self.args.action_dim
-        self.comm_iters = self.args.comm_iters
-        self.construct_model()
         self.apply(self.init_weights)
 
     def construct_model(self):
