@@ -35,15 +35,15 @@ model_name = 'independent_commnet'
 scenario_name = 'simple_spread'
 # scenario_name = 'simple'
 
+'''define the training strategy'''
+training_strategy='actor_critic'
+
 '''define the special property'''
 # commnetArgs = namedtuple( 'commnetArgs', ['skip_connection', 'comm_iters'] )
 # ic3netArgs = namedtuple( 'ic3netArgs', ['comm_iters'] )
 # maddpgArgs = namedtuple( 'maddpgArgs', ['target_lr', 'target_update_freq'] )
-aux_args = AuxArgs[model_name](skip_connection=True, comm_iters=2)
-alias = '_skip_connection'
-
-'''define the training strategy'''
-training_strategy='reinforce'
+aux_args = AuxArgs[model_name](skip_connection=False, comm_iters=2)
+alias = '_q_func'
 
 '''load scenario from script'''
 scenario = scenario.load(scenario_name + ".py").Scenario()
@@ -91,7 +91,7 @@ args = Args(agent_num=env.get_num_of_agents(),
             action_dim=np.max(env.get_output_shape_of_act()),
             init_std=0.1,
             policy_lrate=1e-2,
-            value_lrate=4e-2,
+            value_lrate=1e-2,
             epoch_size=32,
             max_steps=50,
             gamma=0.95,
@@ -99,7 +99,7 @@ args = Args(agent_num=env.get_num_of_agents(),
             entr=1e-3,
             action_num=np.max(env.get_input_shape_of_act()),
             training_strategy=training_strategy,
-            q_func=False,
+            q_func=True,
             train_epoch_num=10000,
             replay_buffer_size=1e6,
             replay_iters=1,
