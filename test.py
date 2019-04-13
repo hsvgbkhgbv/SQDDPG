@@ -6,7 +6,7 @@ import argparse
 
 
 parser = argparse.ArgumentParser(description='Test rl agent.')
-parser.add_argument('--save-model-dir', type=str, nargs='?', default='./', help='Please input the directory of saving model.')
+parser.add_argument('--save-model-dir', type=str, nargs='?', default='./model_save/', help='Please input the directory of saving model.')
 argv = parser.parse_args()
 
 model = model_map[model_name]

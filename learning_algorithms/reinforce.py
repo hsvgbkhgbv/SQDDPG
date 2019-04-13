@@ -38,7 +38,8 @@ class REINFORCE(ReinforcementLearning):
         if self.args.continuous:
             action_means = actions.contiguous().view(-1, self.args.action_dim)
             action_stds = cuda_wrapper(torch.ones_like(action_means), self.cuda_)
-            log_prob = normal_log_density(actions.detach(), action_means, action_stds)
+            log_p_a = normal_log_density(actions.detach(), action_means, action_stds)
+            log_prob = log_p_a.clone()
         else:
             log_p_a = action_out
             log_prob = multinomials_log_density(actions.detach(), log_p_a).contiguous().view(-1, 1)

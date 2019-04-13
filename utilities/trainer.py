@@ -54,7 +54,7 @@ class Trainer(object):
             action_out = self.behaviour_net.policy(state_, stat=stat)
             action = select_action(self.args, action_out, status='train')
             # return the rescaled (clipped) actions
-            _, actual = translate_action(self.args, action)
+            _, actual = translate_action(self.args, action, self.env)
             next_state, reward, done, _ = self.env.step(actual)
             if isinstance(done, list): done = np.sum(done)
             done_ = done or t==self.args.max_steps-1
@@ -77,10 +77,11 @@ class Trainer(object):
 
     def action_compute_grad(self, stat, batch_results):
         action_loss, log_p_a = batch_results
-        if self.args.entr > 0:
-            entropy = multinomial_entropy(log_p_a)
-            action_loss -= self.args.entr * entropy
-            stat['entropy'] = entropy.item()
+        if not self.args.continuous:
+            if self.args.entr > 0:
+                entropy = multinomial_entropy(log_p_a)
+                action_loss -= self.args.entr * entropy
+                stat['entropy'] = entropy.item()
         action_loss.backward()
 
     def value_compute_grad(self, batch_results):

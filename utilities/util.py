@@ -14,14 +14,14 @@ class GumbelSoftmax(OneHotCategorical):
 
     def sample_gumbel(self):
         U = self.logits.clone()
-        U.uniform_(0, 1.0)
+        U.uniform_(0, 1)
         return -torch.log( -torch.log( U + self.eps ) )
 
     def gumbel_softmax_sample(self):
         y = self.logits + self.sample_gumbel()
         return torch.softmax( y / self.temperature, dim=-1)
 
-    def hard_gumbel_softmax(self):
+    def hard_gumbel_softmax_sample(self):
         y = self.gumbel_softmax_sample()
         return (torch.max(y, dim=-1, keepdim=True)[0] == y).float()
 
@@ -30,6 +30,10 @@ class GumbelSoftmax(OneHotCategorical):
 
     def sample(self):
         return self.rsample().detach()
+
+    def hard_sample(self):
+        return self.hard_gumbel_softmax_sample()
+
 
 
 def normal_entropy(mean, std):
@@ -51,7 +55,7 @@ def select_action(args, action_out, status='train', exploration=True):
         act_mean = action_out
         act_std = cuda_wrapper(torch.ones_like(act_mean), args.cuda)
         if status == 'train':
-            return Normal(act_mean, act_std).rsample()
+            return Normal(act_mean, act_std).sample()
         elif status == 'test':
             return act_mean
     else:
@@ -64,35 +68,26 @@ def select_action(args, action_out, status='train', exploration=True):
                     return OneHotCategorical(logits=log_p_a).sample()
             else:
                 assert args.training_strategy in ['ddpg']
-                return GumbelSoftmax(logits=log_p_a).rsample()
+                temperature = 0.1
+                return torch.softmax(log_p_a/temperature, dim=-1)
         elif status == 'test':
             p_a = torch.softmax(log_p_a, dim=-1)
             return  (p_a == torch.max(p_a, dim=-1, keepdim=True)[0]).float()
 
-def translate_action(args, action):
-    if args.action_num > 1:
+def translate_action(args, action, env):
+    if not args.continuous:
         actual = [act.detach().squeeze().cpu().numpy() for act in torch.unbind(action, 1)]
         return action, actual
     else:
-        if args.continuous:
-            action = action.data[0].numpy()
-            cp_action = action.copy()
-            # clip and scale action to correct range
-            for i in range(len(action)):
-                low = env.action_space.low[i]
-                high = env.action_space.high[i]
-                cp_action[i] = cp_action[i] * args.action_scale
-                cp_action[i] = max(-1.0, min(cp_action[i], 1.0))
-                cp_action[i] = 0.5 * (cp_action[i] + 1.0) * (high - low) + low
-            return action, cp_action
-        else:
-            actual = np.zeros(len(action))
-            for i in range(len(action)):
-                low = env.action_space.low[i]
-                high = env.action_space.high[i]
-                actual[i] = action[i].data.squeeze()[0] * (high - low) / (args.naction_heads[i] - 1) + low
-            action = [x.squeeze().data[0] for x in action]
-            return action, actual
+        actions = action.data[0].numpy()
+        cp_actions = actions.copy()
+        # clip and scale action to correct range
+        for i in range(len(cp_actions)):
+            cp_actions[i] = env.action_space[i].low
+            cp_actions[i] = env.action_space[i].high
+            cp_actions[i] = max(-1.0, min(cp_actions[i], 1.0))
+            cp_actions[i] = 0.5 * (cp_actions[i] + 1.0) * (high - low) + low
+        return actions, cp_actions
 
 def prep_obs(state=[]):
     state = np.array(state)
