@@ -16,7 +16,7 @@ class ActorCritic(ReinforcementLearning):
         n = self.args.agent_num
         action_dim = self.args.action_dim
         # collect the transition data
-        rewards, last_step, start_step, actions, returns, state, next_state = self.unpack_data(batch)
+        rewards, last_step, done, actions, returns, state, next_state = self.unpack_data(batch)
         # construct the computational graph
         action_out = behaviour_net.policy(state)
         values = behaviour_net.value(state, actions)

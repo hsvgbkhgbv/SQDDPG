@@ -1,16 +1,22 @@
 import torch
-from tester import *
+from utilities.tester import *
 from arguments import *
 import argparse
 
 
+
 parser = argparse.ArgumentParser(description='Test rl agent.')
-parser.add_argument('--save-model-dir', type=str, nargs='?', help='Please input the directory of saving model.')
+parser.add_argument('--save-model-dir', type=str, nargs='?', default='./', help='Please input the directory of saving model.')
 argv = parser.parse_args()
 
 model = model_map[model_name]
 
-PATH=argv.save_model_dir + log_name + '/model.pt'
+if argv.save_model_dir[-1] is '/':
+    save_path = argv.save_model_dir
+else:
+    save_path = argv.save_model_dir+'/'
+
+PATH=save_path + log_name + '/model.pt'
 
 behaviour_net = model(args)
 checkpoint = torch.load(PATH, map_location='cpu')

@@ -12,7 +12,7 @@ from learning_algorithms.ddpg import *
 
 
 # define a transition of an episode
-Transition = namedtuple('Transition', ('state', 'action', 'reward', 'next_state', 'start_step', 'last_step'))
+Transition = namedtuple('Transition', ('state', 'action', 'reward', 'next_state', 'done', 'last_step'))
 
 # define the hash map of rl algorithms
 rl_algo_map = dict(
@@ -57,17 +57,12 @@ class Trainer(object):
             _, actual = translate_action(self.args, action)
             next_state, reward, done, _ = self.env.step(actual)
             if isinstance(done, list): done = np.sum(done)
-            done = done or t == self.args.max_steps-1
+            done_ = done or t==self.args.max_steps-1
             mean_reward.append(reward)
+            trans = Transition(state, action.cpu().numpy(), np.array(reward), next_state, done, done_)
+            episode.append(trans)
             if done:
-                last_step = True
-                trans = Transition(state, action.cpu().numpy(), np.array(reward), next_state, start_step, last_step)
-                episode.append(trans)
                 break
-            else:
-                last_step = False
-                trans = Transition(state, action.cpu().numpy(), np.array(reward), next_state, start_step, last_step)
-                episode.append(trans)
             state = next_state
         mean_reward = np.mean(mean_reward)
         num_steps = t+1

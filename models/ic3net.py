@@ -11,12 +11,13 @@ class IC3Net(Model):
     def __init__(self, args):
         super(IC3Net, self).__init__(args)
         self.comm_iters = self.args.comm_iters
+        assert self.ts_ == 'reinforce'
         if self.comm_iters == 0:
             raise RuntimeError('Please guarantee the comm iters is at least greater equal to 1.')
         elif self.comm_iters < 2:
             raise RuntimeError('Please use IndependentIC3Net if the comm iters is set to 1.')
         self.construct_model()
-        
+
     def construct_policy_net(self):
         self.action_dict = nn.ModuleDict( {'encoder': nn.Linear(self.obs_dim, self.hid_dim),\
                                            'f_module': nn.LSTMCell(self.hid_dim, self.hid_dim),\

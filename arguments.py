@@ -26,27 +26,27 @@ AuxArgs = dict(commnet=commnetArgs,
 
 '''define the model name'''
 # model_name = 'commnet'
-model_name = 'ic3net'
+# model_name = 'ic3net'
 # model_name = 'independent_commnet'
 # model_name = 'independent_ic3net'
-# model_name = 'maddpg'
+model_name = 'maddpg'
 
 '''define the scenario name'''
 scenario_name = 'simple_spread'
 # scenario_name = 'simple'
 
 '''define the training strategy'''
-training_strategy='reinforce'
+training_strategy='ddpg'
 
 '''define the special property'''
 # commnetArgs = namedtuple( 'commnetArgs', ['skip_connection', 'comm_iters'] )
 # ic3netArgs = namedtuple( 'ic3netArgs', ['comm_iters'] )
 # maddpgArgs = namedtuple( 'maddpgArgs', [] )
-aux_args = AuxArgs[model_name](2)
+aux_args = AuxArgs[model_name]()
 alias = ''
 
 '''load scenario from script'''
-scenario = scenario.load(scenario_name + ".py").Scenario()
+scenario = scenario.load(scenario_name+".py").Scenario()
 
 '''create world'''
 world = scenario.make_world()

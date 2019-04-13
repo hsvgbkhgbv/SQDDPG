@@ -15,7 +15,7 @@ class REINFORCE(ReinforcementLearning):
         n = self.args.agent_num
         action_dim = self.args.action_dim
         # collect the transition data
-        rewards, last_step, start_step, actions, returns, state, next_state = self.unpack_data(batch)
+        rewards, last_step, done, actions, returns, state, next_state = self.unpack_data(batch)
         # construct the computational graph
         action_out = behaviour_net.policy(state)
         values = behaviour_net.value(state, actions.detach()).contiguous().view(-1, n)
@@ -27,9 +27,9 @@ class REINFORCE(ReinforcementLearning):
         assert returns.size() == rewards.size()
         for i in reversed(range(rewards.size(0))):
             if last_step[i]:
-                prev_coop_return = next_values[i].detach()
-            returns[i] = rewards[i] + self.args.gamma * prev_coop_return
-            prev_coop_return = returns[i]
+                next_return = 0 if done[i] else next_values[i].detach()
+            returns[i] = rewards[i] + self.args.gamma * next_return
+            next_return = returns[i]
         # construct the action loss and the value loss
         deltas = returns - values
         advantages = deltas.contiguous().view(-1, 1).detach()
