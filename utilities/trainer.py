@@ -29,6 +29,7 @@ class Trainer(object):
     def __init__(self, args, model, env):
         self.args = args
         self.cuda_ = self.args.cuda and torch.cuda.is_available()
+        inspector(self.args)
         if self.args.target:
             target_net = model(self.args).cuda() if self.cuda_ else model(self.args)
             self.behaviour_net = model(self.args, target_net).cuda() if self.cuda_ else model(self.args, target_net)

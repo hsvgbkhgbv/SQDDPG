@@ -62,12 +62,12 @@ def select_action(args, action_out, status='train', exploration=True):
         log_p_a = action_out
         if status == 'train':
             if exploration:
-                if args.training_strategy in ['ddpg']:
+                if args.model_name in ['maddpg']:
                     return GumbelSoftmax(logits=log_p_a).sample()
                 else:
                     return OneHotCategorical(logits=log_p_a).sample()
             else:
-                assert args.training_strategy in ['ddpg']
+                assert args.model_name in ['maddpg']
                 temperature = 0.1
                 return torch.softmax(log_p_a/temperature, dim=-1)
         elif status == 'test':

@@ -39,29 +39,13 @@ class Model(nn.Module):
         raise NotImplementedError()
 
     def value(self, obs, act):
-        if self.args.training_strategy in ['ddpg']:
-            h = self.value_dict['value_body'](torch.cat((obs, act), -1))
-        else:
-            h = self.value_dict['value_body'](obs)
-        h = torch.relu(h)
-        v = self.value_dict['value_head'](h)
-        return v
+        raise NotImplementedError()
 
     def construct_policy_net(self):
         raise NotImplementedError()
 
     def construct_value_net(self):
-        self.value_dict = nn.ModuleDict()
-        if self.ts_ in ['ddpg']:
-            self.value_dict['value_body'] = nn.Linear(self.obs_dim+self.act_dim, self.hid_dim)
-            self.value_dict['value_head'] = nn.Linear(self.hid_dim, 1)
-        else:
-            self.value_dict['value_body'] = nn.Linear(self.obs_dim, self.hid_dim)
-            if self.args.q_func:
-                assert self.args.training_strategy not in ['reinforce']
-                self.value_dict['value_head'] = nn.Linear(self.hid_dim, self.act_dim)
-            else:
-                self.value_dict['value_head'] = nn.Linear(self.hid_dim, 1)
+        raise NotImplementedError()
 
     def init_weights(self, m):
         '''

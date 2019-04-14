@@ -33,6 +33,11 @@ class CommNet(Model):
             self.action_dict['e_module'] = nn.Linear(self.hid_dim, self.hid_dim)
             self.action_dict['e_modules'] = nn.ModuleList( [ self.action_dict['e_module'] for _ in range(self.comm_iters) ] )
 
+    def construct_value_net(self):
+        self.value_dict = nn.ModuleDict()
+        self.value_dict['value_body'] = nn.Linear(self.obs_dim, self.hid_dim)
+        self.value_dict['value_head'] = nn.Linear(self.hid_dim, 1)
+        
     def construct_model(self):
         self.comm_mask = cuda_wrapper(torch.ones(self.n_, self.n_) - torch.eye(self.n_, self.n_), self.cuda_)
         self.construct_value_net()
@@ -75,6 +80,12 @@ class CommNet(Model):
         # calculate the action vector (policy)
         action = self.action_dict['action_head'](h)
         return action
+
+    def value(self, obs, act):
+        h = self.value_dict['value_body'](obs)
+        h = torch.relu(h)
+        v = self.value_dict['value_head'](h)
+        return v
 
     def get_loss(self, batch):
         action_loss, value_loss, log_p_a = self.rl.get_loss(batch, self)
