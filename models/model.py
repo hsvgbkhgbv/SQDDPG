@@ -11,12 +11,10 @@ class Model(nn.Module):
         super(Model, self).__init__()
         self.args = args
         self.cuda_ = torch.cuda.is_available() and self.args.cuda
-        self.ts_ = self.args.training_strategy
         self.n_ = self.args.agent_num
         self.hid_dim = self.args.hid_size
         self.obs_dim = self.args.obs_size
         self.act_dim = self.args.action_dim
-        self.apply(self.init_weights)
 
     def construct_model(self):
         raise NotImplementedError()
@@ -71,3 +69,6 @@ class Model(nn.Module):
         '''
         if type(m) == nn.Linear:
             m.weight.data.normal_(0, self.args.init_std)
+
+    def get_loss(self):
+        raise NotImplementedError()

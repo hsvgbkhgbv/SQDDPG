@@ -3,15 +3,31 @@ import torch.nn as nn
 import numpy as np
 from utilities.util import *
 from models.model import Model
+from learning_algorithms.ddpg import *
 
 
 
 class MADDPG(Model):
 
-    def __init__(self, args):
+    def __init__(self, args, target_net=None):
         super(MADDPG, self).__init__(args)
         assert self.ts_ == 'ddpg'
+        self.rl = DDPG(self.args)
+        if target_net != None:
+            self.target_net = target_net
         self.construct_model()
+        self.apply(self.init_weights)
+        self.reload_params_to_target()
+
+    def reload_params_to_target(self):
+        self.target_net.load_state_dict(self.state_dict())
+
+    def update_target(self):
+        params_target = list(self.target_net.parameters())
+        params_behaviour = list(self.parameters())
+        for i in range(len(params_target)):
+            params_target[i] = (1 - self.args.target_lr) * params_target[i] + self.args.target_lr * params_behaviour[i]
+        print ('traget net is updated!\n')
 
     def construct_policy_net(self):
         self.action_dict = nn.ModuleDict( {'layer_1': nn.ModuleList( [ nn.Linear(self.obs_dim, self.hid_dim) for _ in range(self.n_) ] ),\
@@ -50,3 +66,7 @@ class MADDPG(Model):
             values.append(v)
         values = torch.stack(values, dim=1)
         return values
+
+    def get_loss(self, batch):
+        action_loss, value_loss, log_p_a = self.rl.get_loss(batch, self, self.target_net)
+        return action_loss, value_loss, log_p_a

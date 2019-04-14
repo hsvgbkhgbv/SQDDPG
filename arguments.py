@@ -35,9 +35,6 @@ model_name = 'maddpg'
 scenario_name = 'simple_spread'
 # scenario_name = 'simple'
 
-'''define the training strategy'''
-training_strategy='ddpg'
-
 '''define the special property'''
 # commnetArgs = namedtuple( 'commnetArgs', ['skip_connection', 'comm_iters'] )
 # ic3netArgs = namedtuple( 'ic3netArgs', ['comm_iters'] )
@@ -55,7 +52,8 @@ world = scenario.make_world()
 env = MultiAgentEnv(world, scenario.reset_world, scenario.reward, scenario.observation, info_callback=None, shared_viewer=True)
 env = GymWrapper(env)
 
-Args = namedtuple('Args', ['agent_num',
+Args = namedtuple('Args', ['model_name',
+                           'agent_num',
                            'hid_size',
                            'obs_size',
                            'continuous',
@@ -69,7 +67,6 @@ Args = namedtuple('Args', ['agent_num',
                            'normalize_advantages',
                            'entr',
                            'action_num',
-                           'training_strategy',
                            'q_func',
                            'train_epoch_num',
                            'replay_buffer_size',
@@ -79,6 +76,7 @@ Args = namedtuple('Args', ['agent_num',
                            'behaviour_update_freq',
                            'save_model_freq',
                            'replay',
+                           'target',
                            'target_lr',
                            'target_update_freq'
                           ]
@@ -86,7 +84,8 @@ Args = namedtuple('Args', ['agent_num',
 
 MergeArgs = namedtuple( 'MergeArgs', Args._fields+AuxArgs[model_name]._fields )
 
-args = Args(agent_num=env.get_num_of_agents(),
+args = Args(model_name=model_name,
+            agent_num=env.get_num_of_agents(),
             hid_size=64,
             obs_size=np.max(env.get_shape_of_obs()),
             continuous=False,
@@ -100,7 +99,6 @@ args = Args(agent_num=env.get_num_of_agents(),
             normalize_advantages=False,
             entr=1e-3,
             action_num=np.max(env.get_input_shape_of_act()),
-            training_strategy=training_strategy,
             q_func=True,
             train_epoch_num=10000,
             replay_buffer_size=1e6,
@@ -110,6 +108,7 @@ args = Args(agent_num=env.get_num_of_agents(),
             behaviour_update_freq=1,
             save_model_freq=10,
             replay=True,
+            target=True,
             target_lr=1e-2,
             target_update_freq=1
            )

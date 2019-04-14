@@ -8,6 +8,7 @@ from utilities.replay_buffer import *
 from learning_algorithms.actor_critic import *
 from learning_algorithms.reinforce import *
 from learning_algorithms.ddpg import *
+from utilities.inspector import *
 
 
 
@@ -28,16 +29,11 @@ class Trainer(object):
     def __init__(self, args, model, env):
         self.args = args
         self.cuda_ = self.args.cuda and torch.cuda.is_available()
-        self.behaviour_net = model(self.args).cuda() if self.cuda_ else model(self.args)
-        self.rl = rl_algo_map[self.args.training_strategy](args)
-        if self.args.training_strategy in ['ddpg']:
-            assert self.args.replay == True
-            assert self.args.q_func == True
-        elif self.args.training_strategy in ['reinforce', 'actor_critic']:
-            assert self.args.replay == False
-        if self.args.training_strategy in ['ddpg']:
-            self.target_net = model(self.args).cuda() if self.cuda_ else model(self.args)
-            self.target_net.load_state_dict(self.behaviour_net.state_dict())
+        if self.args.target:
+            target_net = model(self.args).cuda() if self.cuda_ else model(self.args)
+            self.behaviour_net = model(self.args, target_net).cuda() if self.cuda_ else model(self.args, target_net)
+        else:
+            self.behaviour_net = model(self.args).cuda() if self.cuda_ else model(self.args)
         if self.args.replay:
             self.replay_buffer = ReplayBuffer(int(self.args.replay_buffer_size))
         self.env = env
@@ -68,15 +64,12 @@ class Trainer(object):
         num_steps = t+1
         return episode, mean_reward, num_steps
 
-    def get_batch_results(self, batch):
-        if self.args.training_strategy in ['ddpg']:
-            action_loss, value_loss, log_p_a = self.rl(batch, self.behaviour_net, self.target_net)
-        else:
-            action_loss, value_loss, log_p_a = self.rl(batch, self.behaviour_net)
+    def get_batch_loss(self, batch):
+        action_loss, value_loss, log_p_a = self.behaviour_net.get_loss(batch)
         return action_loss, value_loss, log_p_a
 
-    def action_compute_grad(self, stat, batch_results):
-        action_loss, log_p_a = batch_results
+    def action_compute_grad(self, stat, batch_loss):
+        action_loss, log_p_a = batch_loss
         if not self.args.continuous:
             if self.args.entr > 0:
                 entropy = multinomial_entropy(log_p_a)
@@ -84,8 +77,8 @@ class Trainer(object):
                 stat['entropy'] = entropy.item()
         action_loss.backward()
 
-    def value_compute_grad(self, batch_results):
-        value_loss = batch_results
+    def value_compute_grad(self, batch_loss):
+        value_loss = batch_loss
         value_loss.backward()
 
     def grad_clip(self, module):
@@ -101,7 +94,7 @@ class Trainer(object):
             batch = self.replay_buffer.get_batch_episodes(\
                                     self.args.epoch_size*self.args.max_steps)
             batch = Transition(*zip(*batch))
-            action_loss, value_loss, log_p_a = self.get_batch_results(batch)
+            action_loss, value_loss, log_p_a = self.get_batch_loss(batch)
             action_loss_ += action_loss.item()
             value_loss_ += value_loss.item()
             self.value_optimizer.zero_grad()
@@ -122,7 +115,7 @@ class Trainer(object):
         merge_dict(stat, 'value_grad_norm', value_grad_norm / self.args.replay_iters)
 
     def online_process(self, stat, batch):
-        action_loss, value_loss, log_p_a = self.get_batch_results(batch)
+        action_loss, value_loss, log_p_a = self.get_batch_loss(batch)
         self.value_optimizer.zero_grad()
         self.value_compute_grad(value_loss)
         if self.args.grad_clip:
@@ -159,14 +152,10 @@ class Trainer(object):
         return batch, stats
 
     def train_batch(self, t, batch, stat):
-        if self.args.training_strategy in ['ddpg']:
+        if self.args.model_name in ['maddpg']:
             self.replay_process(stat)
             if t%self.args.target_update_freq == self.args.target_update_freq-1:
-                params_target = list(self.target_net.parameters())
-                params_behaviour = list(self.behaviour_net.parameters())
-                for i in range(len(params_target)):
-                    params_target[i] = (1 - self.args.target_lr) * params_target[i] + self.args.target_lr * params_behaviour[i]
-                print ('traget net is updated!\n')
+                self.behaviour_net.update_target()
         else:
             self.online_process(stat, batch)
             if self.args.replay:
