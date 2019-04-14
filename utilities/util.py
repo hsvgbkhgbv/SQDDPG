@@ -68,7 +68,7 @@ def select_action(args, action_out, status='train', exploration=True):
                     return OneHotCategorical(logits=log_p_a).sample()
             else:
                 assert args.model_name in ['maddpg']
-                temperature = 0.1
+                temperature = 1.0
                 return torch.softmax(log_p_a/temperature, dim=-1)
         elif status == 'test':
             p_a = torch.softmax(log_p_a, dim=-1)
