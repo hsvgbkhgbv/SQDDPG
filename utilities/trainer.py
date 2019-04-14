@@ -15,13 +15,6 @@ from utilities.inspector import *
 # define a transition of an episode
 Transition = namedtuple('Transition', ('state', 'action', 'reward', 'next_state', 'done', 'last_step'))
 
-# define the hash map of rl algorithms
-rl_algo_map = dict(
-    reinforce=REINFORCE,
-    actor_critic=ActorCritic,
-    ddpg=DDPG
-)
-
 
 
 class Trainer(object):
@@ -58,7 +51,8 @@ class Trainer(object):
             mean_reward.append(reward)
             trans = Transition(state, action.cpu().numpy(), np.array(reward), next_state, done, done_)
             episode.append(trans)
-            if done:
+            if done_:
+                if self.args.model_name == 'coma': self.behaviour_net.init_hidden()
                 break
             state = next_state
         mean_reward = np.mean(mean_reward)

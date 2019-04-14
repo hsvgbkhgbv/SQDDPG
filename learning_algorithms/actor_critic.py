@@ -31,7 +31,6 @@ class ActorCritic(ReinforcementLearning):
             next_values = torch.sum(next_values*next_actions, dim=-1)
         next_values = next_values.contiguous().view(-1, n)
         # calculate the advantages
-        deltas = cuda_wrapper(torch.zeros_like(values), self.cuda_)
         assert values.size() == next_values.size()
         deltas = rewards + self.args.gamma * next_values.detach() - values
         advantages = values.detach()
