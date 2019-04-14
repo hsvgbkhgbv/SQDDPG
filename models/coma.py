@@ -18,9 +18,9 @@ class COMA(Model):
 
     def __init__(self, args):
         super(COMA, self).__init__(args)
-        assert self.ts_ == 'actor_critic'
         self.construct_model()
-
+        self.apply(self.init_weights)
+        
     def construct_policy_net(self):
         self.action_dict = nn.ModuleDict( {'observation': nn.Linear(self.obs_dim, self.hid_dim),\
                                            'gru_layer': nn.GRUCell(self.hid_dim+self.act_dim, self.hid_dim),\
@@ -55,8 +55,16 @@ class COMA(Model):
             vs = self.value_dict['value_head'](h)
         return vs
 
-    def get_loss(self):
-        pass
-    
+    def td_lambda(self):
+        return
+
+    def get_loss(self, batch):
+        batch_size = len(batch.state)
+        n = self.args.agent_num
+        action_dim = self.args.action_dim
+        # collect the transition data
+        rewards, last_step, done, actions, returns, state, next_state = unpack_data(self.args, batch)
+
+
     def init_hidden(self, batch_size):
         return cuda_wrapper(torch.zeros(batch_size*self.n_, self.hid_dim), self.cuda_)

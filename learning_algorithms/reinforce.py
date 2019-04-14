@@ -1,4 +1,5 @@
 from learning_algorithms.rl_algorithms import *
+from utilities.util import *
 
 
 
@@ -15,7 +16,7 @@ class REINFORCE(ReinforcementLearning):
         n = self.args.agent_num
         action_dim = self.args.action_dim
         # collect the transition data
-        rewards, last_step, done, actions, returns, state, next_state = self.unpack_data(batch)
+        rewards, last_step, done, actions, state, next_state = unpack_data(self.args, batch)
         # construct the computational graph
         action_out = behaviour_net.policy(state)
         values = behaviour_net.value(state, actions.detach()).contiguous().view(-1, n)
@@ -23,6 +24,7 @@ class REINFORCE(ReinforcementLearning):
         next_action_out = behaviour_net.policy(next_state)
         next_actions = select_action(self.args, next_action_out.detach(), status='train')
         next_values = behaviour_net.value(next_state, next_actions.detach()).contiguous().view(-1, n)
+        returns = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda_)
         # calculate the return
         assert returns.size() == rewards.size()
         for i in reversed(range(rewards.size(0))):
