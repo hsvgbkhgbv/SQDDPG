@@ -151,10 +151,10 @@ class Trainer(object):
     def train_batch(self, t, batch, stat):
         if self.args.model_name in ['maddpg']:
             self.replay_process(stat)
-            if t%self.args.target_update_freq == self.args.target_update_freq-1:
-                self.behaviour_net.update_target()
         else:
             self.online_process(stat, batch)
             if self.args.replay:
                 self.replay_process(stat)
+        if t%self.args.target_update_freq == self.args.target_update_freq-1:
+            self.behaviour_net.update_target()
         return stat
