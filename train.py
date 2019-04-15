@@ -1,14 +1,25 @@
 import numpy as np
-from trainer import *
+from utilities.trainer import *
 import torch
 from arguments import *
 import os
 from utilities.util import *
 from utilities.logger import Logger
+import argparse
 
 
 
-logger = Logger('./logs/' + log_name)
+parser = argparse.ArgumentParser(description='Test rl agent.')
+parser.add_argument('--save-path', type=str, nargs='?', default='./', help='Please input the directory of saving model.')
+argv = parser.parse_args()
+
+
+if argv.save_path[-1] is '/':
+    save_path = argv.save_path
+else:
+    save_path = argv.save_path+'/'
+
+logger = Logger(save_path+'logs/'+log_name)
 
 model = model_map[model_name]
 
@@ -25,12 +36,12 @@ for i in range(args.train_epoch_num):
             else:
                 logger.scalar_summary(tag, value, i)
     if i%args.save_model_freq == args.save_model_freq-1:
-        if 'model_save' not in os.listdir('./'):
-            os.mkdir('./model_save')
-        if log_name not in os.listdir('./model_save/'):
-            os.mkdir('./model_save/'+log_name)
-        torch.save({'model_state_dict': train.behaviour_net.state_dict()}, './model_save/' + log_name + '/model.pt')
+        if 'model_save' not in os.listdir(save_path):
+            os.mkdir(save_path+'model_save')
+        if log_name not in os.listdir(save_path+'model_save/'):
+            os.mkdir(save_path+'model_save/'+log_name)
+        torch.save({'model_state_dict': train.behaviour_net.state_dict()}, save_path+'model_save/'+log_name+'/model.pt')
         print ('The model is saved!\n')
-        with open('./model_save/' + log_name + '/log.txt', 'w+') as file:
+        with open(save_path+'model_save/'+log_name +'/log.txt', 'w+') as file:
             file.write(str(args)+'\n')
             file.write(str(i))

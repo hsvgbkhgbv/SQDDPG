@@ -8,18 +8,12 @@ from utilities.replay_buffer import *
 from learning_algorithms.actor_critic import *
 from learning_algorithms.reinforce import *
 from learning_algorithms.ddpg import *
+from utilities.inspector import *
 
 
 
 # define a transition of an episode
-Transition = namedtuple('Transition', ('state', 'action', 'reward', 'next_state', 'start_step', 'last_step'))
-
-# define the hash map of rl algorithms
-rl_algo_map = dict(
-    reinforce=REINFORCE,
-    actor_critic=ActorCritic,
-    ddpg=DDPG
-)
+Transition = namedtuple('Transition', ('state', 'action', 'reward', 'next_state', 'done', 'last_step'))
 
 
 
@@ -28,13 +22,12 @@ class Trainer(object):
     def __init__(self, args, model, env):
         self.args = args
         self.cuda_ = self.args.cuda and torch.cuda.is_available()
-        self.behaviour_net = model(self.args).cuda() if self.cuda_ else model(self.args)
-        self.rl = rl_algo_map[self.args.training_strategy](args)
-        if self.args.training_strategy == 'ddpg':
-            assert self.args.replay == True
-            assert self.args.q_func == True
-            self.target_net = model(self.args).cuda() if self.cuda_ else model(self.args)
-            self.target_net.load_state_dict(self.behaviour_net.state_dict())
+        inspector(self.args)
+        if self.args.target:
+            target_net = model(self.args).cuda() if self.cuda_ else model(self.args)
+            self.behaviour_net = model(self.args, target_net).cuda() if self.cuda_ else model(self.args, target_net)
+        else:
+            self.behaviour_net = model(self.args).cuda() if self.cuda_ else model(self.args)
         if self.args.replay:
             self.replay_buffer = ReplayBuffer(int(self.args.replay_buffer_size))
         self.env = env
@@ -42,66 +35,47 @@ class Trainer(object):
         self.value_optimizer = optim.Adam(self.behaviour_net.value_dict.parameters(), lr = args.value_lrate)
 
     def get_episode(self, stat):
-        # define the episode list
         episode = []
-        # reset the environment
         state = self.env.reset()
-        # define the main process of exploration
         mean_reward = []
+        info = {}
         for t in range(self.args.max_steps):
             start_step = True if t == 0 else False
-            # decide the next action and return the correlated state value (baseline)
             state_ = cuda_wrapper(prep_obs(state).contiguous().view(1, self.args.agent_num, self.args.obs_size), self.cuda_)
-            action_out = self.behaviour_net.policy(state_, stat=stat)
-            # return the sampled actions of all of agents
+            action_out = self.behaviour_net.policy(state_, info=info, stat=stat)
             action = select_action(self.args, action_out, status='train')
             # return the rescaled (clipped) actions
-            _, actual = translate_action(self.args, action)
-            # receive the reward and the next state
+            _, actual = translate_action(self.args, action, self.env)
+            if self.args.model_name == 'coma': info['last_action'] = action
             next_state, reward, done, _ = self.env.step(actual)
             if isinstance(done, list): done = np.sum(done)
-            # define the flag of the finish of exploration
-            done = done or t == self.args.max_steps-1
-            # record the mean reward for evaluation
+            done_ = done or t==self.args.max_steps-1
             mean_reward.append(reward)
-            # justify whether the game is done
-            if done:
-                last_step = True
-                # record a transition
-                trans = Transition(state, action.cpu().numpy(), np.array(reward), next_state, start_step, last_step)
-                # trans = Transition(state, action, np.array(reward), next_state, start_step, last_step)
-                episode.append(trans)
+            trans = Transition(state, action.cpu().numpy(), np.array(reward), next_state, done, done_)
+            episode.append(trans)
+            if done_:
+                if self.args.model_name == 'coma': self.behaviour_net.init_hidden(batch_size=1)
                 break
-            else:
-                last_step = False
-                # record a transition
-                trans = Transition(state, action.cpu().numpy(), np.array(reward), next_state, start_step, last_step)
-                # trans = Transition(state, action, np.array(reward), next_state, start_step, last_step)
-                episode.append(trans)
             state = next_state
         mean_reward = np.mean(mean_reward)
         num_steps = t+1
         return episode, mean_reward, num_steps
 
-    def get_batch_results(self, batch):
-        if self.args.training_strategy in ['ddpg']:
-            action_loss, value_loss, log_p_a = self.rl(batch, self.behaviour_net, self.target_net)
-        else:
-            action_loss, value_loss, log_p_a = self.rl(batch, self.behaviour_net)
+    def get_batch_loss(self, batch):
+        action_loss, value_loss, log_p_a = self.behaviour_net.get_loss(batch)
         return action_loss, value_loss, log_p_a
 
-    def action_compute_grad(self, stat, batch_results):
-        action_loss, log_p_a = batch_results
-        if self.args.entr > 0:
-            entropy = multinomial_entropy(log_p_a)
-            action_loss -= self.args.entr * entropy
-            stat['entropy'] = entropy.item()
-        # do the backpropogation
+    def action_compute_grad(self, stat, batch_loss):
+        action_loss, log_p_a = batch_loss
+        if not self.args.continuous:
+            if self.args.entr > 0:
+                entropy = multinomial_entropy(log_p_a)
+                action_loss -= self.args.entr * entropy
+                stat['entropy'] = entropy.item()
         action_loss.backward()
 
-    def value_compute_grad(self, batch_results):
-        value_loss = batch_results
-        # do the backpropogation
+    def value_compute_grad(self, batch_loss):
+        value_loss = batch_loss
         value_loss.backward()
 
     def grad_clip(self, module):
@@ -117,17 +91,19 @@ class Trainer(object):
             batch = self.replay_buffer.get_batch_episodes(\
                                     self.args.epoch_size*self.args.max_steps)
             batch = Transition(*zip(*batch))
-            action_loss, value_loss, log_p_a = self.get_batch_results(batch)
+            action_loss, value_loss, log_p_a = self.get_batch_loss(batch)
             action_loss_ += action_loss.item()
             value_loss_ += value_loss.item()
             self.value_optimizer.zero_grad()
             self.value_compute_grad(value_loss)
-            self.grad_clip(self.behaviour_net.value_dict)
+            if self.args.grad_clip:
+                self.grad_clip(self.behaviour_net.value_dict)
             value_grad_norm += get_grad_norm(self.behaviour_net.value_dict)
             self.value_optimizer.step()
             self.action_optimizer.zero_grad()
             self.action_compute_grad(stat, (action_loss, log_p_a))
-            self.grad_clip(self.behaviour_net.action_dict)
+            if self.args.grad_clip:
+                self.grad_clip(self.behaviour_net.action_dict)
             policy_grad_norm += get_grad_norm(self.behaviour_net.action_dict)
             self.action_optimizer.step()
         merge_dict(stat, 'action_loss', action_loss_ / self.args.replay_iters)
@@ -136,15 +112,17 @@ class Trainer(object):
         merge_dict(stat, 'value_grad_norm', value_grad_norm / self.args.replay_iters)
 
     def online_process(self, stat, batch):
-        action_loss, value_loss, log_p_a = self.get_batch_results(batch)
+        action_loss, value_loss, log_p_a = self.get_batch_loss(batch)
         self.value_optimizer.zero_grad()
         self.value_compute_grad(value_loss)
-        self.grad_clip(self.behaviour_net.value_dict)
+        if self.args.grad_clip:
+            self.grad_clip(self.behaviour_net.value_dict)
         stat['value_grad_norm'] = get_grad_norm(self.behaviour_net.value_dict)
         self.value_optimizer.step()
         self.action_optimizer.zero_grad()
         self.action_compute_grad(stat, (action_loss, log_p_a))
-        self.grad_clip(self.behaviour_net.action_dict)
+        if self.args.grad_clip:
+            self.grad_clip(self.behaviour_net.action_dict)
         stat['policy_grad_norm'] = get_grad_norm(self.behaviour_net.action_dict)
         self.action_optimizer.step()
         stat['action_loss'] = action_loss.item()
@@ -171,16 +149,12 @@ class Trainer(object):
         return batch, stats
 
     def train_batch(self, t, batch, stat):
-        if self.args.training_strategy in ['ddpg']:
+        if self.args.model_name in ['maddpg']:
             self.replay_process(stat)
-            if t%self.args.target_update_freq == self.args.target_update_freq - 1:
-                params_target = list(self.target_net.parameters())
-                params_behaviour = list(self.behaviour_net.parameters())
-                for i in range(len(params_target)):
-                    params_target[i] = (1 - self.args.target_lr) * params_target[i] + self.args.target_lr * params_behaviour[i]
-                print ('traget net is updated!\n')
         else:
             self.online_process(stat, batch)
             if self.args.replay:
                 self.replay_process(stat)
+        if t%self.args.target_update_freq == self.args.target_update_freq-1:
+            self.behaviour_net.update_target()
         return stat
