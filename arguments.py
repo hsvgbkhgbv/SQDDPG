@@ -6,6 +6,7 @@ import numpy as np
 from models.commnet import *
 from models.ic3net import *
 from models.maddpg import *
+from models.coma import *
 from aux import *
 
 
@@ -14,14 +15,16 @@ model_map = dict(commnet=CommNet,
                  ic3net=IC3Net,
                  independent_commnet=IndependentCommNet,
                  independent_ic3net=IndependentIC3Net,
-                 maddpg=MADDPG
+                 maddpg=MADDPG,
+                 coma=COMA
 )
 
 AuxArgs = dict(commnet=commnetArgs,
                independent_commnet=commnetArgs,
                ic3net=ic3netArgs,
                independent_ic3net=ic3netArgs,
-               maddpg=maddpgArgs
+               maddpg=maddpgArgs,
+               coma=comaArgs
               )
 
 '''define the model name'''
@@ -30,6 +33,7 @@ AuxArgs = dict(commnet=commnetArgs,
 # model_name = 'independent_commnet'
 # model_name = 'independent_ic3net'
 model_name = 'maddpg'
+# model_name = 'coma'
 
 '''define the scenario name'''
 scenario_name = 'simple_spread'
@@ -39,6 +43,7 @@ scenario_name = 'simple_spread'
 # commnetArgs = namedtuple( 'commnetArgs', ['skip_connection', 'comm_iters'] )
 # ic3netArgs = namedtuple( 'ic3netArgs', ['comm_iters'] )
 # maddpgArgs = namedtuple( 'maddpgArgs', [] )
+# comaArgs = namedtuple( 'comaArgs', [] )
 aux_args = AuxArgs[model_name]()
 alias = ''
 
@@ -91,9 +96,9 @@ args = Args(model_name=model_name,
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
             init_std=0.1,
-            policy_lrate=1e-2,
+            policy_lrate=1e-3,
             value_lrate=1e-1,
-            epoch_size=10,
+            epoch_size=32,
             max_steps=50,
             gamma=0.95,
             normalize_advantages=False,
@@ -110,7 +115,7 @@ args = Args(model_name=model_name,
             save_model_freq=10,
             target=True,
             target_lr=1e-2,
-            target_update_freq=4
+            target_update_freq=1
            )
 
 args = MergeArgs(*(args+aux_args))

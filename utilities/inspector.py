@@ -23,3 +23,8 @@ def inspector(args):
         assert args.replay == False
         assert args.comm_iters == 1
         assert args.q_func == False
+    elif args.model_name == 'coma':
+        assert args.replay == False
+        assert args.q_func == True
+        assert args.target == True
+        assert args.continuous == False

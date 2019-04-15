@@ -18,7 +18,12 @@ else:
 
 PATH=save_path + log_name + '/model.pt'
 
-behaviour_net = model(args)
+if args.target:
+    target_net = model(args)
+    behaviour_net = model(args, target_net)
+else:
+    behaviour_net = model(args)
+    
 checkpoint = torch.load(PATH, map_location='cpu')
 behaviour_net.load_state_dict(checkpoint['model_state_dict'])
 

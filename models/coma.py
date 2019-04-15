@@ -16,7 +16,7 @@ from models.model import Model
 
 class COMA(Model):
 
-    def __init__(self, args):
+    def __init__(self, args, target_net=None):
         super(COMA, self).__init__(args)
         self.construct_model()
         self.apply(self.init_weights)
@@ -47,7 +47,7 @@ class COMA(Model):
                                         )
 
     def construct_value_net(self):
-        self.value_dict = nn.ModuleDict( {'layer_1': nn.Linear( (self.obs_dim+self.act_dim)*self.n_, self.hid_dim ),\
+        self.value_dict = nn.ModuleDict( {'layer_1': nn.Linear( self.obs_dim+self.act_dim*(self.n_-1), self.hid_dim ),\
                                           'layer_2': nn.Linear( self.hid_dim, self.hid_dim ),\
                                           'value_head': nn.Linear(self.hid_dim, self.act_dim)
                                          }
@@ -59,24 +59,29 @@ class COMA(Model):
 
     def policy(self, obs, info={}, stat={}):
         batch_size = obs.size(0)
-        last_act = info['last_actions'] # shape=(batch_size, n, act_dim)
+        try:
+            last_act = info['last_action'] # shape=(batch_size, n, act_dim)
+        except:
+            last_act = cuda_wrapper( torch.zeros( (batch_size, self.n_, self.act_dim) ), self.cuda_ )
         h = torch.relu( self.action_dict['observation'](obs) )
-        h = torch.cat((h, last_act), dim=-1) # shape=(batch_size, n, act_dim+hid_dim)
-        h = h.contiguous().view(batch_size*self.n_, self.act_dim+self.obs_dim) # shape=(batch_size*n, act_dim+hid_dim)
+        h = torch.cat( (h, last_act), dim=-1 ) # shape=(batch_size, n, act_dim+hid_dim)
+        h = h.contiguous().view(batch_size*self.n_, self.act_dim+self.hid_dim) # shape=(batch_size*n, act_dim+hid_dim)
         h = torch.relu( self.action_dict['gru_layer'](h) )
-        as = self.action_dict['action_head'](h)
-        return as
+        h = h.contiguous().view(batch_size, self.n_, self.hid_dim)
+        a = self.action_dict['action_head'](h)
+        return a
 
     def value(self, obs, act):
         batch_size = obs.size(0)
         act = act.contiguous().view( -1, np.prod(act.size()[1:]) ).unsqueeze(-2).expand(batch_size, self.n_, self.n_*self.act_dim)
-        act_mask = cuda_wrapper( ( torch.ones(self.n_, self.n_) - torch.eye(self.n_) ).expand_as(act) )
-        act = act * act_mask
-        obs = obs.contiguous().view( -1, np.prod(obs.size()[1:]) )
-        h = torch.relu( self.value_dict['layer_1']( torch.cat( (obs, act), dim=-1 ) ) )
-        h = torch.relu( self.vaue_dict['layer_2'](h) )
-        vs = self.value_dict['value_head'](h)
-        return vs
+        values = []
+        for i in range(self.n_):
+            h = torch.relu( self.value_dict['layer_1']( torch.cat( (obs[:, i, :], act[:, i, :i*self.act_dim], act[:, i, (i+1)*self.act_dim:]), dim=-1 ) ) )
+            h = torch.relu( self.value_dict['layer_2'](h) )
+            v = self.value_dict['value_head'](h)
+            values.append(v)
+        values = torch.stack(values, dim=1)
+        return values
 
     def td_lambda(self, state):
         z_v = cuda_wrapper(torch.zeros_like(state), self.cuda_)
@@ -92,7 +97,7 @@ class COMA(Model):
         action_out = self.policy(state)
         values_ = self.value(state, actions)
         if self.args.q_func:
-            values = torch.sum(values*actions, dim=-1)
+            values = torch.sum(values_*actions, dim=-1)
         values = values.contiguous().view(-1, n)
         next_action_out = self.target_net.policy(next_state)
         next_actions = select_action(self.args, next_action_out, status='train')
@@ -103,7 +108,7 @@ class COMA(Model):
         assert values.size() == next_values.size()
         deltas = rewards + self.args.gamma * next_values.detach() - values
         # calculate coma
-        advantages = values - torch.sum(values_*torch.softmax(values_), dim=-1).detach()
+        advantages = ( values - torch.sum(values_*torch.softmax(action_out, dim=-1), dim=-1) ).detach()
         log_p_a = action_out
         log_prob = multinomials_log_density(actions, log_p_a).contiguous().view(-1, 1)
         advantages = advantages.contiguous().view(-1, 1)
