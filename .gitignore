@@ -1,0 +1,6 @@
+logs/
+model_save/
+learning_algorithms/__pycache__/
+models/__pycache__/
+utilities/__pycache__/
+*.pyc

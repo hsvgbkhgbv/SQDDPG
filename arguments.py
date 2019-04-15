@@ -6,7 +6,8 @@ import numpy as np
 from models.commnet import *
 from models.ic3net import *
 from models.maddpg import *
-
+from environments.traffic_junction_env import TrafficJunctionEnv
+from environments.predator_prey_env import PredatorPreyEnv
 
 
 model_map = dict(commnet=CommNet,
@@ -17,24 +18,22 @@ model_map = dict(commnet=CommNet,
 )
 
 model_name = 'commnet'
-# model_name = 'ic3net'
+#model_name = 'ic3net'
 # model_name = 'independent_commnet'
 # model_name = 'independent_ic3net'
 # model_name = 'maddpg'
 
-scenario_name = 'simple_spread'
-# scenario_name = 'simple'
-
+scenario_name = 'traffic_junction'
 alias = ''
-
-# load scenario from script
-scenario = scenario.load(scenario_name + ".py").Scenario()
-
-# create world
-world = scenario.make_world()
-
-# create multiagent environment
-env = MultiAgentEnv(world, scenario.reset_world, scenario.reward, scenario.observation, info_callback=None, shared_viewer=True)
+env = TrafficJunctionEnv()
+#scenario_name = 'simple_spread'
+#alias = ''
+## load scenario from script
+#scenario = scenario.load(scenario_name + ".py").Scenario()
+## create world
+#world = scenario.make_world()
+## create multiagent environment
+#env = MultiAgentEnv(world, scenario.reset_world, scenario.reward, scenario.observation, info_callback=None, shared_viewer=True)
 env = GymWrapper(env)
 
 Args = namedtuple('Args', ['agent_num',
@@ -69,7 +68,7 @@ Args = namedtuple('Args', ['agent_num',
                  )
 
 args = Args(agent_num=env.get_num_of_agents(),
-            hid_size=64,
+            hid_size=64, 
             obs_size=np.max(env.get_shape_of_obs()),
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
