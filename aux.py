@@ -8,4 +8,4 @@ ic3netArgs = namedtuple( 'ic3netArgs', ['comm_iters'] )
 
 maddpgArgs = namedtuple( 'maddpgArgs', [] )
 
-comaArgs = namedtuple( 'comaArgs', [] )
+comaArgs = namedtuple( 'comaArgs', ['epsilon_softmax_init', 'epsilon_softmax_end'] )

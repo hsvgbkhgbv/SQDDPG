@@ -23,6 +23,11 @@ class COMA(Model):
         if target_net != None:
             self.target_net = target_net
             self.reload_params_to_target()
+        self.eps_delta = (args.epsilon_softmax_init - args.epsilon_softmax_end) / (args.epoch_size*args.train_epoch_num)
+        self.eps = args.epsilon_softmax_init
+
+    def update_eps(self):
+        self.eps -= self.eps_delta
 
     def reload_params_to_target(self):
         self.target_net.action_dict.load_state_dict( self.action_dict.state_dict() )
@@ -88,6 +93,7 @@ class COMA(Model):
         z_a = cuda_wrapper(torch.zeros_like(state), self.cuda_)
 
     def get_loss(self, batch):
+        info = dict(epsilon_softmax=self.eps)
         batch_size = len(batch.state)
         n = self.args.agent_num
         action_dim = self.args.action_dim
@@ -100,7 +106,7 @@ class COMA(Model):
             values = torch.sum(values_*actions, dim=-1)
         values = values.contiguous().view(-1, n)
         next_action_out = self.target_net.policy(next_state)
-        next_actions = select_action(self.args, next_action_out, status='train')
+        next_actions = select_action(self.args, next_action_out, status='train', info=info)
         next_values = self.target_net.value(next_state, next_actions)
         if self.args.q_func:
             next_values = torch.sum(next_values*next_actions, dim=-1)

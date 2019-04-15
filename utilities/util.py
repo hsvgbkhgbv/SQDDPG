@@ -7,8 +7,8 @@ from torch.distributions.normal import Normal
 
 class GumbelSoftmax(OneHotCategorical):
 
-    def __init__(self, logits, temperature=0.1):
-        super(GumbelSoftmax, self).__init__(logits=logits)
+    def __init__(self, logits, probs=None, temperature=0.1):
+        super(GumbelSoftmax, self).__init__(logits=logits, probs=probs)
         self.eps = 1e-20
         self.temperature = temperature
 
@@ -50,24 +50,26 @@ def multinomials_log_density(actions, log_probs):
     assert log_probs.size(-1) > 1
     return GumbelSoftmax(logits=log_probs).log_prob(actions)
 
-def select_action(args, action_out, status='train', exploration=True):
+def select_action(args, log_p_a, status='train', exploration=True, info={}):
     if args.continuous:
-        act_mean = action_out
+        act_mean = log_p_a
         act_std = cuda_wrapper(torch.ones_like(act_mean), args.cuda)
         if status == 'train':
             return Normal(act_mean, act_std).sample()
         elif status == 'test':
             return act_mean
     else:
-        log_p_a = action_out
         if status == 'train':
             if exploration:
                 if args.model_name in ['maddpg']:
                     return GumbelSoftmax(logits=log_p_a).sample()
+                elif args.model_name in ['coma']:
+                    eps = info['epsilon_softmax']
+                    p_a = (1 - eps) * torch.softmax(log_p_a, dim=-1) + eps / args.action_dim
+                    return OneHotCategorical(logits=None, probs=p_a).sample()
                 else:
                     return OneHotCategorical(logits=log_p_a).sample()
             else:
-                assert args.model_name in ['maddpg']
                 temperature = 1.0
                 return torch.softmax(log_p_a/temperature, dim=-1)
         elif status == 'test':

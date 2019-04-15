@@ -39,14 +39,19 @@ class Trainer(object):
         state = self.env.reset()
         mean_reward = []
         info = {}
+        if self.args.model_name == 'coma':
+            info['epsilon_softmax'] = self.behaviour_net.eps
         for t in range(self.args.max_steps):
             start_step = True if t == 0 else False
             state_ = cuda_wrapper(prep_obs(state).contiguous().view(1, self.args.agent_num, self.args.obs_size), self.cuda_)
             action_out = self.behaviour_net.policy(state_, info=info, stat=stat)
-            action = select_action(self.args, action_out, status='train')
+            action = select_action(self.args, action_out, status='train', info=info)
             # return the rescaled (clipped) actions
             _, actual = translate_action(self.args, action, self.env)
-            if self.args.model_name == 'coma': info['last_action'] = action
+            if self.args.model_name == 'coma':
+                info['last_action'] = action
+                self.behaviour_net.update_eps()
+            print (info['epsilon_softmax'])
             next_state, reward, done, _ = self.env.step(actual)
             if isinstance(done, list): done = np.sum(done)
             done_ = done or t==self.args.max_steps-1
