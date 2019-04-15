@@ -70,6 +70,8 @@ class COMA(Model):
     def value(self, obs, act):
         batch_size = obs.size(0)
         act = act.contiguous().view( -1, np.prod(act.size()[1:]) ).unsqueeze(-2).expand(batch_size, self.n_, self.n_*self.act_dim)
+        act_mask = cuda_wrapper( ( torch.ones(self.n_, self.n_) - torch.eye(self.n_) ).expand_as(act) )
+        act = act * act_mask
         obs = obs.contiguous().view( -1, np.prod(obs.size()[1:]) )
         h = torch.relu( self.value_dict['layer_1']( torch.cat( (obs, act), dim=-1 ) ) )
         h = torch.relu( self.vaue_dict['layer_2'](h) )
@@ -88,7 +90,7 @@ class COMA(Model):
         rewards, last_step, done, actions, state, next_state = unpack_data(self.args, batch)
         # construct computational graph
         action_out = self.policy(state)
-        values = self.value(state, actions)
+        values_ = self.value(state, actions)
         if self.args.q_func:
             values = torch.sum(values*actions, dim=-1)
         values = values.contiguous().view(-1, n)
@@ -101,6 +103,17 @@ class COMA(Model):
         assert values.size() == next_values.size()
         deltas = rewards + self.args.gamma * next_values.detach() - values
         # calculate coma
+        advantages = values - torch.sum(values_*torch.softmax(values_), dim=-1).detach()
+        log_p_a = action_out
+        log_prob = multinomials_log_density(actions, log_p_a).contiguous().view(-1, 1)
+        advantages = advantages.contiguous().view(-1, 1)
+        if self.args.normalize_advantages:
+            advantages = batchnorm(advantages)
+        assert log_prob.size() == advantages.size()
+        action_loss = -advantages * log_prob
+        action_loss = action_loss.sum() / batch_size
+        value_loss = deltas.pow(2).view(-1).sum() / batch_size
+        return action_loss, value_loss, log_p_a
 
     def init_hidden(self, batch_size):
         return cuda_wrapper(torch.zeros(batch_size*self.n_, self.hid_dim), self.cuda_)
