@@ -12,7 +12,6 @@ class ReinforcementLearning(object):
         self.name = name
         self.args = args
         self.cuda_ = torch.cuda.is_available() and self.args.cuda
-        print ( '{}\n'.format(args) )
 
     def __str__(self):
         print (self.name)

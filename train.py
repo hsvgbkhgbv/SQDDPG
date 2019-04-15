@@ -23,6 +23,7 @@ logger = Logger(save_path+'logs/'+log_name)
 
 model = model_map[model_name]
 
+print(args)
 train = Trainer(args, model, env())
 
 for i in range(args.train_epoch_num):
