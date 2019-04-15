@@ -93,7 +93,7 @@ args = Args(model_name=model_name,
             init_std=0.1,
             policy_lrate=1e-2,
             value_lrate=1e-1,
-            epoch_size=32,
+            epoch_size=10,
             max_steps=50,
             gamma=0.95,
             normalize_advantages=False,
@@ -110,7 +110,7 @@ args = Args(model_name=model_name,
             save_model_freq=10,
             target=True,
             target_lr=1e-2,
-            target_update_freq=2
+            target_update_freq=4
            )
 
 args = MergeArgs(*(args+aux_args))
