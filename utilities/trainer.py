@@ -51,7 +51,6 @@ class Trainer(object):
             if self.args.model_name == 'coma':
                 info['last_action'] = action
                 self.behaviour_net.update_eps()
-            print (info['epsilon_softmax'])
             next_state, reward, done, _ = self.env.step(actual)
             if isinstance(done, list): done = np.sum(done)
             done_ = done or t==self.args.max_steps-1
