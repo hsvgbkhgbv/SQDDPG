@@ -11,18 +11,22 @@ def inspector(args):
         assert args.replay == False
         assert args.comm_iters > 1
         assert args.q_func == False
+        assert args.target == False
     elif args.model_name == 'independent_commnet':
         assert args.replay == False
         assert args.comm_iters == 1
         assert args.q_func == False
+        assert args.target == False
     elif args.model_name == 'ic3net':
         assert args.replay == False
         assert args.comm_iters > 1
         assert args.q_func == False
+        assert args.target == False
     elif args.model_name == 'independent_ic3net':
         assert args.replay == False
         assert args.comm_iters == 1
         assert args.q_func == False
+        assert args.target == False
     elif args.model_name == 'coma':
         assert args.replay == False
         assert args.q_func == True
