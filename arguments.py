@@ -32,8 +32,8 @@ AuxArgs = dict(commnet=commnetArgs,
 # model_name = 'ic3net'
 # model_name = 'independent_commnet'
 # model_name = 'independent_ic3net'
-# model_name = 'maddpg'
-model_name = 'coma'
+model_name = 'maddpg'
+# model_name = 'coma'
 
 '''define the scenario name'''
 scenario_name = 'simple_spread'
@@ -44,7 +44,7 @@ scenario_name = 'simple_spread'
 # ic3netArgs = namedtuple( 'ic3netArgs', ['comm_iters'] )
 # maddpgArgs = namedtuple( 'maddpgArgs', [] )
 # comaArgs = namedtuple( 'comaArgs', ['softmax_eps_init', 'softmax_eps_end', 'n_step'] )
-aux_args = AuxArgs[model_name](softmax_eps_init=0.5, softmax_eps_end=0.02, n_step=20)
+aux_args = AuxArgs[model_name]()
 alias = ''
 
 '''load scenario from script'''
@@ -108,7 +108,7 @@ args = Args(model_name=model_name,
             action_num=np.max(env.get_input_shape_of_act()),
             q_func=True,
             train_epoch_num=1000,
-            replay=False,
+            replay=True,
             replay_buffer_size=1e6,
             replay_iters=1,
             cuda=False,
@@ -119,7 +119,7 @@ args = Args(model_name=model_name,
             target_lr=1e-2,
             target_update_freq=10,
             epsilon_softmax=False,
-            gumbel_softmax=False
+            gumbel_softmax=True
            )
 
 args = MergeArgs(*(args+aux_args))
