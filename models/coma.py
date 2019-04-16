@@ -94,6 +94,7 @@ class COMA(Model):
         z_a = cuda_wrapper(torch.zeros_like(state), self.cuda_)
 
     def get_loss(self, batch):
+        info = {'softmax_eps': self.eps} if self.args.epsilon_softmax else {}
         batch_size = len(batch.state)
         n = self.args.agent_num
         action_dim = self.args.action_dim
@@ -106,13 +107,31 @@ class COMA(Model):
             values = torch.sum(values_*actions, dim=-1)
         values = values.contiguous().view(-1, n)
         next_action_out = self.target_net.policy(next_state)
-        next_actions = select_action(self.args, next_action_out, status='test')
+        next_actions = select_action(self.args, next_action_out, status='train', info=info)
         next_values = self.target_net.value(next_state, next_actions)
+        returns = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda_)
         if self.args.q_func:
             next_values = torch.sum(next_values*next_actions, dim=-1)
         next_values = next_values.contiguous().view(-1, n)
+        # n-step TD estimate
         assert values.size() == next_values.size()
-        deltas = rewards + self.args.gamma * next_values.detach() - values
+        assert returns.size() == rewards.size()
+        values_mask = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda_)
+        # for i in reversed(range(0, rewards.size(0), 10)):
+        i = rewards.size(0)-1
+        while i > 0:
+            if last_step[i]:
+                next_return = 0 if done[i] else next_values[i].detach()
+                i -= self.args.n_step
+            else:
+                next_return = next_values[i-1+self.args.n_step].detach()
+            for j in range(self.args.n_step):
+                g = rewards[i+j] + self.args.gamma * next_return
+                next_return = g
+            returns[i] = g.detach()
+            values_mask[i] = 1
+            i -= 1
+        deltas = returns - values_mask * values
         # calculate coma
         advantages = ( values - torch.sum(values_*torch.softmax(action_out, dim=-1), dim=-1) ).detach()
         log_p_a = action_out

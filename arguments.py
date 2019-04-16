@@ -42,9 +42,9 @@ scenario_name = 'simple_spread'
 '''define the special property'''
 # commnetArgs = namedtuple( 'commnetArgs', ['skip_connection', 'comm_iters'] )
 # ic3netArgs = namedtuple( 'ic3netArgs', ['comm_iters'] )
-# maddpgArgs = namedtuple( 'maddpgArgs', ['gumbel_softmax'] )
-# comaArgs = namedtuple( 'comaArgs', ['epsilon_softmax', 'softmax_eps_init', 'softmax_eps_end'] )
-aux_args = AuxArgs[model_name](epsilon_softmax=True, softmax_eps_init=0.5, softmax_eps_end=0.02)
+# maddpgArgs = namedtuple( 'maddpgArgs', [] )
+# comaArgs = namedtuple( 'comaArgs', ['softmax_eps_init', 'softmax_eps_end', 'n_step'] )
+aux_args = AuxArgs[model_name](softmax_eps_init=0.5, softmax_eps_end=0.02, n_step=20)
 alias = ''
 
 '''load scenario from script'''
@@ -83,7 +83,9 @@ Args = namedtuple('Args', ['model_name',
                            'save_model_freq',
                            'target',
                            'target_lr',
-                           'target_update_freq'
+                           'target_update_freq',
+                           'epsilon_softmax',
+                           'gumbel_softmax'
                           ]
                  )
 
@@ -101,11 +103,11 @@ args = Args(model_name=model_name,
             epoch_size=32,
             max_steps=50,
             gamma=0.95,
-            normalize_advantages=False,
+            normalize_advantages=True,
             entr=1e-3,
             action_num=np.max(env.get_input_shape_of_act()),
             q_func=True,
-            train_epoch_num=20000,
+            train_epoch_num=1000,
             replay=False,
             replay_buffer_size=1e6,
             replay_iters=1,
@@ -115,7 +117,9 @@ args = Args(model_name=model_name,
             save_model_freq=10,
             target=True,
             target_lr=1e-2,
-            target_update_freq=1
+            target_update_freq=10,
+            epsilon_softmax=False,
+            gumbel_softmax=False
            )
 
 args = MergeArgs(*(args+aux_args))
