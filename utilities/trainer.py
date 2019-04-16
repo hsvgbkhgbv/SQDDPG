@@ -105,16 +105,16 @@ class Trainer(object):
                 self.grad_clip(self.behaviour_net.value_dict)
             value_grad_norm += get_grad_norm(self.behaviour_net.value_dict)
             self.value_optimizer.step()
+            merge_dict(stat, 'value_loss', value_loss_ / self.args.replay_iters)
+            merge_dict(stat, 'value_grad_norm', value_grad_norm / self.args.replay_iters)
             self.action_optimizer.zero_grad()
             self.action_compute_grad(stat, (action_loss, log_p_a))
             if self.args.grad_clip:
                 self.grad_clip(self.behaviour_net.action_dict)
             policy_grad_norm += get_grad_norm(self.behaviour_net.action_dict)
             self.action_optimizer.step()
-        merge_dict(stat, 'action_loss', action_loss_ / self.args.replay_iters)
-        merge_dict(stat, 'value_loss', value_loss_ / self.args.replay_iters)
-        merge_dict(stat, 'policy_grad_norm', policy_grad_norm / self.args.replay_iters)
-        merge_dict(stat, 'value_grad_norm', value_grad_norm / self.args.replay_iters)
+            merge_dict(stat, 'action_loss', action_loss_ / self.args.replay_iters)
+            merge_dict(stat, 'policy_grad_norm', policy_grad_norm / self.args.replay_iters)
 
     def online_process(self, stat, batch):
         action_loss, value_loss, log_p_a = self.get_batch_loss(batch)
@@ -124,6 +124,7 @@ class Trainer(object):
             self.grad_clip(self.behaviour_net.value_dict)
         stat['value_grad_norm'] = get_grad_norm(self.behaviour_net.value_dict)
         self.value_optimizer.step()
+        stat['value_loss'] = value_loss.item()
         self.action_optimizer.zero_grad()
         self.action_compute_grad(stat, (action_loss, log_p_a))
         if self.args.grad_clip:
@@ -131,7 +132,6 @@ class Trainer(object):
         stat['policy_grad_norm'] = get_grad_norm(self.behaviour_net.action_dict)
         self.action_optimizer.step()
         stat['action_loss'] = action_loss.item()
-        stat['value_loss'] = value_loss.item()
 
     def run_batch(self):
         batch = []
