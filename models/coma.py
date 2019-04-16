@@ -109,7 +109,6 @@ class COMA(Model):
         assert values.size() == next_values.size()
         assert returns.size() == rewards.size()
         values_mask = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda_)
-        # for i in reversed(range(0, rewards.size(0), 10)):
         i = rewards.size(0)-1
         while i > 0:
             if last_step[i]:

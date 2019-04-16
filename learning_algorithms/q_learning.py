@@ -38,6 +38,8 @@ class QLearning(ReinforcementLearning):
         for i in range(rewards.size(0)):
             if last_step[i]:
                 next_return = 0 if done[i] else next_values[i].detach()
+            else:
+                next_return = next_values[i].detach()
             returns[i] = rewards[i] + self.args.gamma * next_return.detach()
         deltas = returns - values
         # construct the action loss and the value loss

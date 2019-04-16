@@ -37,7 +37,6 @@ class DDPG(ReinforcementLearning):
             else:
                 next_return = next_values_[i].detach()
             returns[i] = rewards[i] + self.args.gamma * next_return
-            next_return = returns[i]
         deltas = returns - values
         advantages = values_
         advantages = advantages.contiguous().view(-1, 1)
