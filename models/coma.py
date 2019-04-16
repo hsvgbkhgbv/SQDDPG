@@ -23,7 +23,7 @@ class COMA(Model):
         if target_net != None:
             self.target_net = target_net
             self.reload_params_to_target()
-        if self.epsilon_softmax:
+        if self.args.epsilon_softmax:
             self.eps_delta = (args.epsilon_softmax_init - args.epsilon_softmax_end) / (args.epoch_size*args.train_epoch_num)
             self.eps = args.epsilon_softmax_init
 
