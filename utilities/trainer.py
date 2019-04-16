@@ -160,6 +160,7 @@ class Trainer(object):
             self.online_process(stat, batch)
             if self.args.replay:
                 self.replay_process(stat)
-        if t%self.args.target_update_freq == self.args.target_update_freq-1:
-            self.behaviour_net.update_target()
+        if self.args.target:
+            if t%self.args.target_update_freq == self.args.target_update_freq-1:
+                self.behaviour_net.update_target()
         return stat
