@@ -6,14 +6,6 @@ from models.model import Model
 
 
 
-import torch
-import torch.nn as nn
-import numpy as np
-from utilities.util import *
-from models.model import Model
-
-
-
 class COMA(Model):
 
     def __init__(self, args, target_net=None):
