@@ -39,7 +39,10 @@ class MF(Model):
         self.construct_policy_net()
 
     def get_loss(self, batch):
-        action_loss, value_loss, log_p_a = self.rl.get_loss(batch, self, self.target_net)
+        if self.args.target:
+            action_loss, value_loss, log_p_a = self.rl.get_loss(batch, self, self.target_net)
+        else:
+            action_loss, value_loss, log_p_a = self.rl.get_loss(batch, self)
         return action_loss, value_loss, log_p_a
 
 

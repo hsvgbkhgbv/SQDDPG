@@ -154,7 +154,7 @@ class Trainer(object):
         return batch, stats
 
     def train_batch(self, t, batch, stat):
-        if self.args.model_name in ['maddpg', 'mfac']:
+        if self.args.model_name in ['maddpg']:
             self.replay_process(stat)
         else:
             self.online_process(stat, batch)
