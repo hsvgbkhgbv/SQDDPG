@@ -39,8 +39,8 @@ class Trainer(object):
         state = self.env.reset()
         mean_reward = []
         info = {}
-        if self.args.model_name == 'coma':
-            info['epsilon_softmax'] = self.behaviour_net.eps
+        if self.args.epsilon_softmax:
+            info['softmax_eps'] = self.behaviour_net.eps
         for t in range(self.args.max_steps):
             start_step = True if t == 0 else False
             state_ = cuda_wrapper(prep_obs(state).contiguous().view(1, self.args.agent_num, self.args.obs_size), self.cuda_)
@@ -50,7 +50,6 @@ class Trainer(object):
             _, actual = translate_action(self.args, action, self.env)
             if self.args.model_name == 'coma':
                 info['last_action'] = action
-                self.behaviour_net.update_eps()
             next_state, reward, done, _ = self.env.step(actual)
             if isinstance(done, list): done = np.sum(done)
             done_ = done or t==self.args.max_steps-1
@@ -63,6 +62,8 @@ class Trainer(object):
             state = next_state
         mean_reward = np.mean(mean_reward)
         num_steps = t+1
+        if self.args.epsilon_softmax:
+            self.behaviour_net.update_eps()
         return episode, mean_reward, num_steps
 
     def get_batch_loss(self, batch):

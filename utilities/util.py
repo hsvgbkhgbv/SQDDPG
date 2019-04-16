@@ -61,12 +61,12 @@ def select_action(args, log_p_a, status='train', exploration=True, info={}):
     else:
         if status == 'train':
             if exploration:
-                if args.model_name in ['maddpg']:
-                    return GumbelSoftmax(logits=log_p_a).sample()
-                elif args.model_name in ['coma']:
-                    eps = info['epsilon_softmax']
+                if args.epsilon_softmax:
+                    eps = info['softmax_eps']
                     p_a = (1 - eps) * torch.softmax(log_p_a, dim=-1) + eps / args.action_dim
                     return OneHotCategorical(logits=None, probs=p_a).sample()
+                elif args.gumbel_softmax:
+                    return GumbelSoftmax(logits=log_p_a).sample()
                 else:
                     return OneHotCategorical(logits=log_p_a).sample()
             else:
