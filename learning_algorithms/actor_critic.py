@@ -30,8 +30,14 @@ class ActorCritic(ReinforcementLearning):
         if self.args.q_func:
             next_values = torch.sum(next_values*next_actions, dim=-1)
         next_values = next_values.contiguous().view(-1, n)
+        returns = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda_)
         # calculate the advantages
         assert values.size() == next_values.size()
+        assert returns.size() == values.size()
+        for i in range(rewards.size(0)):
+            if last_step[i]:
+                next_return = 0 if done[i] else next_values[i].detach()
+            returns[i] = rewards[i] + self.args.gamma * next_return.detach()
         deltas = rewards + self.args.gamma * next_values.detach() - values
         advantages = values.detach()
         # construct the action loss and the value loss

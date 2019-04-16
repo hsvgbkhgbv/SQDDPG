@@ -21,17 +21,21 @@ class DDPG(ReinforcementLearning):
         # do the argmax action on the action loss
         action_out = behaviour_net.policy(state)
         actions_ = select_action(self.args, action_out, status='train', exploration=False)
-        # actions_ = torch.softmax(action_out, dim=-1)
         values_ = behaviour_net.value(state, actions_).contiguous().view(-1, n)
         # do the exploration action on the value loss
         values = behaviour_net.value(state, actions).contiguous().view(-1, n)
         # do the argmax action on the next value loss
         next_action_out = target_net.policy(next_state)
         next_actions = select_action(self.args, next_action_out, status='train', exploration=False)
-        # next_actions = torch.softmax(next_action_out, dim=-1)
         next_values_ = target_net.value(next_state, next_actions.detach()).contiguous().view(-1, n)
+        returns = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda_)
         assert values_.size() == next_values_.size()
-        deltas = rewards + self.args.gamma * next_values_.detach() - values
+        assert returns.size() == values.size()
+        for i in range(rewards.size(0)):
+            if last_step[i]:
+                next_return = 0 if done[i] else next_values[i].detach()
+            returns[i] = rewards[i] + self.args.gamma * next_return.detach()
+        deltas = returns - values
         advantages = values_
         advantages = advantages.contiguous().view(-1, 1)
         if self.args.normalize_advantages:
