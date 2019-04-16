@@ -24,8 +24,8 @@ class COMA(Model):
             self.target_net = target_net
             self.reload_params_to_target()
         if self.args.epsilon_softmax:
-            self.eps_delta = (args.epsilon_softmax_init - args.epsilon_softmax_end) / (args.epoch_size*args.train_epoch_num)
-            self.eps = args.epsilon_softmax_init
+            self.eps_delta = (args.softmax_eps_init - args.softmax_eps_end) / (args.epoch_size*args.train_epoch_num)
+            self.eps = args.softmax_eps_init
 
     def update_eps(self):
         self.eps -= self.eps_delta
@@ -106,7 +106,7 @@ class COMA(Model):
             values = torch.sum(values_*actions, dim=-1)
         values = values.contiguous().view(-1, n)
         next_action_out = self.target_net.policy(next_state)
-        next_actions = select_action(self.args, next_action_out, status='train')
+        next_actions = select_action(self.args, next_action_out, status='test')
         next_values = self.target_net.value(next_state, next_actions)
         if self.args.q_func:
             next_values = torch.sum(next_values*next_actions, dim=-1)
