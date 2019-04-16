@@ -8,6 +8,8 @@ from models.ic3net import *
 from models.maddpg import *
 from models.coma import *
 from aux import *
+from environments.traffic_junction_env import TrafficJunctionEnv
+from environments.predator_prey_env import PredatorPreyEnv
 
 
 
