@@ -108,21 +108,25 @@ class COMA(Model):
         # n-step TD estimate
         assert values.size() == next_values.size()
         assert returns.size() == rewards.size()
-        values_mask = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda_)
+        # values_mask = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda_)
         i = rewards.size(0)-1
         while i > 0:
             if last_step[i]:
                 next_return = 0 if done[i] else next_values[i].detach()
+                for j in reversed(range(i-self.args.n_step, i)):
+                    returns[j] = rewards[j] + self.args.gamma * next_return
+                    next_return = returns[j]
+                next_return = 0 if done[i] else next_values[i].detach()
                 i -= self.args.n_step
             else:
                 next_return = next_values[i-1+self.args.n_step].detach()
-            for j in range(self.args.n_step):
+            for j in reversed(range(self.args.n_step)):
                 g = rewards[i+j] + self.args.gamma * next_return
                 next_return = g
             returns[i] = g.detach()
-            values_mask[i] = 1
+            # values_mask[i] = 1
             i -= 1
-        deltas = returns - values_mask * values
+        deltas = returns - values
         # calculate coma
         advantages = ( values - torch.sum(values_*torch.softmax(action_out, dim=-1), dim=-1) ).detach()
         log_p_a = action_out
