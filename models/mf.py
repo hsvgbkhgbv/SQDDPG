@@ -82,7 +82,7 @@ class MFAC(MF):
         values = []
         for i in range(self.n_):
             act_mean = torch.mean(torch.cat( (act[:, :i, :], act[:, (i+1):, :]), dim=1 ), dim=1)
-            h = torch.relu( self.value_dict['layer_1'][i]( torch.cat( (obs[:, i, :],  act_mean), dim=-1 ) ) )
+            h = torch.relu( self.value_dict['layer_1'][i]( torch.cat( (obs[:, i, :],  act[:, i, :], act_mean), dim=-1 ) ) )
             h = torch.relu( self.value_dict['layer_2'][i](h) )
             v = self.value_dict['value_head'][i](h)
             values.append(v)
