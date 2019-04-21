@@ -43,7 +43,6 @@ class ActorCritic(ReinforcementLearning):
             else:
                 next_return = next_values[i].detach()
             returns[i] = rewards[i] + self.args.gamma * next_return
-            next_return = returns[i]
         deltas = returns - values
         advantages = values.detach()
         # construct the action loss and the value loss

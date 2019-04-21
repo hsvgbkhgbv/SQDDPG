@@ -38,8 +38,8 @@ AuxArgs = dict(commnet=commnetArgs,
 # model_name = 'independent_commnet'
 # model_name = 'independent_ic3net'
 # model_name = 'maddpg'
-# model_name = 'coma'
-model_name = 'mfac'
+model_name = 'coma'
+# model_name = 'mfac'
 
 '''define the scenario name'''
 scenario_name = 'simple_spread'
@@ -52,7 +52,7 @@ scenario_name = 'simple_spread'
 # comaArgs = namedtuple( 'comaArgs', ['softmax_eps_init', 'softmax_eps_end', 'n_step'] )
 # mfacArgs = namedtuple( 'mfacArgs', [] )
 
-aux_args = AuxArgs[model_name]()
+aux_args = AuxArgs[model_name](0.2, 0.01, 5)
 alias = ''
 
 '''load scenario from script'''
@@ -106,8 +106,8 @@ args = Args(model_name=model_name,
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
             init_std=0.1,
-            policy_lrate=1e-2,
-            value_lrate=1e-1,
+            policy_lrate=1e-3,
+            value_lrate=1e-2,
             epoch_size=32,
             max_steps=50,
             gamma=0.95,
@@ -115,17 +115,17 @@ args = Args(model_name=model_name,
             entr=1e-3,
             action_num=np.max(env.get_input_shape_of_act()),
             q_func=True,
-            train_epoch_num=20000,
+            train_epoch_num=10000,
             replay=False,
             replay_buffer_size=1e6,
             replay_iters=1,
-            cuda=True,
+            cuda=False,
             grad_clip=True,
             behaviour_update_freq=1,
             save_model_freq=10,
-            target=False,
+            target=True,
             target_lr=1e-2,
-            target_update_freq=1,
+            target_update_freq=4,
             epsilon_softmax=False,
             gumbel_softmax=False
            )
