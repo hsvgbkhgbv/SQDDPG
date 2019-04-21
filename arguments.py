@@ -52,7 +52,7 @@ scenario_name = 'simple_spread'
 # comaArgs = namedtuple( 'comaArgs', ['softmax_eps_init', 'softmax_eps_end', 'n_step'] )
 # mfacArgs = namedtuple( 'mfacArgs', [] )
 
-aux_args = AuxArgs[model_name](0.2, 0.01, 5)
+aux_args = AuxArgs[model_name](0.5, 0.02, 20)
 alias = ''
 
 '''load scenario from script'''
@@ -106,8 +106,8 @@ args = Args(model_name=model_name,
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
             init_std=0.1,
-            policy_lrate=1e-3,
-            value_lrate=1e-2,
+            policy_lrate=1e-2,
+            value_lrate=1e-1,
             epoch_size=32,
             max_steps=50,
             gamma=0.95,
@@ -115,7 +115,7 @@ args = Args(model_name=model_name,
             entr=1e-3,
             action_num=np.max(env.get_input_shape_of_act()),
             q_func=True,
-            train_epoch_num=10000,
+            train_epoch_num=20000,
             replay=False,
             replay_buffer_size=1e6,
             replay_iters=1,
@@ -125,8 +125,8 @@ args = Args(model_name=model_name,
             save_model_freq=10,
             target=True,
             target_lr=1e-2,
-            target_update_freq=4,
-            epsilon_softmax=False,
+            target_update_freq=2,
+            epsilon_softmax=True,
             gumbel_softmax=False
            )
 
