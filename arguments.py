@@ -35,11 +35,11 @@ AuxArgs = dict(commnet=commnetArgs,
 '''define the model name'''
 # model_name = 'commnet'
 # model_name = 'ic3net'
-# model_name = 'independent_commnet'
+model_name = 'independent_commnet'
 # model_name = 'independent_ic3net'
 # model_name = 'maddpg'
 # model_name = 'coma'
-model_name = 'mfac'
+# model_name = 'mfac'
 
 '''define the scenario name'''
 scenario_name = 'simple_spread'
@@ -52,8 +52,8 @@ scenario_name = 'simple_spread'
 # comaArgs = namedtuple( 'comaArgs', ['softmax_eps_init', 'softmax_eps_end', 'n_step'] )
 # mfacArgs = namedtuple( 'mfacArgs', [] )
 
-aux_args = AuxArgs[model_name]()
-alias = ''
+aux_args = AuxArgs[model_name](True, 1)
+alias = '_skip_connection'
 
 '''load scenario from script'''
 scenario = scenario.load(scenario_name+".py").Scenario()
@@ -106,16 +106,16 @@ args = Args(model_name=model_name,
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
             init_std=0.1,
-            policy_lrate=1e-3,
-            value_lrate=1e-2,
+            policy_lrate=1e-2,
+            value_lrate=2e-2,
             epoch_size=32,
             max_steps=50,
             gamma=0.95,
             normalize_advantages=False,
             entr=1e-3,
             action_num=np.max(env.get_input_shape_of_act()),
-            q_func=True,
-            train_epoch_num=15000,
+            q_func=False,
+            train_epoch_num=10000,
             replay=False,
             replay_buffer_size=1e6,
             replay_iters=1,
