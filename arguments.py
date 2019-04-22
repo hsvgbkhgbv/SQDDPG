@@ -21,7 +21,7 @@ model_map = dict(commnet=CommNet,
                  maddpg=MADDPG,
                  coma=COMA,
                  mfac=MFAC
-)
+                )
 
 AuxArgs = dict(commnet=commnetArgs,
                independent_commnet=commnetArgs,
@@ -115,17 +115,17 @@ args = Args(model_name=model_name,
             entr=1e-3,
             action_num=np.max(env.get_input_shape_of_act()),
             q_func=True,
-            train_epoch_num=10000,
+            train_epoch_num=15000,
             replay=False,
             replay_buffer_size=1e6,
             replay_iters=1,
-            cuda=False,
+            cuda=True,
             grad_clip=True,
             behaviour_update_freq=1,
             save_model_freq=10,
-            target=True,
+            target=False,
             target_lr=1e-2,
-            target_update_freq=2,
+            target_update_freq=4,
             epsilon_softmax=False,
             gumbel_softmax=False
            )

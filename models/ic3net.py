@@ -13,13 +13,16 @@ class IC3Net(Model):
         super(IC3Net, self).__init__(args)
         self.comm_iters = self.args.comm_iters
         self.rl = REINFORCE(self.args)
+        self.identifier()
+        self.construct_model()
+        self.apply(self.init_weights)
+    
+    def identifier(self):
         if self.comm_iters == 0:
             raise RuntimeError('Please guarantee the comm iters is at least greater equal to 1.')
         elif self.comm_iters < 2:
             raise RuntimeError('Please use IndependentIC3Net if the comm iters is set to 1.')
-        self.construct_model()
-        self.apply(self.init_weights)
-
+            
     def construct_policy_net(self):
         self.action_dict = nn.ModuleDict( {'encoder': nn.Linear(self.obs_dim, self.hid_dim),\
                                            'f_module': nn.LSTMCell(self.hid_dim, self.hid_dim),\
@@ -101,6 +104,12 @@ class IC3Net(Model):
 
 
 class IndependentIC3Net(IC3Net):
+    
     def __init__(self, args):
         super(IndependentIC3Net, self).__init__(args)
-        self.comm_iters = 1
+    
+    def identifier(self):
+        if self.comm_iters == 0:
+            raise RuntimeError('Please guarantee the comm iters is at least greater equal to 1.')
+        elif self.comm_iters > 1:
+            raise RuntimeError('Please use IC3Net if the comm iters is set to the value greater than 1.')

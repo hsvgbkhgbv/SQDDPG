@@ -33,7 +33,7 @@ def inspector(args):
         assert args.target == True
         assert args.continuous == False
     elif args.model_name == 'mfac':
-        assert args.replay == True
+        assert args.replay == False
         assert args.q_func == True
-        assert args.target == True
+        assert args.target == False
         assert args.continuous == False
