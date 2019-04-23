@@ -17,10 +17,10 @@ class ActorCritic(ReinforcementLearning):
         n = self.args.agent_num
         action_dim = self.args.action_dim
         # collect the transition data
-        rewards, last_step, done, actions, state, next_state = unpack_data(self.args, batch)
+        rewards, last_step, done, actions, last_actions, state, next_state = unpack_data(self.args, batch)
         # construct the computational graph
         action_out = behaviour_net.policy(state)
-        values = behaviour_net.value(state, actions)
+        values = behaviour_net.value(state)
         if self.args.q_func:
             values = torch.sum(values*actions, dim=-1)
         values = values.contiguous().view(-1, n)
@@ -29,7 +29,7 @@ class ActorCritic(ReinforcementLearning):
         else:
             next_action_out = target_net.policy(next_state)
         next_actions = select_action(self.args, next_action_out, status='train')
-        next_values = behaviour_net.value(next_state, next_actions)
+        next_values = behaviour_net.value(next_state)
         if self.args.q_func:
             next_values = torch.sum(next_values*next_actions, dim=-1)
         next_values = next_values.contiguous().view(-1, n)

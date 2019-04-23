@@ -65,12 +65,8 @@ class COMA(Model):
         self.construct_value_net()
         self.construct_policy_net()
 
-    def policy(self, obs, info={}, stat={}):
+    def policy(self, obs, last_act, info={}, stat={}):
         batch_size = obs.size(0)
-        try:
-            last_act = info['last_action'] # shape=(batch_size, n, act_dim)
-        except:
-            last_act = cuda_wrapper( torch.zeros( (batch_size, self.n_, self.act_dim) ), self.cuda_ )
         # h = torch.relu( self.action_dict['observation'](obs) )
         # h = torch.cat( (h, last_act), dim=-1 ) # shape=(batch_size, n, act_dim+hid_dim)
         # h = h.contiguous().view(batch_size*self.n_, self.act_dim+self.hid_dim) # shape=(batch_size*n, act_dim+hid_dim)
@@ -115,14 +111,14 @@ class COMA(Model):
         n = self.args.agent_num
         action_dim = self.args.action_dim
         # collect the transition data
-        rewards, last_step, done, actions, state, next_state = unpack_data(self.args, batch)
+        rewards, last_step, done, actions, last_actions, state, next_state = unpack_data(self.args, batch)
         # construct computational graph
-        action_out = self.policy(state)
+        action_out = self.policy(state, last_actions)
         values_ = self.value(state, actions)
         if self.args.q_func:
             values = torch.sum(values_*actions, dim=-1)
         values = values.contiguous().view(-1, n)
-        next_action_out = self.target_net.policy(next_state)
+        next_action_out = self.target_net.policy(next_state, actions)
         next_actions = select_action(self.args, next_action_out, status='train', info=info)
         next_values = self.target_net.value(next_state, next_actions)
         returns = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda_)

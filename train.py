@@ -11,6 +11,7 @@ import argparse
 
 parser = argparse.ArgumentParser(description='Test rl agent.')
 parser.add_argument('--save-path', type=str, nargs='?', default='./', help='Please input the directory of saving model.')
+parser.add_argument('--strategy', type=str, nargs='?', default='pg', help='Please input the strategy of learning, such as pg or q.')
 argv = parser.parse_args()
 
 
@@ -25,13 +26,23 @@ model = model_map[model_name]
 
 print ( '{}\n'.format(args) )
 
-train = Trainer(args, model, env())
+if argv.strategy == 'pg':
+    train = PGTrainer(args, model, env())
+elif argv.strategy == 'q':
+    train = QTrainer(args, model, env())
+else:
+    raise RuntimeError('Please input the correct strategy, e.g. pg or q.')
 
 for i in range(args.train_epoch_num):
     batch, stat = train.run_batch()
     if i%args.behaviour_update_freq == args.behaviour_update_freq-1:
         stat = train.train_batch(i, batch, stat)
-        print ('This is the epoch: {}, the mean reward is {:2.4f} and the current action loss to be minimized is: {:2.4f}\n'.format(i, stat['mean_reward'], stat['action_loss']))
+        if argv.strategy == 'pg':
+            print ('This is the epoch: {}, the mean reward is {:2.4f} and the current action loss to be minimized is: {:2.4f}\n'.format(i, stat['mean_reward'], stat['action_loss']))
+        elif argv.strategy == 'q':
+            print ('This is the epoch: {}, the mean reward is {:2.4f} and the current value loss to be minimized is: {:2.4f}\n'.format(i, stat['mean_reward'], stat['value_loss']))
+        else:
+            raise RuntimeError('Please input the correct strategy, e.g. pg or q.')
         for tag, value in stat.items():
             if isinstance(value, np.ndarray):
                 logger.image_summary(tag, value, i)

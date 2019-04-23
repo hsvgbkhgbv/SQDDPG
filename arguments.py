@@ -20,7 +20,8 @@ model_map = dict(commnet=CommNet,
                  independent_ic3net=IndependentIC3Net,
                  maddpg=MADDPG,
                  coma=COMA,
-                 mfac=MFAC
+                 mfac=MFAC,
+                 mfq=MFQ
                 )
 
 AuxArgs = dict(commnet=commnetArgs,
@@ -29,17 +30,19 @@ AuxArgs = dict(commnet=commnetArgs,
                independent_ic3net=ic3netArgs,
                maddpg=maddpgArgs,
                coma=comaArgs,
-               mfac=mfacArgs
+               mfac=mfacArgs,
+               mfq=mfqArgs
               )
 
 '''define the model name'''
 # model_name = 'commnet'
 # model_name = 'ic3net'
-model_name = 'independent_commnet'
+# model_name = 'independent_commnet'
 # model_name = 'independent_ic3net'
 # model_name = 'maddpg'
 # model_name = 'coma'
 # model_name = 'mfac'
+model_name = 'mfq'
 
 '''define the scenario name'''
 scenario_name = 'simple_spread'
@@ -51,9 +54,10 @@ scenario_name = 'simple_spread'
 # maddpgArgs = namedtuple( 'maddpgArgs', [] )
 # comaArgs = namedtuple( 'comaArgs', ['softmax_eps_init', 'softmax_eps_end', 'n_step'] )
 # mfacArgs = namedtuple( 'mfacArgs', [] )
+# mfqArgs = namedtuple( 'mfqArgs', [] )
 
-aux_args = AuxArgs[model_name](True, 1)
-alias = '_skip_connection'
+aux_args = AuxArgs[model_name]()
+alias = ''
 
 '''load scenario from script'''
 scenario = scenario.load(scenario_name+".py").Scenario()
@@ -106,24 +110,24 @@ args = Args(model_name=model_name,
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
             init_std=0.1,
-            policy_lrate=1e-2,
-            value_lrate=2e-2,
+            policy_lrate=1e-3,
+            value_lrate=1e-2,
             epoch_size=32,
             max_steps=50,
             gamma=0.95,
             normalize_advantages=False,
             entr=1e-3,
             action_num=np.max(env.get_input_shape_of_act()),
-            q_func=False,
+            q_func=True,
             train_epoch_num=10000,
-            replay=False,
+            replay=True,
             replay_buffer_size=1e6,
             replay_iters=1,
-            cuda=True,
+            cuda=False,
             grad_clip=True,
             behaviour_update_freq=1,
             save_model_freq=10,
-            target=False,
+            target=True,
             target_lr=1e-2,
             target_update_freq=4,
             epsilon_softmax=False,
