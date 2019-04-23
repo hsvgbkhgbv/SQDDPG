@@ -49,8 +49,6 @@ class PGTrainer(object):
             action = select_action(self.args, action_out, status='train', info=info)
             # return the rescaled (clipped) actions
             _, actual = translate_action(self.args, action, self.env)
-            if self.args.model_name == 'coma':
-                info['last_action'] = action
             next_state, reward, done, _ = self.env.step(actual)
             if isinstance(done, list): done = np.sum(done)
             done_ = done or t==self.args.max_steps-1

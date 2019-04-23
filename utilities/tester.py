@@ -12,8 +12,8 @@ class PGTester(object):
         self.args = args
         self.cuda_ = self.args.cuda and torch.cuda.is_available()
 
-    def action_logits(self, state, action=None):
-        return self.behaviour_net.policy(state)
+    def action_logits(self, state, last_action):
+        return self.behaviour_net.policy(state, last_action)
 
     def run_step(self, state, last_action):
         state = cuda_wrapper(prep_obs(state).contiguous().view(1, self.args.agent_num, self.args.obs_size), cuda=self.cuda_)
@@ -49,5 +49,5 @@ class QTester(PGTester):
     def __init__(self, env, behaviour_net, args):
         super(QTester, self).__init__(env, behaviour_net, args)
 
-    def action_logits(self, state, action):
-        return self.behaviour_net.value(state, action)
+    def action_logits(self, state, last_action):
+        return self.behaviour_net.value(state, last_action)
