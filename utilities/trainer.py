@@ -34,26 +34,32 @@ class PGTrainer(object):
         self.env = env
         self.action_optimizer = optim.Adam(self.behaviour_net.action_dict.parameters(), lr=args.policy_lrate)
         self.value_optimizer = optim.Adam(self.behaviour_net.value_dict.parameters(), lr=args.value_lrate)
+        self.init_action = cuda_wrapper( torch.zeros(1, self.args.agent_num, self.args.action_dim), cuda=self.cuda_ )
+        self.init_action[:, 0, :] += 1
 
     def get_episode(self, stat):
         episode = []
         state = self.env.reset()
         mean_reward = []
         info = {}
+        action = self.init_action
         if self.args.epsilon_softmax:
             info['softmax_eps'] = self.behaviour_net.eps
         for t in range(self.args.max_steps):
             start_step = True if t == 0 else False
             state_ = cuda_wrapper(prep_obs(state).contiguous().view(1, self.args.agent_num, self.args.obs_size), self.cuda_)
-            action_out = self.behaviour_net.policy(state_, info=info, stat=stat)
+            action_ = action.clone()
+            action_out = self.behaviour_net.policy(state_, action_, info=info, stat=stat)
             action = select_action(self.args, action_out, status='train', info=info)
             # return the rescaled (clipped) actions
             _, actual = translate_action(self.args, action, self.env)
+            if self.args.model_name == 'coma':
+                info['last_action'] = action
             next_state, reward, done, _ = self.env.step(actual)
             if isinstance(done, list): done = np.sum(done)
             done_ = done or t==self.args.max_steps-1
             mean_reward.append(reward)
-            trans = Transition(state, action.cpu().numpy(), np.array(reward), next_state, done, done_)
+            trans = Transition(state, action.cpu().numpy(), action_.cpu().numpy(), np.array(reward), next_state, done, done_)
             episode.append(trans)
             if done_:
                 if self.args.model_name == 'coma': self.behaviour_net.init_hidden(batch_size=1)

@@ -93,7 +93,7 @@ class MFQ(MF):
         values = self.value(state, last_actions)
         values = torch.sum(values*actions, dim=-1)
         values = values.contiguous().view(-1, n)
-        next_values = self.target_net.value(next_state, last_actions)
+        next_values = self.target_net.value(next_state, actions)
         next_values = torch.sum(torch.softmax(next_values, dim=-1)*next_values, dim=-1)
         next_values = next_values.contiguous().view(-1, n)
         returns = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda_)

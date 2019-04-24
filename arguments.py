@@ -40,9 +40,9 @@ AuxArgs = dict(commnet=commnetArgs,
 # model_name = 'independent_commnet'
 # model_name = 'independent_ic3net'
 # model_name = 'maddpg'
-# model_name = 'coma'
+model_name = 'coma'
 # model_name = 'mfac'
-model_name = 'mfq'
+# model_name = 'mfq'
 
 '''define the scenario name'''
 scenario_name = 'simple_spread'
@@ -56,7 +56,7 @@ scenario_name = 'simple_spread'
 # mfacArgs = namedtuple( 'mfacArgs', [] )
 # mfqArgs = namedtuple( 'mfqArgs', [] )
 
-aux_args = AuxArgs[model_name]()
+aux_args = AuxArgs[model_name](0.5, 0.02, 10)
 alias = ''
 
 '''load scenario from script'''
@@ -120,7 +120,7 @@ args = Args(model_name=model_name,
             action_num=np.max(env.get_input_shape_of_act()),
             q_func=True,
             train_epoch_num=10000,
-            replay=True,
+            replay=False,
             replay_buffer_size=1e6,
             replay_iters=1,
             cuda=False,
@@ -130,7 +130,7 @@ args = Args(model_name=model_name,
             target=True,
             target_lr=1e-2,
             target_update_freq=4,
-            epsilon_softmax=False,
+            epsilon_softmax=True,
             gumbel_softmax=False
            )
 
