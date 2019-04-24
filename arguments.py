@@ -38,8 +38,8 @@ model_name = 'commnet'
 # model_name = 'coma'
 
 '''define the scenario name'''
-scenario_name = 'simple_spread'
-# scenario_name = 'simple'
+#scenario_name = 'simple_spread'
+scenario_name = 'simple'
 
 '''define the special property'''
 # commnetArgs = namedtuple( 'commnetArgs', ['skip_connection', 'comm_iters'] )

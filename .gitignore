@@ -1,0 +1,8 @@
+__pycache__/
+learning_algorithms/__pycache__/
+logs/
+model_save/
+models/__pycache__/
+utilities/__pycache__/
+environments/__pycache__/*.pyc
+environments/__pycache__/

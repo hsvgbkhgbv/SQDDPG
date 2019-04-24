@@ -6,13 +6,16 @@ import os
 from utilities.util import *
 from utilities.logger import Logger
 import argparse
-
-
+from utilities.multi_processing import MultiProcessTrainer
 
 parser = argparse.ArgumentParser(description='Test rl agent.')
 parser.add_argument('--save-path', type=str, nargs='?', default='./', help='Please input the directory of saving model.')
+parser.add_argument('--nprocesses', type=int, default=1, help='number of multiprocessing training')
 argv = parser.parse_args()
 
+# Force to use cpu for multiprocessing
+if argv.nprocesses > 1:
+    os.environ["CUDA_VISIBLE_DEVICES"]="-1" 
 
 if argv.save_path[-1] is '/':
     save_path = argv.save_path
@@ -25,7 +28,11 @@ model = model_map[model_name]
 
 print ( '{}\n'.format(args) )
 
-train = Trainer(args, model, env())
+
+if argv.nprocesses > 1: 
+    train = MultiProcessTrainer(args, argv, lambda: Trainer(args, model, env))
+else:
+    train = Trainer(args, model, env)
 
 for i in range(args.train_epoch_num):
     batch, stat = train.run_batch()
@@ -42,7 +49,9 @@ for i in range(args.train_epoch_num):
             os.mkdir(save_path+'model_save')
         if log_name not in os.listdir(save_path+'model_save/'):
             os.mkdir(save_path+'model_save/'+log_name)
-        torch.save({'model_state_dict': train.behaviour_net.state_dict()}, save_path+'model_save/'+log_name+'/model.pt')
+        
+        PATH = save_path+'model_save/'+log_name+'/model.pt'
+        train.save_model(PATH)
         print ('The model is saved!\n')
         with open(save_path+'model_save/'+log_name +'/log.txt', 'w+') as file:
             file.write(str(args)+'\n')
