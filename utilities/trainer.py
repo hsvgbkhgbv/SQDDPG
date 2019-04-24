@@ -45,6 +45,10 @@ class PGTrainer(object):
         action = self.init_action
         if self.args.epsilon_softmax:
             info['softmax_eps'] = self.behaviour_net.eps
+        if self.args.model_name == 'coma':
+            info['get_episode'] = True
+            self.behaviour_net.init_hidden(batch_size=1)
+            self.behaviour_net.add_hidden()
         for t in range(self.args.max_steps):
             start_step = True if t == 0 else False
             state_ = cuda_wrapper(prep_obs(state).contiguous().view(1, self.args.agent_num, self.args.obs_size), self.cuda_)
@@ -53,16 +57,15 @@ class PGTrainer(object):
             action = select_action(self.args, action_out, status='train', info=info)
             # return the rescaled (clipped) actions
             _, actual = translate_action(self.args, action, self.env)
-            if self.args.model_name == 'coma':
-                info['last_action'] = action
             next_state, reward, done, _ = self.env.step(actual)
             if isinstance(done, list): done = np.sum(done)
             done_ = done or t==self.args.max_steps-1
             mean_reward.append(reward)
             trans = Transition(state, action.cpu().numpy(), action_.cpu().numpy(), np.array(reward), next_state, done, done_)
             episode.append(trans)
+            if self.args.model_name == 'coma':
+                self.behaviour_net.add_hidden()
             if done_:
-                if self.args.model_name == 'coma': self.behaviour_net.init_hidden(batch_size=1)
                 break
             state = next_state
         mean_reward = np.mean(mean_reward)
@@ -144,6 +147,8 @@ class PGTrainer(object):
         num_episodes = 0
         average_mean_reward = 0
         average_num_steps = 0
+        if self.args.model_name == 'coma':
+            self.behaviour_net.clean_hidden()
         while num_episodes < self.args.epoch_size:
             episode, mean_reward, num_steps = self.get_episode(stats)
             average_mean_reward += mean_reward
