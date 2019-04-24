@@ -16,7 +16,7 @@ class DDPG(ReinforcementLearning):
         n = self.args.agent_num
         action_dim = self.args.action_dim
         # collect the transition data
-        rewards, last_step, done, actions, state, next_state = unpack_data(self.args, batch)
+        rewards, last_step, done, actions, last_actions, state, next_state = unpack_data(self.args, batch)
         # construct the computational graph
         # do the argmax action on the action loss
         action_out = behaviour_net.policy(state)
@@ -26,15 +26,17 @@ class DDPG(ReinforcementLearning):
         values = behaviour_net.value(state, actions).contiguous().view(-1, n)
         # do the argmax action on the next value loss
         next_action_out = target_net.policy(next_state)
-        next_actions = select_action(self.args, next_action_out, status='train', exploration=False)
-        next_values_ = target_net.value(next_state, next_actions.detach()).contiguous().view(-1, n)
+        next_actions_ = select_action(self.args, next_action_out, status='train', exploration=False)
+        next_values_ = target_net.value(next_state, next_actions_.detach()).contiguous().view(-1, n)
         returns = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda_)
         assert values_.size() == next_values_.size()
         assert returns.size() == values.size()
-        for i in range(rewards.size(0)):
+        for i in reversed(range(rewards.size(0))):
             if last_step[i]:
-                next_return = 0 if done[i] else next_values[i].detach()
-            returns[i] = rewards[i] + self.args.gamma * next_return.detach()
+                next_return = 0 if done[i] else next_values_[i].detach()
+            else:
+                next_return = next_values_[i].detach()
+            returns[i] = rewards[i] + self.args.gamma * next_return
         deltas = returns - values
         advantages = values_
         advantages = advantages.contiguous().view(-1, 1)

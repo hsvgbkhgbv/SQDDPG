@@ -136,6 +136,7 @@ def unpack_data(args, batch):
     last_step = cuda_wrapper(torch.tensor(batch.last_step, dtype=torch.float).contiguous().view(-1, 1), cuda)
     done = cuda_wrapper(torch.tensor(batch.done, dtype=torch.float).contiguous().view(-1, 1), cuda)
     actions = cuda_wrapper(torch.tensor(np.stack(list(zip(*batch.action))[0], axis=0), dtype=torch.float), cuda)
+    last_actions = cuda_wrapper(torch.tensor(np.stack(list(zip(*batch.last_action))[0], axis=0), dtype=torch.float), cuda)
     state = cuda_wrapper(prep_obs(list(zip(batch.state))), cuda)
     next_state = cuda_wrapper(prep_obs(list(zip(batch.next_state))), cuda)
-    return (rewards, last_step, done, actions, state, next_state)
+    return (rewards, last_step, done, actions, last_actions, state, next_state)

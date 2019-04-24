@@ -6,14 +6,6 @@ from models.model import Model
 
 
 
-import torch
-import torch.nn as nn
-import numpy as np
-from utilities.util import *
-from models.model import Model
-
-
-
 class COMA(Model):
 
     def __init__(self, args, target_net=None):
@@ -46,16 +38,26 @@ class COMA(Model):
         print ('traget net is updated!\n')
 
     def construct_policy_net(self):
-        self.action_dict = nn.ModuleDict( {'observation': nn.Linear(self.obs_dim, self.hid_dim),\
-                                           'gru_layer': nn.GRUCell(self.hid_dim+self.act_dim, self.hid_dim),\
-                                           'action_head': nn.Linear(self.hid_dim, self.act_dim)
+        # self.action_dict = nn.ModuleDict( {'observation': nn.Linear(self.obs_dim, self.hid_dim),\
+        #                                    'gru_layer': nn.GRUCell(self.hid_dim+self.act_dim, self.hid_dim),\
+        #                                    'action_head': nn.Linear(self.hid_dim, self.act_dim)
+        #                                   }
+        #                                 )
+        self.action_dict = nn.ModuleDict( {'observation': nn.ModuleList([nn.Linear(self.obs_dim, self.hid_dim) for _ in range(self.n_)]),\
+                                           'gru_layer': nn.ModuleList([nn.GRUCell(self.hid_dim+self.act_dim, self.hid_dim) for _ in range(self.n_)]),\
+                                           'action_head': nn.ModuleList([nn.Linear(self.hid_dim, self.act_dim) for _ in range(self.n_)])
                                           }
                                         )
 
     def construct_value_net(self):
-        self.value_dict = nn.ModuleDict( {'layer_1': nn.Linear( self.obs_dim+self.act_dim*(self.n_-1), self.hid_dim ),\
-                                          'layer_2': nn.Linear( self.hid_dim, self.hid_dim ),\
-                                          'value_head': nn.Linear(self.hid_dim, self.act_dim)
+        # self.value_dict = nn.ModuleDict( {'layer_1': nn.Linear( self.obs_dim+self.act_dim*(self.n_-1), self.hid_dim ),\
+        #                                   'layer_2': nn.Linear( self.hid_dim, self.hid_dim ),\
+        #                                   'value_head': nn.Linear(self.hid_dim, self.act_dim)
+        #                                  }
+        #                                )
+        self.value_dict = nn.ModuleDict( {'layer_1': nn.ModuleList([nn.Linear( self.obs_dim+self.act_dim*(self.n_-1), self.hid_dim ) for _ in range(self.n_)]),\
+                                          'layer_2': nn.ModuleList([nn.Linear(self.hid_dim, self.hid_dim) for _ in range(self.n_)]),\
+                                          'value_head': nn.ModuleList([nn.Linear(self.hid_dim, self.act_dim) for _ in range(self.n_)])
                                          }
                                        )
 
@@ -63,18 +65,24 @@ class COMA(Model):
         self.construct_value_net()
         self.construct_policy_net()
 
-    def policy(self, obs, info={}, stat={}):
+    def policy(self, obs, last_act, info={}, stat={}):
         batch_size = obs.size(0)
-        try:
-            last_act = info['last_action'] # shape=(batch_size, n, act_dim)
-        except:
-            last_act = cuda_wrapper( torch.zeros( (batch_size, self.n_, self.act_dim) ), self.cuda_ )
-        h = torch.relu( self.action_dict['observation'](obs) )
-        h = torch.cat( (h, last_act), dim=-1 ) # shape=(batch_size, n, act_dim+hid_dim)
-        h = h.contiguous().view(batch_size*self.n_, self.act_dim+self.hid_dim) # shape=(batch_size*n, act_dim+hid_dim)
-        h = torch.relu( self.action_dict['gru_layer'](h) )
-        h = h.contiguous().view(batch_size, self.n_, self.hid_dim)
-        a = self.action_dict['action_head'](h)
+        # h = torch.relu( self.action_dict['observation'](obs) )
+        # h = torch.cat( (h, last_act), dim=-1 ) # shape=(batch_size, n, act_dim+hid_dim)
+        # h = h.contiguous().view(batch_size*self.n_, self.act_dim+self.hid_dim) # shape=(batch_size*n, act_dim+hid_dim)
+        # h = torch.relu( self.action_dict['gru_layer'](h) )
+        # h = h.contiguous().view(batch_size, self.n_, self.hid_dim)
+        # a = self.action_dict['action_head'](h)
+        actions = []
+        for i in range(self.n_):
+            h = torch.relu( self.action_dict['observation'][i](obs[:, i, :]) )
+            h = torch.cat( (h, last_act[:, i, :]), dim=-1 ) # shape=(batch_size, n, act_dim+hid_dim)
+            h = h.contiguous().view(batch_size, self.act_dim+self.hid_dim) # shape=(batch_size*n, act_dim+hid_dim)
+            h = torch.relu( self.action_dict['gru_layer'][i](h) )
+            h = h.contiguous().view(batch_size, self.hid_dim)
+            a = self.action_dict['action_head'][i](h)
+            actions.append(a)
+        a = torch.stack(actions, dim=1)
         return a
 
     def value(self, obs, act):
@@ -82,9 +90,13 @@ class COMA(Model):
         act = act.contiguous().view( -1, np.prod(act.size()[1:]) ).unsqueeze(-2).expand(batch_size, self.n_, self.n_*self.act_dim)
         values = []
         for i in range(self.n_):
-            h = torch.relu( self.value_dict['layer_1']( torch.cat( (obs[:, i, :], act[:, i, :i*self.act_dim], act[:, i, (i+1)*self.act_dim:]), dim=-1 ) ) )
-            h = torch.relu( self.value_dict['layer_2'](h) )
-            v = self.value_dict['value_head'](h)
+            # h = torch.relu( self.value_dict['layer_1']( torch.cat( (obs[:, i, :], act[:, i, :i*self.act_dim], act[:, i, (i+1)*self.act_dim:]), dim=-1 ) ) )
+            # h = torch.relu( self.value_dict['layer_2'](h) )
+            # v = self.value_dict['value_head'](h)
+            # values.append(v)
+            h = torch.relu( self.value_dict['layer_1'][i]( torch.cat( (obs[:, i, :], act[:, i, :i*self.act_dim], act[:, i, (i+1)*self.act_dim:]), dim=-1 ) ) )
+            h = torch.relu( self.value_dict['layer_2'][i](h) )
+            v = self.value_dict['value_head'][i](h)
             values.append(v)
         values = torch.stack(values, dim=1)
         return values
@@ -99,14 +111,14 @@ class COMA(Model):
         n = self.args.agent_num
         action_dim = self.args.action_dim
         # collect the transition data
-        rewards, last_step, done, actions, state, next_state = unpack_data(self.args, batch)
+        rewards, last_step, done, actions, last_actions, state, next_state = unpack_data(self.args, batch)
         # construct computational graph
-        action_out = self.policy(state)
+        action_out = self.policy(state, last_actions)
         values_ = self.value(state, actions)
         if self.args.q_func:
             values = torch.sum(values_*actions, dim=-1)
         values = values.contiguous().view(-1, n)
-        next_action_out = self.target_net.policy(next_state)
+        next_action_out = self.target_net.policy(next_state, actions)
         next_actions = select_action(self.args, next_action_out, status='train', info=info)
         next_values = self.target_net.value(next_state, next_actions)
         returns = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda_)
@@ -116,22 +128,25 @@ class COMA(Model):
         # n-step TD estimate
         assert values.size() == next_values.size()
         assert returns.size() == rewards.size()
-        values_mask = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda_)
-        # for i in reversed(range(0, rewards.size(0), 10)):
+        # values_mask = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda_)
         i = rewards.size(0)-1
         while i > 0:
             if last_step[i]:
                 next_return = 0 if done[i] else next_values[i].detach()
+                for j in reversed(range(i-self.args.n_step, i)):
+                    returns[j] = rewards[j] + self.args.gamma * next_return
+                    next_return = returns[j]
+                next_return = 0 if done[i] else next_values[i].detach()
                 i -= self.args.n_step
             else:
                 next_return = next_values[i-1+self.args.n_step].detach()
-            for j in range(self.args.n_step):
+            for j in reversed(range(self.args.n_step)):
                 g = rewards[i+j] + self.args.gamma * next_return
                 next_return = g
             returns[i] = g.detach()
-            values_mask[i] = 1
+            # values_mask[i] = 1
             i -= 1
-        deltas = returns - values_mask * values
+        deltas = returns - values
         # calculate coma
         advantages = ( values - torch.sum(values_*torch.softmax(action_out, dim=-1), dim=-1) ).detach()
         log_p_a = action_out

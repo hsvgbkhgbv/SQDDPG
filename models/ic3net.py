@@ -13,12 +13,15 @@ class IC3Net(Model):
         super(IC3Net, self).__init__(args)
         self.comm_iters = self.args.comm_iters
         self.rl = REINFORCE(self.args)
+        self.identifier()
+        self.construct_model()
+        self.apply(self.init_weights)
+
+    def identifier(self):
         if self.comm_iters == 0:
             raise RuntimeError('Please guarantee the comm iters is at least greater equal to 1.')
         elif self.comm_iters < 2:
             raise RuntimeError('Please use IndependentIC3Net if the comm iters is set to 1.')
-        self.construct_model()
-        self.apply(self.init_weights)
 
     def construct_policy_net(self):
         self.action_dict = nn.ModuleDict( {'encoder': nn.Linear(self.obs_dim, self.hid_dim),\
@@ -32,13 +35,13 @@ class IC3Net(Model):
         self.value_dict = nn.ModuleDict()
         self.value_dict['value_body'] = nn.Linear(self.obs_dim, self.hid_dim)
         self.value_dict['value_head'] = nn.Linear(self.hid_dim, 1)
-        
+
     def construct_model(self):
         self.comm_mask = cuda_wrapper(torch.ones(self.n_, self.n_) - torch.eye(self.n_, self.n_), self.cuda_)
         self.construct_value_net()
         self.construct_policy_net()
 
-    def policy(self, obs, info={}, stat={}):
+    def policy(self, obs, last_act, info={}, stat={}):
         batch_size = obs.size(0)
         # encode observation
         e = torch.relu(self.action_dict['encoder'](obs))
@@ -83,7 +86,7 @@ class IC3Net(Model):
             stat['comm_gate'] = gate_.detach().cpu().numpy()
         return action
 
-    def value(self, obs, act):
+    def value(self, obs, act=None):
         h = self.value_dict['value_body'](obs)
         h = torch.relu(h)
         v = self.value_dict['value_head'](h)
@@ -101,6 +104,12 @@ class IC3Net(Model):
 
 
 class IndependentIC3Net(IC3Net):
+
     def __init__(self, args):
         super(IndependentIC3Net, self).__init__(args)
-        self.comm_iters = 1
+
+    def identifier(self):
+        if self.comm_iters == 0:
+            raise RuntimeError('Please guarantee the comm iters is at least greater equal to 1.')
+        elif self.comm_iters > 1:
+            raise RuntimeError('Please use IC3Net if the comm iters is set to the value greater than 1.')
