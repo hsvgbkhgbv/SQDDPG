@@ -56,7 +56,7 @@ scenario_name = 'simple_spread'
 # mfacArgs = namedtuple( 'mfacArgs', [] )
 # mfqArgs = namedtuple( 'mfqArgs', [] )
 
-aux_args = AuxArgs[model_name](0.2, 0.02, 20)
+aux_args = AuxArgs[model_name](0.2, 0.02, 2, 0.8)
 alias = ''
 
 '''load scenario from script'''
@@ -105,18 +105,18 @@ MergeArgs = namedtuple( 'MergeArgs', Args._fields+AuxArgs[model_name]._fields )
 
 args = Args(model_name=model_name,
             agent_num=env.get_num_of_agents(),
-            hid_size=64,
+            hid_size=32,
             obs_size=np.max(env.get_shape_of_obs()),
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
             init_std=0.1,
-            policy_lrate=1e-2,
-            value_lrate=1e-1,
+            policy_lrate=1e-3,
+            value_lrate=1e-2,
             epoch_size=32,
             max_steps=50,
             gamma=0.95,
             normalize_advantages=False,
-            entr=1e-2,
+            entr=1e-3,
             action_num=np.max(env.get_input_shape_of_act()),
             q_func=True,
             train_epoch_num=10000,

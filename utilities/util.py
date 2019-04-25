@@ -159,3 +159,13 @@ def n_step(rewards, last_step, done,  next_values, returns, args):
         returns[i] = g.detach()
         i -= 1
     return returns
+
+def td_lambda(values, args):
+    cuda = args.cuda and torch.cuda.is_available()
+    z_v = []
+    z = 0
+    decay = args.td_lambda * args.gamma
+    for i in range(values.size(0)):
+        z_v.append(decay*z + values[i])
+        z = z_v[-1]
+    return torch.stack(z_v, dim=0)

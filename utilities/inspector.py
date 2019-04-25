@@ -35,6 +35,7 @@ def inspector(args):
         assert args.target == True
         assert args.continuous == False
         assert hasattr(args, 'n_step')
+        assert hasattr(args, 'td_lambda')
     elif args.model_name == 'mfac':
         assert args.replay == True
         assert args.q_func == True
