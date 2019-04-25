@@ -12,11 +12,13 @@ def inspector(args):
         assert args.comm_iters > 1
         assert args.q_func == False
         assert args.target == False
+        assert hasattr(args, 'skip_connection')
     elif args.model_name == 'independent_commnet':
         assert args.replay == False
         assert args.comm_iters == 1
         assert args.q_func == False
         assert args.target == False
+        assert hasattr(args, 'skip_connection')
     elif args.model_name == 'ic3net':
         assert args.replay == False
         assert args.comm_iters > 1
@@ -32,6 +34,7 @@ def inspector(args):
         assert args.q_func == True
         assert args.target == True
         assert args.continuous == False
+        assert hasattr(args, 'n_step')
     elif args.model_name == 'mfac':
         assert args.replay == True
         assert args.q_func == True
