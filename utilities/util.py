@@ -140,3 +140,22 @@ def unpack_data(args, batch):
     state = cuda_wrapper(prep_obs(list(zip(batch.state))), cuda)
     next_state = cuda_wrapper(prep_obs(list(zip(batch.next_state))), cuda)
     return (rewards, last_step, done, actions, last_actions, state, next_state)
+
+def n_step(rewards, last_step, done,  next_values, returns, args):
+    i = rewards.size(0)-1
+    while i >= 0:
+        if last_step[i]:
+            next_return = 0 if done[i] else next_values[i].detach()
+            for j in reversed(range(i-args.n_step, i)):
+                returns[j] = rewards[j] + args.gamma * next_return
+                next_return = returns[j]
+            i -= args.n_step+1
+            continue
+        else:
+            next_return = next_values[i+args.n_step].detach()
+        for j in reversed(range(args.n_step)):
+            g = rewards[i+j] + args.gamma * next_return
+            next_return = g
+        returns[i] = g.detach()
+        i -= 1
+    return returns

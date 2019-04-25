@@ -56,7 +56,7 @@ scenario_name = 'simple_spread'
 # mfacArgs = namedtuple( 'mfacArgs', [] )
 # mfqArgs = namedtuple( 'mfqArgs', [] )
 
-aux_args = AuxArgs[model_name](0.5, 0.02, 5)
+aux_args = AuxArgs[model_name](0.2, 0.02, 10)
 alias = ''
 
 '''load scenario from script'''
@@ -129,8 +129,8 @@ args = Args(model_name=model_name,
             save_model_freq=10,
             target=True,
             target_lr=1e-2,
-            target_update_freq=2,
-            epsilon_softmax=False,
+            target_update_freq=1,
+            epsilon_softmax=True,
             gumbel_softmax=False
            )
 

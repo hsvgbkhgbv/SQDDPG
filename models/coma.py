@@ -44,16 +44,16 @@ class COMA(Model):
         #                                    'action_head': nn.Linear(self.hid_dim, self.act_dim)
         #                                   }
         #                                 )
-        # self.action_dict = nn.ModuleDict( {'transform': nn.ModuleList([nn.Linear(self.obs_dim+self.act_dim, self.hid_dim) for _ in range(self.n_)]),\
-        #                                    'gru_layer': nn.ModuleList([nn.GRUCell(self.hid_dim, self.hid_dim) for _ in range(self.n_)]),\
-        #                                    'action_head': nn.ModuleList([nn.Linear(self.hid_dim, self.act_dim) for _ in range(self.n_)])
-        #                                   }
-        #                                 )
         self.action_dict = nn.ModuleDict( {'transform': nn.ModuleList([nn.Linear(self.obs_dim+self.act_dim, self.hid_dim) for _ in range(self.n_)]),\
-                                           'gru_layer': nn.ModuleList([nn.Linear(self.hid_dim, self.hid_dim) for _ in range(self.n_)]),\
+                                           'gru_layer': nn.ModuleList([nn.GRUCell(self.hid_dim, self.hid_dim) for _ in range(self.n_)]),\
                                            'action_head': nn.ModuleList([nn.Linear(self.hid_dim, self.act_dim) for _ in range(self.n_)])
                                           }
                                         )
+        # self.action_dict = nn.ModuleDict( {'transform': nn.ModuleList([nn.Linear(self.obs_dim+self.act_dim, self.hid_dim) for _ in range(self.n_)]),\
+        #                                    'gru_layer': nn.ModuleList([nn.Linear(self.hid_dim, self.hid_dim) for _ in range(self.n_)]),\
+        #                                    'action_head': nn.ModuleList([nn.Linear(self.hid_dim, self.act_dim) for _ in range(self.n_)])
+        #                                   }
+        #                                 )
 
     def construct_value_net(self):
         # self.value_dict = nn.ModuleDict( {'layer_1': nn.Linear( self.obs_dim+self.act_dim*(self.n_-1)+self.act_dim*self.n_, self.hid_dim ),\
@@ -73,26 +73,26 @@ class COMA(Model):
 
     def policy(self, obs, last_act, info={}, stat={}):
         batch_size = obs.size(0)
-        # if not info.get('get_episode', False):
-        #     if info.get('batch_train_curr', False):
-        #         gru_hids = []
-        #         for i in range(self.args.epoch_size):
-        #             gru_hids.extend( self.gru_hids[(self.args.max_steps+1)*i:(self.args.max_steps+1)*(i+1)-1] )
-        #         self.gru_hid = cuda_wrapper(torch.cat(gru_hids, dim=1), cuda=self.cuda_)
-        #     else:
-        #         gru_hids = []
-        #         for i in range(self.args.epoch_size):
-        #             gru_hids.extend( self.gru_hids[(self.args.max_steps+1)*i+1:(self.args.max_steps+1)*(i+1)] )
-        #         self.gru_hid = cuda_wrapper(torch.cat(gru_hids, dim=1), cuda=self.cuda_)
+        if not info.get('get_episode', False):
+            if info.get('batch_train_curr', False):
+                gru_hids = []
+                for i in range(self.args.epoch_size):
+                    gru_hids.extend( self.gru_hids[(self.args.max_steps+1)*i:(self.args.max_steps+1)*(i+1)-1] )
+                self.gru_hid = cuda_wrapper(torch.cat(gru_hids, dim=1), cuda=self.cuda_)
+            else:
+                gru_hids = []
+                for i in range(self.args.epoch_size):
+                    gru_hids.extend( self.gru_hids[(self.args.max_steps+1)*i+1:(self.args.max_steps+1)*(i+1)] )
+                self.gru_hid = cuda_wrapper(torch.cat(gru_hids, dim=1), cuda=self.cuda_)
         actions = []
         for i in range(self.n_):
             h = torch.cat( (obs[:, i, :], last_act[:, i, :]), dim=-1 ) # shape=(batch_size, n, act_dim+hid_dim)
             h = h.contiguous().view(batch_size, self.obs_dim+self.act_dim) # shape=(batch_size*n, act_dim+hid_dim)
             h = torch.relu( self.action_dict['transform'][i](h) )
-            # h = self.action_dict['gru_layer'][i](h, self.gru_hid[i])
-            h = self.action_dict['gru_layer'][i](h)
-            # if info.get('get_episode', False):
-            #     self.gru_hid[i] = h
+            h = self.action_dict['gru_layer'][i](h, self.gru_hid[i])
+            # h = self.action_dict['gru_layer'][i](h)
+            if info.get('get_episode', False):
+                self.gru_hid[i] = h
             h = torch.relu(h)
             h = h.contiguous().view(batch_size, self.hid_dim)
             a = self.action_dict['action_head'][i](h)
@@ -143,22 +143,7 @@ class COMA(Model):
         # n-step TD estimate
         assert values.size() == next_values.size()
         assert returns.size() == rewards.size()
-        i = rewards.size(0)-1
-        while i > 0:
-            if last_step[i]:
-                next_return = 0 if done[i] else next_values[i].detach()
-                for j in reversed(range(i-self.args.n_step, i)):
-                    returns[j] = rewards[j] + self.args.gamma * next_return
-                    next_return = returns[j]
-                next_return = 0 if done[i] else next_values[i].detach()
-                i -= self.args.n_step
-            else:
-                next_return = next_values[i-1+self.args.n_step].detach()
-            for j in reversed(range(self.args.n_step)):
-                g = rewards[i+j] + self.args.gamma * next_return
-                next_return = g
-            returns[i] = g.detach()
-            i -= 1
+        returns = n_step(rewards, last_step, done, next_values, returns, self.args)
         deltas = returns - values
         # calculate coma
         advantages = ( values - torch.sum(values_*torch.softmax(action_out, dim=-1), dim=-1) ).detach()
