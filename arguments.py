@@ -52,11 +52,11 @@ scenario_name = 'simple_spread'
 # commnetArgs = namedtuple( 'commnetArgs', ['skip_connection', 'comm_iters'] )
 # ic3netArgs = namedtuple( 'ic3netArgs', ['comm_iters'] )
 # maddpgArgs = namedtuple( 'maddpgArgs', [] )
-# comaArgs = namedtuple( 'comaArgs', ['softmax_eps_init', 'softmax_eps_end', 'n_step'] )
+# comaArgs = namedtuple( 'comaArgs', ['softmax_eps_init', 'softmax_eps_end', 'n_step', 'td_lambda'] )
 # mfacArgs = namedtuple( 'mfacArgs', [] )
-# mfqArgs = namedtuple( 'mfqArgs', [] )
+mfqArgs = namedtuple( 'mfqArgs', [] )
 
-aux_args = AuxArgs[model_name](0.5, 0.02, 4, 0.8)
+aux_args = AuxArgs[model_name](0.5, 0.02, 10, 0.8)
 alias = ''
 
 '''load scenario from script'''
@@ -80,6 +80,7 @@ Args = namedtuple('Args', ['model_name',
                            'value_lrate',
                            'epoch_size',
                            'max_steps',
+                           'batch_size',
                            'gamma',
                            'normalize_advantages',
                            'entr',
@@ -89,9 +90,9 @@ Args = namedtuple('Args', ['model_name',
                            'replay',
                            'replay_buffer_size',
                            'replay_iters',
+                           'replay_warmup',
                            'cuda',
                            'grad_clip',
-                           'behaviour_update_freq',
                            'save_model_freq',
                            'target',
                            'target_lr',
@@ -110,22 +111,23 @@ args = Args(model_name=model_name,
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
             init_std=0.1,
-            policy_lrate=1e-3,
-            value_lrate=1e-2,
-            epoch_size=32,
+            policy_lrate=1e-4,
+            value_lrate=1e-3,
+            epoch_size=1,
             max_steps=50,
+            batch_size=32,
             gamma=0.95,
             normalize_advantages=False,
             entr=1e-3,
             action_num=np.max(env.get_input_shape_of_act()),
             q_func=True,
             train_epoch_num=10000,
-            replay=False,
-            replay_buffer_size=1e6,
+            replay=True,
+            replay_buffer_size=1e4,
             replay_iters=1,
+            replay_warmup=10,
             cuda=False,
             grad_clip=True,
-            behaviour_update_freq=1,
             save_model_freq=10,
             target=True,
             target_lr=1e-2,

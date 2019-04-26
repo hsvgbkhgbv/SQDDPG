@@ -30,7 +30,6 @@ class PGTester(object):
     def run_game(self, episodes, render):
         action = cuda_wrapper(torch.zeros((1, self.args.agent_num, self.args.action_dim)), cuda=self.cuda_)
         if self.args.model_name == 'coma':
-            info = {}
             info['get_episode'] = True
             self.behaviour_net.init_hidden(batch_size=1)
             self.behaviour_net.add_hidden()
@@ -40,7 +39,7 @@ class PGTester(object):
             while True:
                 if render:
                     self.env.render()
-                state, action, done = self.run_step(state, action, info=info)
+                state, action, done = self.run_step(state, action)
                 time.sleep(0.1)
                 if np.all(done):
                     print ('The episode {} is finished!'.format(ep))
@@ -53,5 +52,5 @@ class QTester(PGTester):
     def __init__(self, env, behaviour_net, args):
         super(QTester, self).__init__(env, behaviour_net, args)
 
-    def action_logits(self, state, last_action):
+    def action_logits(self, state, last_action, info):
         return self.behaviour_net.value(state, last_action)

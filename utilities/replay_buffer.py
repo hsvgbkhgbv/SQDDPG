@@ -7,13 +7,13 @@ class ReplayBuffer(object):
         self.size = size
         self.buffer = []
 
-    def get_episode(self, index):
+    def get_single(self, index):
         return self.buffer[index]
 
     def offset(self):
         self.buffer = []
 
-    def get_batch_episodes(self, batch_size):
+    def get_batch(self, batch_size):
         length = len(self.buffer)
         indices = np.random.choice(length, batch_size)
         batch_buffer = [self.buffer[i] for i in indices]

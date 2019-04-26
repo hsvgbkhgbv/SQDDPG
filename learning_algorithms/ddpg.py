@@ -19,13 +19,13 @@ class DDPG(ReinforcementLearning):
         rewards, last_step, done, actions, last_actions, state, next_state = unpack_data(self.args, batch)
         # construct the computational graph
         # do the argmax action on the action loss
-        action_out = behaviour_net.policy(state)
+        action_out = behaviour_net.policy(state, last_actions)
         actions_ = select_action(self.args, action_out, status='train', exploration=False)
         values_ = behaviour_net.value(state, actions_).contiguous().view(-1, n)
         # do the exploration action on the value loss
         values = behaviour_net.value(state, actions).contiguous().view(-1, n)
         # do the argmax action on the next value loss
-        next_action_out = target_net.policy(next_state)
+        next_action_out = target_net.policy(next_state, actions)
         next_actions_ = select_action(self.args, next_action_out, status='train', exploration=False)
         next_values_ = target_net.value(next_state, next_actions_.detach()).contiguous().view(-1, n)
         returns = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda_)

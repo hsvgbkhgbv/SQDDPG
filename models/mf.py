@@ -36,7 +36,7 @@ class MF(Model):
     def update_target(self):
         self.update_target_action()
         self.update_target_value()
-        print ('traget net is updated!\n')
+        # print ('traget net is updated!\n')
 
     def construct_model(self):
         self.construct_value_net()
@@ -77,6 +77,7 @@ class MFQ(MF):
         for i in range(self.n_):
             act_mean = torch.mean(torch.cat( (act[:, :i, :], act[:, (i+1):, :]), dim=1 ), dim=1)
             h = torch.relu( self.value_dict['layer_1'][i]( torch.cat( (obs[:, i, :], act_mean), dim=-1 ) ) )
+            # h = torch.relu( self.value_dict['layer_1'][i](obs[:, i, :]) )
             h = torch.relu( self.value_dict['layer_2'][i](h) )
             v = self.value_dict['value_head'][i](h)
             values.append(v)
@@ -94,7 +95,7 @@ class MFQ(MF):
         values = torch.sum(values*actions, dim=-1)
         values = values.contiguous().view(-1, n)
         next_values = self.target_net.value(next_state, actions)
-        next_values = torch.sum(torch.softmax(next_values, dim=-1)*next_values, dim=-1)
+        next_values = torch.sum(torch.softmax(next_values/0.01, dim=-1)*next_values, dim=-1)
         next_values = next_values.contiguous().view(-1, n)
         returns = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda_)
         # calculate the advantages
