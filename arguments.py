@@ -56,7 +56,7 @@ scenario_name = 'simple_spread'
 # mfacArgs = namedtuple( 'mfacArgs', [] )
 # mfqArgs = namedtuple( 'mfqArgs', [] )
 
-aux_args = AuxArgs[model_name](0.2, 0.02, 1, 0.4)
+aux_args = AuxArgs[model_name](0.5, 0.02, 4, 0.8)
 alias = ''
 
 '''load scenario from script'''
@@ -111,7 +111,7 @@ args = Args(model_name=model_name,
             action_dim=np.max(env.get_output_shape_of_act()),
             init_std=0.1,
             policy_lrate=1e-3,
-            value_lrate=2e-2,
+            value_lrate=1e-2,
             epoch_size=32,
             max_steps=50,
             gamma=0.95,

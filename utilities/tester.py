@@ -29,7 +29,6 @@ class PGTester(object):
 
     def run_game(self, episodes, render):
         action = cuda_wrapper(torch.zeros((1, self.args.agent_num, self.args.action_dim)), cuda=self.cuda_)
-        action[:, 0, :] += 1
         if self.args.model_name == 'coma':
             info = {}
             info['get_episode'] = True

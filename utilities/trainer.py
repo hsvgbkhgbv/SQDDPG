@@ -35,7 +35,6 @@ class PGTrainer(object):
         self.action_optimizer = optim.Adam(self.behaviour_net.action_dict.parameters(), lr=args.policy_lrate)
         self.value_optimizer = optim.Adam(self.behaviour_net.value_dict.parameters(), lr=args.value_lrate)
         self.init_action = cuda_wrapper( torch.zeros(1, self.args.agent_num, self.args.action_dim), cuda=self.cuda_ )
-        self.init_action[:, 0, :] += 1
 
     def get_episode(self, stat):
         episode = []
