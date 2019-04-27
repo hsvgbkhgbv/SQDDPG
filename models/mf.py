@@ -68,7 +68,7 @@ class MFQ(MF):
                                          }
                                        )
 
-    def policy(self, obs, last_act, info={}, stat={}):
+    def policy(self, obs, last_act, last_hid=None, info={}, stat={}):
         pass
 
     def value(self, obs, act, info={}, stat={}):

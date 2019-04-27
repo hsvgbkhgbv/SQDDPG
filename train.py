@@ -12,7 +12,7 @@ import argparse
 parser = argparse.ArgumentParser(description='Test rl agent.')
 parser.add_argument('--save-path', type=str, nargs='?', default='./', help='Please input the directory of saving model.')
 parser.add_argument('--strategy', type=str, nargs='?', default='pg', help='Please input the strategy of learning, such as pg or q.')
-parser.add_argument('--online', type=bool, default=True, help='Please indicate whether the training is online (True) or offline (False).')
+parser.add_argument('--online', action='store_true', help='Please indicate whether the training is online (True) or offline (False).')
 argv = parser.parse_args()
 
 
@@ -43,21 +43,34 @@ else:
 stat_ = 0
 for i in range(args.train_epoch_num):
     stat = train.run_batch(i)
-    if i > args.replay_warmup:
-        try:
-            if argv.strategy == 'pg':
-                print ('This is the epoch: {}, the mean reward is {:2.4f} and the current action loss to be minimized is: {:2.4f}\n'.format(i, stat['mean_reward'], stat['action_loss']))
-            elif argv.strategy == 'q':
-                print ('This is the epoch: {}, the mean reward is {:2.4f} and the current value loss to be minimized is: {:2.4f}\n'.format(i, stat['mean_reward'], stat['value_loss']))
-            else:
-                raise RuntimeError('Please input the correct strategy, e.g. pg or q.')
-            stat_ = stat
-        except:
-            stat = stat_
-            if argv.strategy == 'pg':
-                print ('This is the epoch: {}, the mean reward is {:2.4f} and the current action loss to be minimized is: {:2.4f}\n'.format(i, stat['mean_reward'], stat['action_loss']))
-            elif argv.strategy == 'q':
-                print ('This is the epoch: {}, the mean reward is {:2.4f} and the current value loss to be minimized is: {:2.4f}\n'.format(i, stat['mean_reward'], stat['value_loss']))
+    if argv.online:
+        if i > args.replay_warmup:
+            try:
+                if argv.strategy == 'pg':
+                    print ('This is the epoch: {}, the mean reward is {:2.4f} and the current action loss to be minimized is: {:2.4f}\n'.format(i, stat['mean_reward'], stat['action_loss']))
+                elif argv.strategy == 'q':
+                    print ('This is the epoch: {}, the mean reward is {:2.4f} and the current value loss to be minimized is: {:2.4f}\n'.format(i, stat['mean_reward'], stat['value_loss']))
+                else:
+                    raise RuntimeError('Please input the correct strategy, e.g. pg or q.')
+                stat_ = stat
+            except:
+                stat = stat_
+                if argv.strategy == 'pg':
+                    print ('This is the epoch: {}, the mean reward is {:2.4f} and the current action loss to be minimized is: {:2.4f}\n'.format(i, stat['mean_reward'], stat['action_loss']))
+                elif argv.strategy == 'q':
+                    print ('This is the epoch: {}, the mean reward is {:2.4f} and the current value loss to be minimized is: {:2.4f}\n'.format(i, stat['mean_reward'], stat['value_loss']))
+            for tag, value in stat.items():
+                if isinstance(value, np.ndarray):
+                    logger.image_summary(tag, value, i)
+                else:
+                    logger.scalar_summary(tag, value, i)
+    else:
+        if argv.strategy == 'pg':
+            print ('This is the epoch: {}, the mean reward is {:2.4f} and the current action loss to be minimized is: {:2.4f}\n'.format(i, stat['mean_reward'], stat['action_loss']))
+        elif argv.strategy == 'q':
+            print ('This is the epoch: {}, the mean reward is {:2.4f} and the current value loss to be minimized is: {:2.4f}\n'.format(i, stat['mean_reward'], stat['value_loss']))
+        else:
+            raise RuntimeError('Please input the correct strategy, e.g. pg or q.')
         for tag, value in stat.items():
             if isinstance(value, np.ndarray):
                 logger.image_summary(tag, value, i)

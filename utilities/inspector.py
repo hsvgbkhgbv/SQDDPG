@@ -30,7 +30,7 @@ def inspector(args):
         assert args.q_func == False
         assert args.target == False
     elif args.model_name == 'coma':
-        assert args.replay == False
+        assert args.replay == True
         assert args.q_func == True
         assert args.target == True
         assert args.continuous == False

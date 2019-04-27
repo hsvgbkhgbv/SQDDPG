@@ -31,7 +31,7 @@ class MADDPG(Model):
         params_behaviour_value = list(self.value_dict.parameters())
         for i in range(len(params_target_value)):
             params_target_value[i] = (1 - self.args.target_lr) * params_target_value[i] + self.args.target_lr * params_behaviour_value[i]
-        print ('traget net is updated!\n')
+        # print ('traget net is updated!\n')
 
     def construct_policy_net(self):
         self.action_dict = nn.ModuleDict( {'layer_1': nn.ModuleList( [ nn.Linear(self.obs_dim, self.hid_dim) for _ in range(self.n_) ] ),\
@@ -51,7 +51,7 @@ class MADDPG(Model):
         self.construct_value_net()
         self.construct_policy_net()
 
-    def policy(self, obs, last_act, info={}, stat={}):
+    def policy(self, obs, last_act, last_hid=None, info={}, stat={}):
         actions = []
         for i in range(self.n_):
             h = torch.relu( self.action_dict['layer_1'][i](obs[:, i, :]) )
