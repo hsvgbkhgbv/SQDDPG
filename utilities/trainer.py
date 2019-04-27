@@ -153,8 +153,6 @@ class PGOfflineTrainer(object):
         num_episodes = 0
         average_mean_reward = 0
         average_num_steps = 0
-        if self.args.model_name == 'coma':
-            self.behaviour_net.clean_hidden()
         while num_episodes < self.args.epoch_size:
             episode, mean_reward, num_steps = self.get_episode(stats)
             average_mean_reward += mean_reward
