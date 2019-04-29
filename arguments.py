@@ -54,7 +54,7 @@ scenario_name = 'simple_spread'
 # maddpgArgs = namedtuple( 'maddpgArgs', [] )
 # comaArgs = namedtuple( 'comaArgs', ['softmax_eps_init', 'softmax_eps_end', 'n_step', 'td_lambda'] )
 # mfacArgs = namedtuple( 'mfacArgs', [] )
-mfqArgs = namedtuple( 'mfqArgs', [] )
+# mfqArgs = namedtuple( 'mfqArgs', [] )
 
 aux_args = AuxArgs[model_name]()
 alias = ''
@@ -111,11 +111,11 @@ args = Args(model_name=model_name,
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
             init_std=0.1,
-            policy_lrate=1e-3,
-            value_lrate=1e-2,
+            policy_lrate=1e-2,
+            value_lrate=1e-1,
             epoch_size=1,
-            max_steps=100,
-            batch_size=128,
+            max_steps=50,
+            batch_size=32,
             gamma=0.95,
             normalize_advantages=False,
             entr=1e-3,
@@ -123,17 +123,17 @@ args = Args(model_name=model_name,
             q_func=True,
             train_epoch_num=10000,
             replay=True,
-            replay_buffer_size=1e5,
+            replay_buffer_size=1e6,
             replay_iters=1,
             replay_warmup=20,
-            cuda=True,
+            cuda=False,
             grad_clip=True,
             save_model_freq=10,
             target=True,
             target_lr=1e-2,
             target_update_freq=1,
-            epsilon_softmax=False,
-            gumbel_softmax=True
+            epsilon_softmax=True,
+            gumbel_softmax=False
            )
 
 args = MergeArgs(*(args+aux_args))
