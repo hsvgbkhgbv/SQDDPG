@@ -252,14 +252,14 @@ class PGOnlineTrainer(object):
             if self.args.target:
                 if self.steps%self.args.target_update_freq == self.args.target_update_freq-1:
                     self.behaviour_net.update_target()
-            if self.args.epsilon_softmax:
-                self.behaviour_net.update_eps()
             self.steps += 1
             if done_:
                 break
             state = next_state
         num_steps = t+1
         mean_reward = np.mean(mean_reward)
+        if self.args.epsilon_softmax:
+            self.behaviour_net.update_eps()
         return mean_reward, num_steps
 
     def get_loss(self, batch):
