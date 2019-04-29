@@ -39,8 +39,8 @@ AuxArgs = dict(commnet=commnetArgs,
 # model_name = 'ic3net'
 # model_name = 'independent_commnet'
 # model_name = 'independent_ic3net'
-model_name = 'maddpg'
-# model_name = 'coma'
+# model_name = 'maddpg'
+model_name = 'coma'
 # model_name = 'mfac'
 # model_name = 'mfq'
 
@@ -56,7 +56,7 @@ scenario_name = 'simple_spread'
 # mfacArgs = namedtuple( 'mfacArgs', [] )
 # mfqArgs = namedtuple( 'mfqArgs', [] )
 
-aux_args = AuxArgs[model_name]()
+aux_args = AuxArgs[model_name](0.5, 0.02, 10, 0.8)
 alias = ''
 
 '''load scenario from script'''
@@ -96,6 +96,7 @@ Args = namedtuple('Args', ['model_name',
                            'save_model_freq',
                            'target',
                            'target_lr',
+                           'behaviour_update_freq',
                            'target_update_freq',
                            'epsilon_softmax',
                            'gumbel_softmax'
@@ -112,10 +113,10 @@ args = Args(model_name=model_name,
             action_dim=np.max(env.get_output_shape_of_act()),
             init_std=0.1,
             policy_lrate=1e-2,
-            value_lrate=1e-1,
-            epoch_size=1,
+            value_lrate=1e-2,
+            epoch_size=60,
             max_steps=50,
-            batch_size=32,
+            batch_size=1024,
             gamma=0.95,
             normalize_advantages=False,
             entr=1e-3,
@@ -125,13 +126,14 @@ args = Args(model_name=model_name,
             replay=True,
             replay_buffer_size=1e6,
             replay_iters=1,
-            replay_warmup=20,
-            cuda=False,
+            replay_warmup=0,
+            cuda=True,
             grad_clip=True,
             save_model_freq=10,
             target=True,
             target_lr=1e-2,
-            target_update_freq=1,
+            behaviour_update_freq=1000,
+            target_update_freq=1000,
             epsilon_softmax=True,
             gumbel_softmax=False
            )

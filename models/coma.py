@@ -58,11 +58,19 @@ class COMA(Model):
                                         )
 
     def construct_value_net(self):
-        self.value_dict = nn.ModuleDict( {'layer_1': nn.ModuleList([nn.Linear( self.obs_dim*self.n_+self.act_dim*(self.n_-1)+self.act_dim*self.n_, self.hid_dim ) for _ in range(self.n_)]),\
-                                          'layer_2': nn.ModuleList([nn.Linear(self.hid_dim, self.hid_dim) for _ in range(self.n_)]),\
-                                          'value_head': nn.ModuleList([nn.Linear(self.hid_dim, self.act_dim) for _ in range(self.n_)])
+        layer_1 = nn.Linear( self.obs_dim*self.n_+self.act_dim*(self.n_-1)+self.act_dim*self.n_, self.hid_dim )
+        layer_2 = nn.Linear(self.hid_dim, self.hid_dim)
+        value_head = nn.Linear(self.hid_dim, self.act_dim)
+        self.value_dict = nn.ModuleDict( {'layer_1': nn.ModuleList([layer_1 for _ in range(self.n_)]),\
+                                          'layer_2': nn.ModuleList([layer_2 for _ in range(self.n_)]),\
+                                          'value_head': nn.ModuleList([value_head for _ in range(self.n_)])
                                          }
                                        )
+#         self.value_dict = nn.ModuleDict( {'layer_1': nn.ModuleList([nn.Linear( self.obs_dim*self.n_+self.act_dim*(self.n_-1)+self.act_dim*self.n_, self.hid_dim ) for _ in range(self.n_)]),\
+#                                           'layer_2': nn.ModuleList([nn.Linear(self.hid_dim, self.hid_dim) for _ in range(self.n_)]),\
+#                                           'value_head': nn.ModuleList([nn.Linear(self.hid_dim, self.act_dim) for _ in range(self.n_)])
+#                                          }
+#                                        )
 
     def construct_model(self):
         self.construct_value_net()
@@ -142,10 +150,10 @@ class COMA(Model):
             advantages = batchnorm(advantages)
         assert log_prob.size() == advantages.size()
         action_loss = - advantages * log_prob
-        action_loss = action_loss.mean()
+        action_loss = action_loss.sum() / batch_size
         # value_obj = - (returns - values.detach()) * td_lambda(values, self.args)
         # value_loss = value_obj.view(-1).sum() / batch_size
-        value_loss = deltas.pow(2).view(-1).mean()
+        value_loss = deltas.pow(2).view(-1).sum() / batch_size
         return action_loss, value_loss, log_p_a
 
     def init_hidden(self, batch_size):

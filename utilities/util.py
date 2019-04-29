@@ -123,7 +123,6 @@ def get_grad_norm(module):
 def merge_dict(stat, key, value):
     if key in stat.keys():
         stat[key] += value
-        stat[key] /= 2
     else:
         stat[key] = value
 
