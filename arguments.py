@@ -36,11 +36,11 @@ AuxArgs = dict(commnet=commnetArgs,
 
 '''define the model name'''
 # model_name = 'commnet'
-model_name = 'ic3net'
+# model_name = 'ic3net'
 # model_name = 'independent_commnet'
 # model_name = 'independent_ic3net'
 # model_name = 'maddpg'
-# model_name = 'coma'
+model_name = 'coma'
 # model_name = 'mfac'
 # model_name = 'mfq'
 
@@ -56,7 +56,7 @@ scenario_name = 'simple_spread'
 # mfacArgs = namedtuple( 'mfacArgs', [] )
 # mfqArgs = namedtuple( 'mfqArgs', [] )
 
-aux_args = AuxArgs[model_name](2)
+aux_args = AuxArgs[model_name](0.2, 0.02, 10, 0.8)
 alias = ''
 
 '''load scenario from script'''
@@ -103,6 +103,7 @@ Args = namedtuple('Args', ['model_name',
 
 MergeArgs = namedtuple( 'MergeArgs', Args._fields+AuxArgs[model_name]._fields )
 
+# under offline trainer if set batch_size=replay_buffer_size=update_freq -> epoch update 
 args = Args(model_name=model_name,
             agent_num=env.get_num_of_agents(),
             hid_size=64,
@@ -118,19 +119,19 @@ args = Args(model_name=model_name,
             normalize_advantages=False,
             entr=1e-3,
             action_num=np.max(env.get_input_shape_of_act()),
-            q_func=False,
-            train_episodes_num=int(1e8),
+            q_func=True,
+            train_episodes_num=int(1e6),
             replay=True,
             replay_buffer_size=32,
             replay_warmup=0,
-            cuda=False,
+            cuda=True,
             grad_clip=True,
             save_model_freq=1000,
-            target=False,
+            target=True,
             target_lr=1e-2,
             behaviour_update_freq=32,
-            target_update_freq=1000,
-            epsilon_softmax=False,
+            target_update_freq=32,
+            epsilon_softmax=True,
             gumbel_softmax=False
            )
 

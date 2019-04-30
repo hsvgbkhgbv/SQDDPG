@@ -175,7 +175,7 @@ class PGTrainer(object):
             self.steps += 1
             self.mean_reward = self.mean_reward + 1/self.steps*(np.mean(reward) - self.mean_reward)
             stat['mean_reward'] = self.mean_reward
-            if self.update_flag:
+            if update_flag:
                 self.record(stat)
                 print ('This is the step: {}, the mean reward is {:2.4f}, the current action loss is {:2.4f} and the current value loss is: {:2.4f}\n'\
                 .format(self.steps, stat['mean_reward'], stat['action_loss'], stat['value_loss']))

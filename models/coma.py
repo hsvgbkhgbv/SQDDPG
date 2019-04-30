@@ -16,7 +16,7 @@ class COMA(Model):
             self.target_net = target_net
             self.reload_params_to_target()
         if self.args.epsilon_softmax:
-            self.eps_delta = (args.softmax_eps_init - args.softmax_eps_end) / (args.epoch_size*args.train_epoch_num)
+            self.eps_delta = (args.softmax_eps_init - args.softmax_eps_end) / args.train_episodes_num
             self.eps = args.softmax_eps_init
 
     def update_eps(self):
@@ -58,7 +58,7 @@ class COMA(Model):
                                         )
 
     def construct_value_net(self):
-        layer_1 = nn.Linear( self.obs_dim+self.act_dim*(self.n_-1), self.hid_dim )
+        layer_1 = nn.Linear( self.obs_dim+self.act_dim*self.n_, self.hid_dim )
         layer_2 = nn.Linear(self.hid_dim, self.hid_dim)
         value_head = nn.Linear(self.hid_dim, self.act_dim)
         self.value_dict = nn.ModuleDict( {'layer_1': nn.ModuleList([layer_1 for _ in range(self.n_)]),\
@@ -97,9 +97,11 @@ class COMA(Model):
 
     def value(self, obs, act):
         batch_size = obs.size(0)
+        act = act.contiguous().view(batch_size, -1)
         values = []
         for i in range(self.n_):
-            h = torch.relu( self.value_dict['layer_1'][i]( torch.cat( (obs[:, i, :], act[:, :i*self.act_dim], act[:, (i+1)*self.act_dim:]), dim=-1 ) ) )
+            h = torch.relu( self.value_dict['layer_1'][i]( torch.cat( (obs[:, i, :], act), dim=-1 ) ) )
+            # h = torch.relu( self.value_dict['layer_1'][i]( torch.cat( (obs[:, i, :], act[:, :i*self.act_dim], act[:, (i+1)*self.act_dim:]), dim=-1 ) ) )
             h = torch.relu( self.value_dict['layer_2'][i](h) )
             v = self.value_dict['value_head'][i](h)
             values.append(v)
