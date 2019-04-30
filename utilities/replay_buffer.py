@@ -1,7 +1,7 @@
 import numpy as np
 
 
-class ReplayBuffer(object):
+class TransReplayBuffer(object):
 
     def __init__(self, size):
         self.size = size
@@ -19,8 +19,36 @@ class ReplayBuffer(object):
         batch_buffer = [self.buffer[i] for i in indices]
         return batch_buffer
 
-    def add_experience(self, batch_data):
-        est_len = len(batch_data) + len(self.buffer)
+    def add_experience(self, trans):
+        est_len = 1 + len(self.buffer)
         if est_len > self.size:
             self.offset()
-        self.buffer.extend(batch_data)
+        self.buffer.append(trans)
+
+
+
+class EpisodeReplayBuffer(object):
+
+    def __init__(self, size):
+        self.size = size
+        self.buffer = []
+
+    def get_single(self, index):
+        return self.buffer[index]
+
+    def offset(self):
+        self.buffer = []
+
+    def get_batch(self, batch_size):
+        length = len(self.buffer)
+        indices = np.random.choice(length, batch_size)
+        batch_buffer = []
+        for i in indices:
+            batch_buffer.extend(self.buffer[i])
+        return batch_buffer
+
+    def add_experience(self, episode):
+        est_len = 1 + len(self.buffer)
+        if est_len > self.size:
+            self.offset()
+        self.buffer.append(episode)

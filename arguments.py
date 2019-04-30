@@ -36,10 +36,10 @@ AuxArgs = dict(commnet=commnetArgs,
 
 '''define the model name'''
 # model_name = 'commnet'
-# model_name = 'ic3net'
+model_name = 'ic3net'
 # model_name = 'independent_commnet'
 # model_name = 'independent_ic3net'
-model_name = 'maddpg'
+# model_name = 'maddpg'
 # model_name = 'coma'
 # model_name = 'mfac'
 # model_name = 'mfq'
@@ -56,7 +56,7 @@ scenario_name = 'simple_spread'
 # mfacArgs = namedtuple( 'mfacArgs', [] )
 # mfqArgs = namedtuple( 'mfqArgs', [] )
 
-aux_args = AuxArgs[model_name]()
+aux_args = AuxArgs[model_name](2)
 alias = ''
 
 '''load scenario from script'''
@@ -78,26 +78,24 @@ Args = namedtuple('Args', ['model_name',
                            'init_std',
                            'policy_lrate',
                            'value_lrate',
-                           'epoch_size',
                            'max_steps',
-                           'batch_size',
+                           'batch_size', # steps<-online/episodes<-offline
                            'gamma',
                            'normalize_advantages',
                            'entr',
                            'action_num',
                            'q_func',
-                           'train_epoch_num',
+                           'train_episodes_num',
                            'replay',
                            'replay_buffer_size',
-                           'replay_iters',
                            'replay_warmup',
                            'cuda',
                            'grad_clip',
-                           'save_model_freq',
+                           'save_model_freq', # episodes
                            'target',
                            'target_lr',
-                           'behaviour_update_freq',
-                           'target_update_freq',
+                           'behaviour_update_freq', # steps<-online/episodes<-offline
+                           'target_update_freq', # steps<-online/episodes<-offline
                            'epsilon_softmax',
                            'gumbel_softmax'
                           ]
@@ -113,28 +111,26 @@ args = Args(model_name=model_name,
             action_dim=np.max(env.get_output_shape_of_act()),
             init_std=0.1,
             policy_lrate=1e-2,
-            value_lrate=1e-2,
-            epoch_size=60,
+            value_lrate=1e-1,
             max_steps=50,
-            batch_size=1024,
+            batch_size=32,
             gamma=0.95,
             normalize_advantages=False,
             entr=1e-3,
             action_num=np.max(env.get_input_shape_of_act()),
-            q_func=True,
-            train_epoch_num=10000,
+            q_func=False,
+            train_episodes_num=int(1e8),
             replay=True,
             replay_buffer_size=1e6,
-            replay_iters=1,
             replay_warmup=0,
-            cuda=True,
+            cuda=False,
             grad_clip=True,
-            save_model_freq=10,
-            target=True,
+            save_model_freq=100,
+            target=False,
             target_lr=1e-2,
-            behaviour_update_freq=1000,
+            behaviour_update_freq=32,
             target_update_freq=1000,
-            epsilon_softmax=True,
+            epsilon_softmax=False,
             gumbel_softmax=False
            )
 

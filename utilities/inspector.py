@@ -20,7 +20,7 @@ def inspector(args):
         assert args.target == False
         assert hasattr(args, 'skip_connection')
     elif args.model_name == 'ic3net':
-        assert args.replay == False
+        # assert args.replay == False
         assert args.comm_iters > 1
         assert args.q_func == False
         assert args.target == False
