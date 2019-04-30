@@ -58,7 +58,7 @@ class COMA(Model):
                                         )
 
     def construct_value_net(self):
-        layer_1 = nn.Linear( self.obs_dim*self.n_+self.act_dim*(self.n_-1)+self.act_dim*self.n_, self.hid_dim )
+        layer_1 = nn.Linear( self.obs_dim+self.act_dim*(self.n_-1), self.hid_dim )
         layer_2 = nn.Linear(self.hid_dim, self.hid_dim)
         value_head = nn.Linear(self.hid_dim, self.act_dim)
         self.value_dict = nn.ModuleDict( {'layer_1': nn.ModuleList([layer_1 for _ in range(self.n_)]),\
@@ -97,11 +97,9 @@ class COMA(Model):
 
     def value(self, obs, act):
         batch_size = obs.size(0)
-        act, last_act = act
-        act = act.contiguous().view( -1, np.prod(act.size()[1:]) )
         values = []
         for i in range(self.n_):
-            h = torch.relu( self.value_dict['layer_1'][i]( torch.cat( (obs.contiguous().view( -1, np.prod(obs.size()[1:]) ), act[:, :i*self.act_dim], act[:, (i+1)*self.act_dim:], last_act.contiguous().view( -1, np.prod(last_act.size()[1:]) )), dim=-1 ) ) )
+            h = torch.relu( self.value_dict['layer_1'][i]( torch.cat( (obs[:, i, :], act[:, :i*self.act_dim], act[:, (i+1)*self.act_dim:]), dim=-1 ) ) )
             h = torch.relu( self.value_dict['layer_2'][i](h) )
             v = self.value_dict['value_head'][i](h)
             values.append(v)
@@ -118,14 +116,14 @@ class COMA(Model):
         rewards, last_step, done, actions, last_actions, hidden_state, last_hidden_state, state, next_state = self.unpack_data(batch)
         # construct computational graph
         action_out = self.policy(state, last_act=last_actions, last_hid=last_hidden_state, info=info)
-        values_ = self.value(state, (actions, last_actions))
+        values_ = self.value(state, actions)
         if self.args.q_func:
             values = torch.sum(values_*actions, dim=-1)
         values = values.contiguous().view(-1, n)
         info['batch_train_curr'] = False
         next_action_out = self.target_net.policy(next_state, last_act=actions, last_hid=hidden_state, info=info)
         next_actions = select_action(self.args, next_action_out, status='train', info=info)
-        next_values = self.target_net.value(next_state, (next_actions, actions))
+        next_values = self.target_net.value(next_state, next_actions)
         returns = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda_)
         if self.args.q_func:
             next_values = torch.sum(next_values*next_actions, dim=-1)

@@ -39,8 +39,8 @@ AuxArgs = dict(commnet=commnetArgs,
 # model_name = 'ic3net'
 # model_name = 'independent_commnet'
 # model_name = 'independent_ic3net'
-# model_name = 'maddpg'
-model_name = 'coma'
+model_name = 'maddpg'
+# model_name = 'coma'
 # model_name = 'mfac'
 # model_name = 'mfq'
 
@@ -56,7 +56,7 @@ scenario_name = 'simple_spread'
 # mfacArgs = namedtuple( 'mfacArgs', [] )
 # mfqArgs = namedtuple( 'mfqArgs', [] )
 
-aux_args = AuxArgs[model_name](0.5, 0.02, 10, 0.8)
+aux_args = AuxArgs[model_name]()
 alias = ''
 
 '''load scenario from script'''
