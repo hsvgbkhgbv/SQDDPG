@@ -152,24 +152,24 @@ class PGTrainer(object):
                                    done_
                                   )
             if self.args.replay:
+                self.replay_buffer.add_experience(trans)
                 replay_cond = self.steps>self.args.replay_warmup\
                  and len(self.replay_buffer.buffer)>=self.args.batch_size\
-                 and self.steps%self.args.behaviour_update_freq==self.args.behaviour_update_freq-1
-                self.replay_buffer.add_experience(trans)
+                 and self.steps%self.args.behaviour_update_freq==0
                 if replay_cond:
                     self.replay_process(stat)
                     update_flag = True
                 else:
                     update_flag = False
             else:
-                online_cond = self.steps%self.args.behaviour_update_freq==self.args.behaviour_update_freq-1
+                online_cond = self.steps%self.args.behaviour_update_freq==0
                 if online_cond:
                     self.transition_process(stat, trans)
                     update_flag = True
                 else:
                     update_flag = False
             if self.args.target:
-                target_cond = self.steps%self.args.target_update_freq==self.args.target_update_freq-1
+                target_cond = self.steps%self.args.target_update_freq==0
                 if target_cond:
                     self.behaviour_net.update_target()
             self.steps += 1
@@ -189,17 +189,17 @@ class PGTrainer(object):
     def train_offline(self, stat):
         episode = self.get_episode(stat)
         if self.args.replay:
+            self.replay_buffer.add_experience(episode)
             replay_cond = self.episodes>self.args.replay_warmup\
              and len(self.replay_buffer.buffer)>=self.args.batch_size\
-             and self.episodes%self.args.behaviour_update_freq==self.args.behaviour_update_freq-1
-            self.replay_buffer.add_experience(episode)
+             and self.episodes%self.args.behaviour_update_freq==0
             if replay_cond:
                 self.replay_process(stat)
                 self.record(stat)
                 print ('This is the step: {}, the mean reward is {:2.4f}, the current action loss is {:2.4f} and the current value loss is: {:2.4f}\n'\
                 .format(self.steps, stat['mean_reward'], stat['action_loss'], stat['value_loss']))
         else:
-            offline_cond = self.episodes%self.args.behaviour_update_freq==self.args.behaviour_update_freq-1
+            offline_cond = self.episodes%self.args.behaviour_update_freq==0
             if offline_cond:
                 episode = Transition(*zip(*episode))
                 self.transition_process(stat, episode)
