@@ -56,5 +56,5 @@ class QTester(PGTester):
     def __init__(self, env, behaviour_net, args):
         super(QTester, self).__init__(env, behaviour_net, args)
 
-    def action_logits(self, state, last_action, info):
+    def action_logits(self, state, last_action, last_hidden, info):
         return self.behaviour_net.value(state, last_action)

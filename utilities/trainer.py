@@ -279,7 +279,7 @@ class QTrainer(object):
         else:
             self.behaviour_net = model(self.args).cuda() if self.cuda_ else model(self.args)
         if self.args.replay:
-            self.replay_buffer = ReplayBuffer(int(self.args.replay_buffer_size))
+            self.replay_buffer = TransReplayBuffer(int(self.args.replay_buffer_size))
         self.env = env
         self.value_optimizer = optim.Adam(self.behaviour_net.value_dict.parameters(), lr=args.value_lrate)
         self.init_action = cuda_wrapper( torch.zeros(1, self.args.agent_num, self.args.action_dim), cuda=self.cuda_ )
@@ -311,24 +311,24 @@ class QTrainer(object):
                                done_
                               )
             if self.args.replay:
-                replay_cond = self.steps > self.args.replay_warmup\
-                 and len(self.replay_buffer.buffer) >= self.args.batch_size\
-                 and self.steps%self.args.behaviour_update_freq == self.args.behaviour_update_freq-1
-                self.replay_buffer.add_experience([trans])
+                self.replay_buffer.add_experience(trans)
+                replay_cond = self.steps>self.args.replay_warmup\
+                 and len(self.replay_buffer.buffer)>=self.args.batch_size\
+                 and self.steps%self.args.behaviour_update_freq==0
                 if replay_cond:
                     self.replay_process(stat)
                     update_flag = True
                 else:
                     update_flag = False
             else:
-                online_cond = self.steps%self.args.behaviour_update_freq == self.args.behaviour_update_freq-1
+                online_cond = self.steps%self.args.behaviour_update_freq==0
                 if online_cond:
                     self.transition_process(stat, trans)
                     update_flag = True
                 else:
                     update_flag = False
             if self.args.target:
-                target_cond = self.steps%self.args.target_update_freq == self.args.target_update_freq-1
+                target_cond = self.steps%self.args.target_update_freq==0
                 if target_cond:
                     self.behaviour_net.update_target()
             self.steps += 1
@@ -336,8 +336,8 @@ class QTrainer(object):
             stat['mean_reward'] = self.mean_reward
             if update_flag:
                 self.record(stat)
-                print ('This is the step: {}, the mean reward is {:2.4f}, the current action loss is {:2.4f} and the current value loss is: {:2.4f}\n'\
-                .format(self.steps, stat['mean_reward'], stat['action_loss'], stat['value_loss']))
+                print ('This is the step: {}, the mean reward is {:2.4f} and the current value loss is: {:2.4f}\n'\
+                .format(self.steps, stat['mean_reward'], stat['value_loss']))
             if done_:
                 break
             state = next_state
@@ -361,7 +361,7 @@ class QTrainer(object):
         self.transition_process(stat, batch)
 
     def transition_process(self, stat, trans):
-        value_loss = self.get_batch_loss(trans)
+        value_loss = self.get_loss(trans)
         self.value_optimizer.zero_grad()
         self.value_compute_grad(value_loss)
         if self.args.grad_clip:
@@ -371,8 +371,8 @@ class QTrainer(object):
         stat['value_loss'] = value_loss.item()
 
     def run(self):
-        stats = dict()
-        self.train_online(stats)
+        stat = dict()
+        self.train_online(stat)
 
     def record(self, stat):
         for tag, value in stat.items():

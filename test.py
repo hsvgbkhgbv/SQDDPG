@@ -8,10 +8,12 @@ import argparse
 parser = argparse.ArgumentParser(description='Test rl agent.')
 parser.add_argument('--save-model-dir', type=str, nargs='?', default='./model_save/', help='Please input the directory of saving model.')
 parser.add_argument('--render', action='store_true', help='Please input the flag to control the render.')
-parser.add_argument('--strategy', type=str, nargs='?', default='pg', help='Please input the strategy of learning, such as pg or q.')
+# parser.add_argument('--strategy', type=str, nargs='?', default='pg', help='Please input the strategy of learning, such as pg or q.')
 argv = parser.parse_args()
 
-model = model_map[model_name]
+model = Model[model_name]
+
+strategy = Strategy[model_name]
 
 if argv.save_model_dir[-1] is '/':
     save_path = argv.save_model_dir
@@ -29,9 +31,9 @@ else:
 checkpoint = torch.load(PATH, map_location='cpu') if not args.cuda else torch.load(PATH)
 behaviour_net.load_state_dict(checkpoint['model_state_dict'])
 
-if argv.strategy == 'pg':
+if strategy == 'pg':
     test = PGTester(env(), behaviour_net, args)
-elif argv.strategy == 'q':
+elif strategy == 'q':
     test = QTester(env(), behaviour_net, args)
 else:
     raise RuntimeError('Please input the correct strategy, e.g. pg or q.')

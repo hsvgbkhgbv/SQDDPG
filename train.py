@@ -11,9 +11,10 @@ import argparse
 
 parser = argparse.ArgumentParser(description='Test rl agent.')
 parser.add_argument('--save-path', type=str, nargs='?', default='./', help='Please input the directory of saving model.')
-parser.add_argument('--strategy', type=str, nargs='?', default='pg', help='Please input the strategy of learning, such as pg or q.')
-parser.add_argument('--online', action='store_true', help='Please indicate whether the training is online (True) or offline (False).')
+# parser.add_argument('--strategy', type=str, nargs='?', default='pg', help='Please input the strategy of learning, such as pg or q.')
+# parser.add_argument('--online', action='store_true', help='Please indicate whether the training is online (True) or offline (False).')
 argv = parser.parse_args()
+
 
 
 if argv.save_path[-1] is '/':
@@ -23,16 +24,16 @@ else:
 
 logger = Logger(save_path+'logs/'+log_name)
 
-model = model_map[model_name]
+model = Model[model_name]
+
+strategy = Strategy[model_name]
 
 print ( '{}\n'.format(args) )
 
-if argv.strategy == 'pg':
-    train = PGTrainer(args, model, env(), logger, argv.online)
-elif argv.strategy == 'q':
+if strategy == 'pg':
+    train = PGTrainer(args, model, env(), logger, args.online)
+elif strategy == 'q':
     train = QTrainer(args, model, env(), logger)
-else:
-    raise RuntimeError('Please input the correct strategy, e.g. pg or q.')
 
 for i in range(args.train_episodes_num):
     stat = train.run()

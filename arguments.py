@@ -14,15 +14,15 @@ from environments.predator_prey_env import PredatorPreyEnv
 
 
 
-model_map = dict(commnet=CommNet,
-                 ic3net=IC3Net,
-                 independent_commnet=IndependentCommNet,
-                 independent_ic3net=IndependentIC3Net,
-                 maddpg=MADDPG,
-                 coma=COMA,
-                 mfac=MFAC,
-                 mfq=MFQ
-                )
+Model = dict(commnet=CommNet,
+             ic3net=IC3Net,
+             independent_commnet=IndependentCommNet,
+             independent_ic3net=IndependentIC3Net,
+             maddpg=MADDPG,
+             coma=COMA,
+             mfac=MFAC,
+             mfq=MFQ
+            )
 
 AuxArgs = dict(commnet=commnetArgs,
                independent_commnet=commnetArgs,
@@ -34,13 +34,23 @@ AuxArgs = dict(commnet=commnetArgs,
                mfq=mfqArgs
               )
 
+Strategy=dict(commner='pg',
+              independent_commnet='pg',
+              ic3net='pg',
+              independent_ic3net='pg',
+              maddpg='pg',
+              coma='pg',
+              mfac='pg',
+              mfq='q'
+             )
+
 '''define the model name'''
 # model_name = 'commnet'
 # model_name = 'ic3net'
 # model_name = 'independent_commnet'
 # model_name = 'independent_ic3net'
-# model_name = 'maddpg'
-model_name = 'coma'
+model_name = 'maddpg'
+# model_name = 'coma'
 # model_name = 'mfac'
 # model_name = 'mfq'
 
@@ -56,7 +66,7 @@ scenario_name = 'simple_spread'
 # mfacArgs = namedtuple( 'mfacArgs', [] )
 # mfqArgs = namedtuple( 'mfqArgs', [] )
 
-aux_args = AuxArgs[model_name](0.2, 0.02, 10, 0.8)
+aux_args = AuxArgs[model_name]()
 alias = ''
 
 '''load scenario from script'''
@@ -97,13 +107,14 @@ Args = namedtuple('Args', ['model_name',
                            'behaviour_update_freq', # steps<-online/episodes<-offline
                            'target_update_freq', # steps<-online/episodes<-offline
                            'epsilon_softmax',
-                           'gumbel_softmax'
+                           'gumbel_softmax',
+                           'online'
                           ]
                  )
 
 MergeArgs = namedtuple( 'MergeArgs', Args._fields+AuxArgs[model_name]._fields )
 
-# under offline trainer if set batch_size=replay_buffer_size=update_freq -> epoch update 
+# under offline trainer if set batch_size=replay_buffer_size=update_freq -> epoch update
 args = Args(model_name=model_name,
             agent_num=env.get_num_of_agents(),
             hid_size=64,
@@ -122,17 +133,18 @@ args = Args(model_name=model_name,
             q_func=True,
             train_episodes_num=int(1e6),
             replay=True,
-            replay_buffer_size=32,
+            replay_buffer_size=1e6,
             replay_warmup=0,
             cuda=True,
             grad_clip=True,
             save_model_freq=1000,
             target=True,
             target_lr=1e-2,
-            behaviour_update_freq=32,
-            target_update_freq=32,
-            epsilon_softmax=True,
-            gumbel_softmax=False
+            behaviour_update_freq=100,
+            target_update_freq=100,
+            epsilon_softmax=False,
+            gumbel_softmax=True,
+            online=True
            )
 
 args = MergeArgs(*(args+aux_args))
