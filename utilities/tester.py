@@ -30,7 +30,7 @@ class PGTester(object):
     def run_game(self, episodes, render):
         action = cuda_wrapper(torch.zeros((1, self.args.agent_num, self.args.action_dim)), cuda=self.cuda_)
         info = {}
-        if self.args.model_name in ['coma']:
+        if self.args.model_name in ['coma', 'ic3net']:
             self.behaviour_net.init_hidden(batch_size=1)
             last_hidden = self.behaviour_net.get_hidden()
         else:

@@ -15,7 +15,7 @@ from utilities.logger import Logger
 
 
 
-if args.model_name in ['coma']:
+if args.model_name in ['coma', 'ic3net']:
     Transition = namedtuple('Transition', ('state', 'action', 'last_action', 'hidden_state', 'last_hidden_state', 'reward', 'next_state', 'done', 'last_step'))
 else:
     Transition = namedtuple('Transition', ('state', 'action', 'last_action', 'reward', 'next_state', 'done', 'last_step'))
@@ -55,8 +55,7 @@ class PGTrainer(object):
         action = self.init_action
         if self.args.epsilon_softmax:
             info['softmax_eps'] = self.behaviour_net.eps
-        if self.args.model_name in ['coma']:
-            info['get_episode'] = True
+        if self.args.model_name in ['coma', 'ic3net']:
             self.behaviour_net.init_hidden(batch_size=1)
             last_hidden_state = self.behaviour_net.get_hidden()
         else:
@@ -72,7 +71,7 @@ class PGTrainer(object):
             next_state, reward, done, _ = self.env.step(actual)
             if isinstance(done, list): done = np.sum(done)
             done_ = done or t==self.args.max_steps-1
-            if self.args.model_name in ['coma']:
+            if self.args.model_name in ['coma', 'ic3net']:
                 hidden_state = self.behaviour_net.get_hidden()
                 trans = Transition(state,
                                    action.cpu().numpy(),
@@ -113,7 +112,6 @@ class PGTrainer(object):
         if self.args.epsilon_softmax:
             info['softmax_eps'] = self.behaviour_net.eps
         if self.args.model_name in ['coma']:
-            info['get_episode'] = True
             self.behaviour_net.init_hidden(batch_size=1)
             last_hidden_state = self.behaviour_net.get_hidden()
         else:

@@ -63,15 +63,18 @@ def select_action(args, log_p_a, status='train', exploration=True, info={}):
             if exploration:
                 if args.epsilon_softmax:
                     eps = info['softmax_eps']
-                    p_a = (1 - eps) * torch.softmax(log_p_a, dim=-1) + eps / args.action_dim
+                    p_a = (1 - eps) * torch.softmax(log_p_a, dim=-1) + eps / log_p_a.size(-1)
                     return OneHotCategorical(logits=None, probs=p_a).sample()
                 elif args.gumbel_softmax:
                     return GumbelSoftmax(logits=log_p_a).sample()
                 else:
                     return OneHotCategorical(logits=log_p_a).sample()
             else:
-                temperature = 1.0
-                return torch.softmax(log_p_a/temperature, dim=-1)
+                if args.gumbel_softmax:
+                    temperature = 1.0
+                    return torch.softmax(log_p_a/temperature, dim=-1)
+                else:
+                    return OneHotCategorical(logits=log_p_a).sample()
         elif status == 'test':
             p_a = torch.softmax(log_p_a, dim=-1)
             return  (p_a == torch.max(p_a, dim=-1, keepdim=True)[0]).float()

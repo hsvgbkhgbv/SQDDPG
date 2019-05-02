@@ -4,7 +4,7 @@ import multiagent.scenarios as scenario
 from utilities.gym_wrapper import *
 import numpy as np
 from models.commnet import *
-from models.ic3net import *
+from models.ic3netReal import *
 from models.maddpg import *
 from models.coma import *
 from models.mf import *
@@ -49,10 +49,10 @@ Strategy=dict(commnet='pg',
 # model_name = 'ic3net'
 # model_name = 'independent_commnet'
 # model_name = 'independent_ic3net'
-model_name = 'maddpg'
+# model_name = 'maddpg'
 # model_name = 'coma'
 # model_name = 'mfac'
-# model_name = 'mfq'
+model_name = 'mfq'
 
 '''define the scenario name'''
 scenario_name = 'simple_spread'
@@ -67,7 +67,7 @@ scenario_name = 'simple_spread'
 # mfqArgs = namedtuple( 'mfqArgs', [] )
 
 aux_args = AuxArgs[model_name]()
-alias = '_freq200'
+alias = ''
 
 '''load scenario from script'''
 scenario = scenario.load(scenario_name+".py").Scenario()
@@ -131,17 +131,17 @@ args = Args(model_name=model_name,
             entr=1e-3,
             action_num=np.max(env.get_input_shape_of_act()),
             q_func=True,
-            train_episodes_num=int(5e4),
+            train_episodes_num=int(1e6),
             replay=True,
             replay_buffer_size=1e6,
             replay_warmup=0,
             cuda=True,
             grad_clip=True,
-            save_model_freq=1000,
+            save_model_freq=100,
             target=True,
             target_lr=1e-2,
-            behaviour_update_freq=200,
-            target_update_freq=200,
+            behaviour_update_freq=100,
+            target_update_freq=100,
             epsilon_softmax=False,
             gumbel_softmax=False,
             online=True

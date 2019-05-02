@@ -83,8 +83,6 @@ class COMA(Model):
             a = self.action_dict['action_head'][i](h)
             actions.append(a)
         a = torch.stack(actions, dim=1)
-        if info.get('get_episode', False):
-            self.gru_hid = torch.cat(hs, dim=0).unsqueeze(0)
         return a
 
     def value(self, obs, act):
@@ -101,7 +99,6 @@ class COMA(Model):
 
     def get_loss(self, batch):
         info = {'softmax_eps': self.eps} if self.args.epsilon_softmax else {}
-        info['batch_train_curr'] = True
         batch_size = len(batch.state)
         n = self.args.agent_num
         action_dim = self.args.action_dim
@@ -113,9 +110,8 @@ class COMA(Model):
         if self.args.q_func:
             values = torch.sum(values_*actions, dim=-1)
         values = values.contiguous().view(-1, n)
-        info['batch_train_curr'] = False
         next_action_out = self.target_net.policy(next_state, last_act=actions, last_hid=hidden_state, info=info)
-        next_actions = select_action(self.args, next_action_out, status='train', info=info)
+        next_actions = select_action(self.args, next_action_out, status='train', info=info, exploration=False)
         next_values = self.target_net.value(next_state, next_actions)
         returns = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda_)
         if self.args.q_func:

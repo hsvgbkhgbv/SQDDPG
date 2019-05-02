@@ -95,7 +95,7 @@ class MFQ(MF):
         values = torch.sum(values*actions, dim=-1)
         values = values.contiguous().view(-1, n)
         next_values = self.target_net.value(next_state, actions)
-        next_values = torch.sum(torch.softmax(next_values/0.01, dim=-1)*next_values, dim=-1)
+        next_values = torch.sum(torch.softmax(next_values, dim=-1)*next_values, dim=-1)
         next_values = next_values.contiguous().view(-1, n)
         returns = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda_)
         # calculate the advantages
@@ -172,11 +172,11 @@ class MFAC(MF):
         values = values.contiguous().view(-1, n)
         if not self.args.target:
             next_action_out = self.policy(next_state, actions)
-            next_actions = select_action(self.args, next_action_out, status='train')
+            next_actions = select_action(self.args, next_action_out, status='train', exploration=False)
             next_values = self.value(next_state, actions)
         else:
             next_action_out = self.target_net.policy(next_state, actions)
-            next_actions = select_action(self.args, next_action_out, status='train')
+            next_actions = select_action(self.args, next_action_out, status='train', exploration=False)
             next_values = self.target_net.value(next_state, next_actions)
             next_values_ = self.target_net.value(next_state, actions)
         next_values_ = torch.sum(torch.softmax(next_values_, dim=-1)*next_values_, dim=-1).view(-1, n)
