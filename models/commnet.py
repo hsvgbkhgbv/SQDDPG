@@ -56,24 +56,25 @@ class CommNet(Model):
         else:
             h = torch.tanh( self.action_dict['encoder'](obs) )
         # get the agent mask
-        num_agents_alive, agent_mask = self.get_agent_mask(batch_size, info)
+        # num_agents_alive, agent_mask = self.get_agent_mask(batch_size, info)
         # conduct the main process of communication
         for i in range(self.comm_iters):
             # shape = (batch_size, n, hid_size)->(batch_size, n, 1, hid_size)->(batch_size, n, n, hid_size)
             h_ = h.unsqueeze(-2).expand(batch_size, self.n_, self.n_, self.hid_dim)
             # construct the communication mask
-            mask = self.comm_mask.view(1, self.n_, self.n_) # shape = (1, n, n)
+            mask = self.comm_mask.unsqueeze(0) # shape = (1, n, n)
             mask = mask.expand(batch_size, self.n_, self.n_) # shape = (batch_size, n, n)
             mask = mask.unsqueeze(-1) # shape = (batch_size, n, n, 1)
             mask = mask.expand_as(h_) # shape = (batch_size, n, n, hid_size)
             # mask each agent itself (collect the hidden state of other agents)
             h_ = h_ * mask
             # mask the dead agent
-            h_ = h_ * agent_mask * agent_mask.transpose(1, 2)
+            # h_ = h_ * agent_mask * agent_mask.transpose(1, 2)
             # average the hidden state
-            h_ = h_ / (num_agents_alive - 1) if num_agents_alive > 1 else torch.zeros_like(h_)
+            # h_ = h_ / (num_agents_alive - 1) if num_agents_alive > 1 else torch.zeros_like(h_)
+            h_ = h_ / (self.n_ - 1)
             # calculate the communication vector
-            c = h_.sum(dim=1) if i != 0 else torch.zeros_like(h) # shape = (batch_size, n, hid_size)
+            c = h_.sum(dim=2) if i != 0 else torch.zeros_like(h) # shape = (batch_size, n, hid_size)
             if self.args.skip_connection:
                 # h_{j}^{i+1} = \sigma(H_j * h_j^{i+1} + C_j * c_j^{i+1} + E_{j} * e_j^{i+1})
                 h = torch.tanh( sum( [ self.action_dict['f_modules'][i](h), self.action_dict['c_modules'][i](c), self.action_dict['e_modules'][i](e) ] ) )
