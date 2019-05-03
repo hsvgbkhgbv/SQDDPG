@@ -73,7 +73,7 @@ class IC3Net(Model):
         mask = mask.unsqueeze(-1) # shape = (batch_size, n, n, 1)
         mask = mask.expand_as(h_) # shape = (batch_size, n, n, hid_size)
         # construct the commnication gate
-        gate = gate_.unsqueeze(-1) # shape = (batch_size, n, n, 1)
+        gate = gate_.unsqueeze(1) # shape = (batch_size, 1, n, 1)
         gate = gate.expand_as(h_) # shape = (batch_size, n, n, hid_size)
         # mask each agent itself (collect the hidden state of other agents)
         h_ = h_ * gate * mask

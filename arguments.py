@@ -42,10 +42,10 @@ Strategy=dict(commnet='pg',
              )
 
 '''define the model name'''
-# model_name = 'commnet'
+model_name = 'commnet'
 # model_name = 'ic3net'
 # model_name = 'independent_commnet'
-model_name = 'maddpg'
+# model_name = 'maddpg'
 # model_name = 'coma'
 # model_name = 'mfac'
 # model_name = 'mfq'
@@ -62,8 +62,8 @@ scenario_name = 'simple_spread'
 # mfacArgs = namedtuple( 'mfacArgs', [] )
 # mfqArgs = namedtuple( 'mfqArgs', [] )
 
-aux_args = AuxArgs[model_name]()
-alias = ''
+aux_args = AuxArgs[model_name](True, 2)
+alias = '_skip_connection'
 
 '''load scenario from script'''
 scenario = scenario.load(scenario_name+".py").Scenario()
@@ -119,28 +119,28 @@ args = Args(model_name=model_name,
             action_dim=np.max(env.get_output_shape_of_act()),
             init_std=0.1,
             policy_lrate=1e-4,
-            value_lrate=1e-4,
+            value_lrate=2e-4,
             max_steps=1000,
-            batch_size=1024,
+            batch_size=32,
             gamma=0.95,
             normalize_advantages=False,
             entr=1e-3,
             action_num=np.max(env.get_input_shape_of_act()),
-            q_func=True,
+            q_func=False,
             train_episodes_num=int(1e5),
             replay=True,
-            replay_buffer_size=1e6,
+            replay_buffer_size=32,
             replay_warmup=0,
-            cuda=False,
+            cuda=True,
             grad_clip=True,
             save_model_freq=10,
-            target=True,
+            target=False,
             target_lr=1e-2,
-            behaviour_update_freq=100,
-            target_update_freq=100,
+            behaviour_update_freq=32,
+            target_update_freq=None,
             epsilon_softmax=False,
-            gumbel_softmax=True,
-            online=True
+            gumbel_softmax=False,
+            online=False
            )
 
 args = MergeArgs(*(args+aux_args))
