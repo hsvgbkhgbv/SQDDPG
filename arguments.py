@@ -42,8 +42,8 @@ Strategy=dict(commnet='pg',
              )
 
 '''define the model name'''
-model_name = 'commnet'
-# model_name = 'ic3net'
+# model_name = 'commnet'
+model_name = 'ic3net'
 # model_name = 'independent_commnet'
 # model_name = 'maddpg'
 # model_name = 'coma'
@@ -62,8 +62,8 @@ scenario_name = 'simple_spread'
 # mfacArgs = namedtuple( 'mfacArgs', [] )
 # mfqArgs = namedtuple( 'mfqArgs', [] )
 
-aux_args = AuxArgs[model_name](True, 2)
-alias = '_skip_connection'
+aux_args = AuxArgs[model_name]()
+alias = ''
 
 '''load scenario from script'''
 scenario = scenario.load(scenario_name+".py").Scenario()
@@ -121,7 +121,7 @@ args = Args(model_name=model_name,
             policy_lrate=1e-4,
             value_lrate=2e-4,
             max_steps=1000,
-            batch_size=32,
+            batch_size=2,
             gamma=0.95,
             normalize_advantages=False,
             entr=1e-3,
@@ -129,14 +129,14 @@ args = Args(model_name=model_name,
             q_func=False,
             train_episodes_num=int(1e5),
             replay=True,
-            replay_buffer_size=32,
+            replay_buffer_size=2,
             replay_warmup=0,
             cuda=True,
             grad_clip=True,
             save_model_freq=10,
             target=False,
             target_lr=1e-2,
-            behaviour_update_freq=32,
+            behaviour_update_freq=2,
             target_update_freq=None,
             epsilon_softmax=False,
             gumbel_softmax=False,
