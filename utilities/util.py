@@ -143,31 +143,31 @@ def unpack_data(args, batch):
     next_state = cuda_wrapper(prep_obs(list(zip(batch.next_state))), cuda)
     return (rewards, last_step, done, actions, last_actions, state, next_state)
 
-def n_step(rewards, last_step, done,  next_values, returns, args):
+def n_step(rewards, last_step, done, next_values, n_step, args):
+    cuda = torch.cuda.is_available() and args.cuda
+    returns = cuda_wrapper(torch.zeros_like(rewards), cuda=cuda)
     i = rewards.size(0)-1
     while i >= 0:
         if last_step[i]:
             next_return = 0 if done[i] else next_values[i].detach()
-            for j in reversed(range(i-args.n_step, i)):
+            for j in reversed(range(i-n_step, i)):
                 returns[j] = rewards[j] + args.gamma * next_return
                 next_return = returns[j]
-            i -= args.n_step+1
+            i -= n_step+1
             continue
         else:
-            next_return = next_values[i+args.n_step].detach()
-        for j in reversed(range(args.n_step)):
+            next_return = next_values[i+n_step].detach()
+        for j in reversed(range(n_step)):
             g = rewards[i+j] + args.gamma * next_return
             next_return = g
         returns[i] = g.detach()
         i -= 1
     return returns
 
-def td_lambda(values, args):
-    cuda = args.cuda and torch.cuda.is_available()
-    z_v = []
-    z = 0
-    decay = args.td_lambda * args.gamma
-    for i in range(values.size(0)):
-        z_v.append(decay*z + values[i])
-        z = z_v[-1]
-    return torch.stack(z_v, dim=0)
+def td_lambda(rewards, last_step, done, next_values, args):
+    G_n = []
+    for n_step_ in range(1, args.n_step+1):
+        G_n.append((1-args.td_lambda)*args.td_lambda**(n_step_-1)*n_step(rewards, last_step, done, next_values, n_step_, args))
+    G_n = torch.stack(G_n, dim=0)
+    td_lambda_G_n = G_n.sum(dim=0)
+    return td_lambda_G_n

@@ -113,20 +113,20 @@ class COMA(Model):
         next_action_out = self.target_net.policy(next_state, last_act=actions, last_hid=hidden_state, info=info)
         next_actions = select_action(self.args, next_action_out, status='train', info=info, exploration=False)
         next_values = self.target_net.value(next_state, next_actions)
-        returns = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda_)
+        # returns = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda_)
         if self.args.q_func:
             next_values = torch.sum(next_values*next_actions, dim=-1)
         next_values = next_values.contiguous().view(-1, n)
         # n-step TD estimate
         assert values.size() == next_values.size()
+        returns = td_lambda(rewards, last_step, done, next_values, self.args)
         assert returns.size() == rewards.size()
-        # returns = n_step(rewards, last_step, done, next_values, returns, self.args)
-        for i in reversed(range(rewards.size(0))):
-            if last_step[i]:
-                next_return = 0 if done[i] else next_values[i].detach()
-            else:
-                next_return = next_values[i].detach()
-            returns[i] = rewards[i] + self.args.gamma * next_return
+        # for i in reversed(range(rewards.size(0))):
+        #     if last_step[i]:
+        #         next_return = 0 if done[i] else next_values[i].detach()
+        #     else:
+        #         next_return = next_values[i].detach()
+        #     returns[i] = rewards[i] + self.args.gamma * next_return
         deltas = returns - values
         # calculate coma
         advantages = ( values - torch.sum(values_*torch.softmax(action_out, dim=-1), dim=-1) ).detach()
@@ -138,8 +138,6 @@ class COMA(Model):
         assert log_prob.size() == advantages.size()
         action_loss = - advantages * log_prob
         action_loss = action_loss.sum() / batch_size
-        # value_obj = - (returns - values.detach()) * td_lambda(values, self.args)
-        # value_loss = value_obj.view(-1).sum() / batch_size
         value_loss = deltas.pow(2).view(-1).sum() / batch_size
         return action_loss, value_loss, log_p_a
 

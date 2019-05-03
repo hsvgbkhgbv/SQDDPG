@@ -45,8 +45,8 @@ Strategy=dict(commnet='pg',
 # model_name = 'commnet'
 # model_name = 'ic3net'
 # model_name = 'independent_commnet'
-model_name = 'maddpg'
-# model_name = 'coma'
+# model_name = 'maddpg'
+model_name = 'coma'
 # model_name = 'mfac'
 # model_name = 'mfq'
 
@@ -62,7 +62,7 @@ scenario_name = 'simple_spread'
 # mfacArgs = namedtuple( 'mfacArgs', [] )
 # mfqArgs = namedtuple( 'mfqArgs', [] )
 
-aux_args = AuxArgs[model_name]()
+aux_args = AuxArgs[model_name](0.5, 0.02, 2, 0.2)
 alias = ''
 
 '''load scenario from script'''
@@ -121,7 +121,7 @@ args = Args(model_name=model_name,
             policy_lrate=1e-4,
             value_lrate=1e-4,
             max_steps=1000,
-            batch_size=1024,
+            batch_size=4,
             gamma=0.95,
             normalize_advantages=False,
             entr=1e-3,
@@ -129,18 +129,18 @@ args = Args(model_name=model_name,
             q_func=True,
             train_episodes_num=int(1e5),
             replay=True,
-            replay_buffer_size=1e6,
+            replay_buffer_size=1e4,
             replay_warmup=0,
             cuda=True,
             grad_clip=True,
             save_model_freq=10,
             target=True,
             target_lr=1e-2,
-            behaviour_update_freq=100,
-            target_update_freq=100,
-            epsilon_softmax=False,
-            gumbel_softmax=True,
-            online=True
+            behaviour_update_freq=1,
+            target_update_freq=1,
+            epsilon_softmax=True,
+            gumbel_softmax=False,
+            online=False
            )
 
 args = MergeArgs(*(args+aux_args))

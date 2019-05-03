@@ -11,7 +11,6 @@ class IC3Net(Model):
 
     def __init__(self, args):
         super(IC3Net, self).__init__(args)
-        self.rl = REINFORCE(self.args)
         self.construct_model()
         self.apply(self.init_weights)
 
