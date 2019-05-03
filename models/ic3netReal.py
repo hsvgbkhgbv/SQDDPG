@@ -65,8 +65,8 @@ class IC3Net(Model):
         # define the gate function
         gate_ = self.gate(h).detach()
         gate_ = torch.argmin(gate_, dim=-1, keepdim=True).float() # act0: comm, act1: not comm
-        # shape = (batch_size, n, hid_size)->(batch_size, n, 1, hid_size)->(batch_size, n, n, hid_size)
-        h_ = h.unsqueeze(-2).expand(batch_size, self.n_, self.n_, self.hid_dim)
+        # shape = (batch_size, n, hid_size)->(batch_size, 1, n, hid_size)->(batch_size, n, n, hid_size)
+        h_ = h.unsqueeze(1).expand(batch_size, self.n_, self.n_, self.hid_dim)
         # construct the communication mask
         mask = self.comm_mask.unsqueeze(0) # shape = (1, n, n)
         mask = mask.expand(batch_size, self.n_, self.n_) # shape = (batch_size, n, n)
@@ -151,16 +151,3 @@ class IC3Net(Model):
         action_loss = action_loss.sum() / batch_size
         value_loss = deltas.pow(2).view(-1).sum() / batch_size
         return action_loss, value_loss, log_p_a
-
-
-
-class IndependentIC3Net(IC3Net):
-
-    def __init__(self, args):
-        super(IndependentIC3Net, self).__init__(args)
-
-    def identifier(self):
-        if self.comm_iters == 0:
-            raise RuntimeError('Please guarantee the comm iters is at least greater equal to 1.')
-        elif self.comm_iters > 1:
-            raise RuntimeError('Please use IC3Net if the comm iters is set to the value greater than 1.')

@@ -35,9 +35,13 @@ if strategy == 'pg':
 elif strategy == 'q':
     train = QTrainer(args, model, env(), logger)
 
+stat = dict()
+
 for i in range(args.train_episodes_num):
-    stat = train.run()
+    train.run(stat)
+    train.record(stat)
     if i%args.save_model_freq == args.save_model_freq-1:
+        train.print_info(stat)
         if 'model_save' not in os.listdir(save_path):
             os.mkdir(save_path+'model_save')
         if log_name not in os.listdir(save_path+'model_save/'):

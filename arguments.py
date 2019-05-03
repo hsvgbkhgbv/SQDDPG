@@ -17,7 +17,6 @@ from environments.predator_prey_env import PredatorPreyEnv
 Model = dict(commnet=CommNet,
              ic3net=IC3Net,
              independent_commnet=IndependentCommNet,
-             independent_ic3net=IndependentIC3Net,
              maddpg=MADDPG,
              coma=COMA,
              mfac=MFAC,
@@ -27,7 +26,6 @@ Model = dict(commnet=CommNet,
 AuxArgs = dict(commnet=commnetArgs,
                independent_commnet=commnetArgs,
                ic3net=ic3netArgs,
-               independent_ic3net=ic3netArgs,
                maddpg=maddpgArgs,
                coma=comaArgs,
                mfac=mfacArgs,
@@ -37,7 +35,6 @@ AuxArgs = dict(commnet=commnetArgs,
 Strategy=dict(commnet='pg',
               independent_commnet='pg',
               ic3net='pg',
-              independent_ic3net='pg',
               maddpg='pg',
               coma='pg',
               mfac='pg',
@@ -48,11 +45,10 @@ Strategy=dict(commnet='pg',
 # model_name = 'commnet'
 # model_name = 'ic3net'
 # model_name = 'independent_commnet'
-# model_name = 'independent_ic3net'
-# model_name = 'maddpg'
+model_name = 'maddpg'
 # model_name = 'coma'
 # model_name = 'mfac'
-model_name = 'mfq'
+# model_name = 'mfq'
 
 '''define the scenario name'''
 scenario_name = 'simple_spread'
@@ -60,7 +56,7 @@ scenario_name = 'simple_spread'
 
 '''define the special property'''
 # commnetArgs = namedtuple( 'commnetArgs', ['skip_connection', 'comm_iters'] )
-# ic3netArgs = namedtuple( 'ic3netArgs', ['comm_iters'] )
+# ic3netArgs = namedtuple( 'ic3netArgs', [] )
 # maddpgArgs = namedtuple( 'maddpgArgs', [] )
 # comaArgs = namedtuple( 'comaArgs', ['softmax_eps_init', 'softmax_eps_end', 'n_step', 'td_lambda'] )
 # mfacArgs = namedtuple( 'mfacArgs', [] )
@@ -122,28 +118,28 @@ args = Args(model_name=model_name,
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
             init_std=0.1,
-            policy_lrate=1e-2,
-            value_lrate=1e-2,
-            max_steps=50,
+            policy_lrate=1e-4,
+            value_lrate=1e-4,
+            max_steps=1000,
             batch_size=1024,
             gamma=0.95,
             normalize_advantages=False,
             entr=1e-3,
             action_num=np.max(env.get_input_shape_of_act()),
             q_func=True,
-            train_episodes_num=int(1e6),
+            train_episodes_num=int(1e5),
             replay=True,
             replay_buffer_size=1e6,
             replay_warmup=0,
-            cuda=True,
+            cuda=False,
             grad_clip=True,
-            save_model_freq=100,
+            save_model_freq=10,
             target=True,
             target_lr=1e-2,
             behaviour_update_freq=100,
             target_update_freq=100,
             epsilon_softmax=False,
-            gumbel_softmax=False,
+            gumbel_softmax=True,
             online=True
            )
 

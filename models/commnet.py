@@ -59,8 +59,8 @@ class CommNet(Model):
         # num_agents_alive, agent_mask = self.get_agent_mask(batch_size, info)
         # conduct the main process of communication
         for i in range(self.comm_iters):
-            # shape = (batch_size, n, hid_size)->(batch_size, n, 1, hid_size)->(batch_size, n, n, hid_size)
-            h_ = h.unsqueeze(-2).expand(batch_size, self.n_, self.n_, self.hid_dim)
+            # shape = (batch_size, n, hid_size)->(batch_size, 1, n, hid_size)->(batch_size, n, n, hid_size)
+            h_ = h.unsqueeze(1).expand(batch_size, self.n_, self.n_, self.hid_dim)
             # construct the communication mask
             mask = self.comm_mask.unsqueeze(0) # shape = (1, n, n)
             mask = mask.expand(batch_size, self.n_, self.n_) # shape = (batch_size, n, n)

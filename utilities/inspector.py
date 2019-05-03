@@ -3,41 +3,48 @@ import numpy as np
 
 
 def inspector(args):
-    if args.model_name == 'maddpg':
-        assert args.replay == True
-        assert args.q_func == True
-        assert args.target == True
-    elif args.model_name == 'commnet':
-        # assert args.replay == False
+    if args.model_name is 'maddpg':
+        assert args.replay is True
+        assert args.q_func is True
+        assert args.target is True
+        assert args.gumbel_softmax is True
+        assert args.online is True
+    elif args.model_name is 'commnet':
+        assert args.replay is True
         assert args.comm_iters > 1
-        assert args.q_func == False
-        assert args.target == False
+        assert args.q_func is False
+        assert args.target is False
+        assert args.online is False
+        assert args.behaviour_update_freq is args.replay_buffer_size
+        assert args.replay_buffer_size is args.batch_size
         assert hasattr(args, 'skip_connection')
-    elif args.model_name == 'independent_commnet':
-        # assert args.replay == False
-        assert args.comm_iters == 1
-        assert args.q_func == False
-        assert args.target == False
+    elif args.model_name is 'independent_commnet':
+        assert args.replay is True
+        assert args.comm_iters > 1
+        assert args.q_func is False
+        assert args.target is False
+        assert args.online is False
+        assert args.behaviour_update_freq is args.replay_buffer_size
+        assert args.replay_buffer_size is args.batch_size
         assert hasattr(args, 'skip_connection')
-    elif args.model_name == 'ic3net':
-        # assert args.replay == False
-        # assert args.comm_iters > 1
-        assert args.q_func == False
-        assert args.target == False
-    elif args.model_name == 'independent_ic3net':
-        # assert args.replay == False
-        # assert args.comm_iters == 1
-        assert args.q_func == False
-        assert args.target == False
-    elif args.model_name == 'coma':
-        assert args.replay == True
-        assert args.q_func == True
-        assert args.target == True
-        assert args.continuous == False
+    elif args.model_name is 'ic3net':
+        assert args.replay is True
+        assert args.q_func is False
+        assert args.target is False
+        assert args.online is False
+        assert args.behaviour_update_freq is args.replay_buffer_size
+        assert args.replay_buffer_size is args.batch_size
+    elif args.model_name is 'coma':
+        assert args.replay is True
+        assert args.q_func is True
+        assert args.target is True
+        assert args.online is False
+        assert args.continuous is False
         assert hasattr(args, 'n_step')
         assert hasattr(args, 'td_lambda')
     elif args.model_name == 'mfac':
-        assert args.replay == True
-        assert args.q_func == True
-        assert args.target == True
-        assert args.continuous == False
+        assert args.replay is True
+        assert args.q_func is True
+        assert args.target is True
+        assert args.continuous is False
+        assert args.online is True
