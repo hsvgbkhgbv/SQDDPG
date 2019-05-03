@@ -43,9 +43,9 @@ Strategy=dict(commnet='pg',
 
 '''define the model name'''
 # model_name = 'commnet'
-model_name = 'ic3net'
+# model_name = 'ic3net'
 # model_name = 'independent_commnet'
-# model_name = 'maddpg'
+model_name = 'maddpg'
 # model_name = 'coma'
 # model_name = 'mfac'
 # model_name = 'mfq'
@@ -119,28 +119,28 @@ args = Args(model_name=model_name,
             action_dim=np.max(env.get_output_shape_of_act()),
             init_std=0.1,
             policy_lrate=1e-4,
-            value_lrate=2e-4,
+            value_lrate=1e-4,
             max_steps=1000,
-            batch_size=2,
+            batch_size=1024,
             gamma=0.95,
             normalize_advantages=False,
             entr=1e-3,
             action_num=np.max(env.get_input_shape_of_act()),
-            q_func=False,
+            q_func=True,
             train_episodes_num=int(1e5),
             replay=True,
-            replay_buffer_size=2,
+            replay_buffer_size=1e6,
             replay_warmup=0,
             cuda=True,
             grad_clip=True,
             save_model_freq=10,
-            target=False,
+            target=True,
             target_lr=1e-2,
-            behaviour_update_freq=2,
-            target_update_freq=None,
+            behaviour_update_freq=100,
+            target_update_freq=100,
             epsilon_softmax=False,
-            gumbel_softmax=False,
-            online=False
+            gumbel_softmax=True,
+            online=True
            )
 
 args = MergeArgs(*(args+aux_args))
