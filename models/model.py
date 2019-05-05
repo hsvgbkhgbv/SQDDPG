@@ -35,7 +35,7 @@ class Model(nn.Module):
         agent_mask = cuda_wrapper(agent_mask.expand(batch_size, self.n_, self.n_).unsqueeze(-1), self.cuda_)
         return num_agents_alive, agent_mask
 
-    def policy(self, obs, info={}, stat={}):
+    def policy(self, obs, last_act=None, last_hid=None, gate=None, info={}, stat={}):
         raise NotImplementedError()
 
     def value(self, obs, act):

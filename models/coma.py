@@ -68,7 +68,7 @@ class COMA(Model):
         self.construct_value_net()
         self.construct_policy_net()
 
-    def policy(self, obs, last_act, last_hid, info={}, stat={}):
+    def policy(self, obs, schedule=None, last_act=None, last_hid=None, info={}, stat={}):
         batch_size = obs.size(0)
         actions = []
         hs = []

@@ -15,8 +15,12 @@ from utilities.logger import Logger
 
 
 
-if args.model_name in ['coma', 'ic3net']:
+if args.model_name in ['coma']:
     Transition = namedtuple('Transition', ('state', 'action', 'last_action', 'hidden_state', 'last_hidden_state', 'reward', 'next_state', 'done', 'last_step'))
+elif args.model_name in ['ic3net']:
+    Transition = namedtuple('Transition', ('state', 'action', 'last_action', 'hidden_state', 'last_hidden_state', 'reward', 'next_state', 'done', 'last_step', 'schedule'))
+elif args.model_name in ['schednet']:
+    Transition = namedtuple('Transition', ('state', 'action', 'last_action', 'reward', 'next_state', 'done', 'last_step', 'schedule'))
 else:
     Transition = namedtuple('Transition', ('state', 'action', 'last_action', 'reward', 'next_state', 'done', 'last_step'))
 
@@ -53,7 +57,7 @@ class PGTrainer(object):
         state = self.env.reset()
         info = {}
         action = self.init_action
-        if self.args.epsilon_softmax:
+        if self.args.model_name in ['coma']:
             info['softmax_eps'] = self.behaviour_net.eps
         if self.args.model_name in ['coma', 'ic3net']:
             self.behaviour_net.init_hidden(batch_size=1)
@@ -64,63 +68,12 @@ class PGTrainer(object):
             start_step = True if t == 0 else False
             state_ = cuda_wrapper(prep_obs(state).contiguous().view(1, self.args.agent_num, self.args.obs_size), self.cuda_)
             action_ = action.clone()
-            action_out = self.behaviour_net.policy(state_, action_, last_hid=last_hidden_state, info=info, stat=stat)
-            action = select_action(self.args, action_out, status='train', info=info)
-            # return the rescaled (clipped) actions
-            _, actual = translate_action(self.args, action, self.env)
-            next_state, reward, done, _ = self.env.step(actual)
-            if isinstance(done, list): done = np.sum(done)
-            done_ = done or t==self.args.max_steps-1
-            if self.args.model_name in ['coma', 'ic3net']:
-                hidden_state = self.behaviour_net.get_hidden()
-                trans = Transition(state,
-                                   action.cpu().numpy(),
-                                   action_.cpu().numpy(),
-                                   hidden_state.cpu().numpy(),
-                                   last_hidden_state.cpu().numpy(),
-                                   np.array(reward),
-                                   next_state,
-                                   done,
-                                   done_
-                                  )
-                last_hidden_state = hidden_state
+            if self.args.model_name in ['ic3net']:
+                gate = self.behaviour_net.gate(last_hidden_state[:, :, :self.args.hid_size])
+                schedule = self.behaviour_net.schedule(gate)
             else:
-                trans = Transition(state,
-                                   action.cpu().numpy(),
-                                   action_.cpu().numpy(),
-                                   np.array(reward),
-                                   next_state,
-                                   done,
-                                   done_
-                                  )
-            episode.append(trans)
-            self.steps += 1
-            self.mean_reward = self.mean_reward + 1/self.steps*(np.mean(reward) - self.mean_reward)
-            if done_:
-                break
-            state = next_state
-        stat['mean_reward'] = self.mean_reward
-        self.episodes += 1
-        if self.args.epsilon_softmax:
-            self.behaviour_net.update_eps()
-        return episode
-
-    def train_online(self, stat):
-        state = self.env.reset()
-        info = {}
-        action = self.init_action
-        if self.args.epsilon_softmax:
-            info['softmax_eps'] = self.behaviour_net.eps
-        if self.args.model_name in ['coma']:
-            self.behaviour_net.init_hidden(batch_size=1)
-            last_hidden_state = self.behaviour_net.get_hidden()
-        else:
-            last_hidden_state = None
-        for t in range(self.args.max_steps):
-            start_step = True if t == 0 else False
-            state_ = cuda_wrapper(prep_obs(state).contiguous().view(1, self.args.agent_num, self.args.obs_size), self.cuda_)
-            action_ = action.clone()
-            action_out = self.behaviour_net.policy(state_, action_, last_hid=last_hidden_state, info=info, stat=stat)
+                schedule = None
+            action_out = self.behaviour_net.policy(state_, schedule=schedule, last_act=action_, last_hid=last_hidden_state, info=info, stat=stat)
             action = select_action(self.args, action_out, status='train', info=info)
             # return the rescaled (clipped) actions
             _, actual = translate_action(self.args, action, self.env)
@@ -140,6 +93,72 @@ class PGTrainer(object):
                                    done_
                                   )
                 last_hidden_state = hidden_state
+            elif self.args.model_name in ['ic3net']:
+                hidden_state = self.behaviour_net.get_hidden()
+                trans = Transition(state,
+                                   action.cpu().numpy(),
+                                   action_.cpu().numpy(),
+                                   hidden_state.cpu().numpy(),
+                                   last_hidden_state.cpu().numpy(),
+                                   np.array(reward),
+                                   next_state,
+                                   done,
+                                   done_,
+                                   schedule.cpu().numpy()
+                                  )
+                last_hidden_state = hidden_state
+            else:
+                trans = Transition(state,
+                                   action.cpu().numpy(),
+                                   action_.cpu().numpy(),
+                                   np.array(reward),
+                                   next_state,
+                                   done,
+                                   done_
+                                  )
+            episode.append(trans)
+            self.steps += 1
+            self.mean_reward = self.mean_reward + 1/self.steps*(np.mean(reward) - self.mean_reward)
+            if done_:
+                break
+            state = next_state
+        stat['mean_reward'] = self.mean_reward
+        self.episodes += 1
+        if self.args.model_name in ['coma']:
+            self.behaviour_net.update_eps()
+        return episode
+
+    def train_online(self, stat):
+        state = self.env.reset()
+        info = {}
+        action = self.init_action
+        for t in range(self.args.max_steps):
+            state_ = cuda_wrapper(prep_obs(state).contiguous().view(1, self.args.agent_num, self.args.obs_size), self.cuda_)
+            if self.args.model_name in ['schednet']:
+                weight = self.behaviour_net.weight_generator(state_)
+                schedule = self.behaviour_net.weight_based_scheduler(weight)
+            else:
+                schedule = None
+            start_step = True if t == 0 else False
+            state_ = cuda_wrapper(prep_obs(state).contiguous().view(1, self.args.agent_num, self.args.obs_size), self.cuda_)
+            action_ = action.clone()
+            action_out = self.behaviour_net.policy(state_, schedule=schedule, last_act=action_, info=info, stat=stat)
+            action = select_action(self.args, action_out, status='train', info=info)
+            # return the rescaled (clipped) actions
+            _, actual = translate_action(self.args, action, self.env)
+            next_state, reward, done, _ = self.env.step(actual)
+            if isinstance(done, list): done = np.sum(done)
+            done_ = done or t==self.args.max_steps-1
+            if self.args.model_name in ['schednet']:
+                trans = Transition(state,
+                                   action.cpu().numpy(),
+                                   action_.cpu().numpy(),
+                                   np.array(reward),
+                                   next_state,
+                                   done,
+                                   done_,
+                                   schedule.cpu().numpy()
+                                  )
             else:
                 trans = Transition(state,
                                    action.cpu().numpy(),
@@ -171,7 +190,7 @@ class PGTrainer(object):
                 break
             state = next_state
         self.episodes += 1
-        if self.args.epsilon_softmax:
+        if self.args.model_name in ['coma']:
             self.behaviour_net.update_eps()
 
     def train_offline(self, stat):

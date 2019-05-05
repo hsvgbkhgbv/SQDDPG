@@ -68,7 +68,7 @@ class MFQ(MF):
                                          }
                                        )
 
-    def policy(self, obs, last_act, last_hid=None, info={}, stat={}):
+    def policy(self, obs, schedule=None, last_act=None, last_hid=None, info={}, stat={}):
         pass
 
     def value(self, obs, act, info={}, stat={}):
@@ -137,7 +137,7 @@ class MFAC(MF):
                                          }
                                        )
 
-    def policy(self, obs, last_act, last_hid=None, info={}, stat={}):
+    def policy(self, obs, schedule=None, last_act=None, last_hid=None, info={}, stat={}):
         actions = []
         for i in range(self.n_):
             h = torch.relu( self.action_dict['layer_1'][i](obs[:, i, :]) )

@@ -61,7 +61,7 @@ def select_action(args, log_p_a, status='train', exploration=True, info={}):
     else:
         if status == 'train':
             if exploration:
-                if args.epsilon_softmax:
+                if args.model_name in ['coma']:
                     eps = info['softmax_eps']
                     p_a = (1 - eps) * torch.softmax(log_p_a, dim=-1) + eps / log_p_a.size(-1)
                     return OneHotCategorical(logits=None, probs=p_a).sample()

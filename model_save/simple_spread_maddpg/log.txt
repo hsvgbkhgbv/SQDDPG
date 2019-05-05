@@ -1,0 +1,2 @@
+MergeArgs(model_name='maddpg', agent_num=3, hid_size=32, obs_size=18, continuous=False, action_dim=5, init_std=0.1, policy_lrate=0.01, value_lrate=0.01, max_steps=200, batch_size=1024, gamma=0.95, normalize_advantages=False, entr=0.001, action_num=5, q_func=True, train_episodes_num=100000, replay=True, replay_buffer_size=1000000.0, replay_warmup=0, cuda=True, grad_clip=True, save_model_freq=100, target=True, target_lr=0.01, behaviour_update_freq=100, target_update_freq=100, gumbel_softmax=True, online=True)
+99999

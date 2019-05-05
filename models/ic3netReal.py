@@ -25,7 +25,8 @@ class IC3Net(Model):
         last_hidden_states = cuda_wrapper(torch.tensor(np.stack(list(zip(*batch.last_hidden_state))[0], axis=0), dtype=torch.float), self.cuda_)
         state = cuda_wrapper(prep_obs(list(zip(batch.state))), self.cuda_)
         next_state = cuda_wrapper(prep_obs(list(zip(batch.next_state))), self.cuda_)
-        return (rewards, last_step, done, actions, last_actions, hidden_states, last_hidden_states, state, next_state)
+        schedules = cuda_wrapper(torch.tensor(np.stack(list(zip(*batch.schedule))[0], axis=0), dtype=torch.float), self.cuda_)
+        return (rewards, last_step, done, actions, last_actions, hidden_states, last_hidden_states, state, next_state, schedules)
 
     def construct_policy_net(self):
         self.action_dict = nn.ModuleDict( {'encoder': nn.Linear(self.obs_dim, self.hid_dim),\
@@ -49,7 +50,10 @@ class IC3Net(Model):
         gate = self.action_dict['g_module'](h) # shape = (batch_size, n, 2)
         return gate
 
-    def policy(self, obs, last_act=None, last_hid=None, info={}, stat={}):
+    def schedule(self, gate):
+        return torch.argmin(gate, dim=-1, keepdim=True).float() # act0: comm, act1: not comm
+
+    def policy(self, obs, schedule=None, last_act=None, last_hid=None, info={}, stat={}):
         batch_size = obs.size(0)
         # encode observation
         e = torch.relu(self.action_dict['encoder'](obs))
@@ -60,10 +64,6 @@ class IC3Net(Model):
         # get the agent mask
         # num_agents_alive, agent_mask = self.get_agent_mask(batch_size, info)
         # conduct the main process of communication
-        # h_ = h.contiguous().view(batch_size, self.n_, self.hid_dim)
-        # define the gate function
-        gate_ = self.gate(h).detach()
-        gate_ = torch.argmin(gate_, dim=-1, keepdim=True).float() # act0: comm, act1: not comm
         # shape = (batch_size, n, hid_size)->(batch_size, 1, n, hid_size)->(batch_size, n, n, hid_size)
         h_ = h.unsqueeze(1).expand(batch_size, self.n_, self.n_, self.hid_dim)
         # construct the communication mask
@@ -72,7 +72,7 @@ class IC3Net(Model):
         mask = mask.unsqueeze(-1) # shape = (batch_size, n, n, 1)
         mask = mask.expand_as(h_) # shape = (batch_size, n, n, hid_size)
         # construct the commnication gate
-        gate = gate_.unsqueeze(1) # shape = (batch_size, 1, n, 1)
+        gate = schedule.unsqueeze(1) # shape = (batch_size, 1, n, 1)
         gate = gate.expand_as(h_) # shape = (batch_size, n, n, hid_size)
         # mask each agent itself (collect the hidden state of other agents)
         h_ = h_ * gate * mask
@@ -95,7 +95,7 @@ class IC3Net(Model):
         # calculate the action vector (policy)
         action = self.action_dict['action_head'](h)
         if batch_size == 1:
-            stat['comm_gate'] = gate_.transpose(1, 2).detach().cpu().numpy()
+            stat['comm_gate'] = schedule.transpose(1, 2).detach().cpu().numpy()
         return action
 
     def value(self, obs, act=None):
@@ -115,10 +115,10 @@ class IC3Net(Model):
         batch_size = len(batch.state)
         n = self.args.agent_num
         # collect the transition data
-        rewards, last_step, done, actions, last_actions, hidden_states, last_hidden_states, state, next_state = self.unpack_data(batch)
+        rewards, last_step, done, actions, last_actions, hidden_states, last_hidden_states, state, next_state, schedules = self.unpack_data(batch)
         # construct the computational graph
-        action_out = self.policy(state, last_hid=last_hidden_states)
         gate_action_out = self.gate(last_hidden_states[:, :, :self.hid_dim])
+        action_out = self.policy(state, schedule=schedules, last_hid=last_hidden_states)
         values = self.value(state).contiguous().view(-1, n)
         # get the next actions and the next values
         next_values = self.value(next_state).contiguous().view(-1, n)
@@ -143,7 +143,7 @@ class IC3Net(Model):
         else:
             log_p_a = action_out
             log_prob_a = multinomials_log_density(actions.detach(), log_p_a).contiguous().view(-1, 1)
-        log_prob_g = gate_action_out.gather(-1, torch.argmax(gate_action_out, dim=-1, keepdim=True).detach()).contiguous().view(-1, 1)
+        log_prob_g = gate_action_out.gather(-1, schedules.long()).contiguous().view(-1, 1)
         assert log_prob_a.size() == advantages.size()
         assert log_prob_g.size() == advantages.size()
         action_loss = -advantages * (log_prob_a + log_prob_g)
