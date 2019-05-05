@@ -30,7 +30,8 @@ class IC3Net(Model):
 
     def construct_policy_net(self):
         self.action_dict = nn.ModuleDict( {'encoder': nn.Linear(self.obs_dim, self.hid_dim),\
-                                           'g_module': nn.Linear(self.hid_dim, 2),\
+                                           'g_module_0': nn.Linear(self.hid_dim, self.hid_dim),\
+                                           'g_module_1': nn.Linear(self.hid_dim, 2),\
                                            'f_module': nn.LSTMCell(self.hid_dim, self.hid_dim),\
                                            'action_head': nn.Linear(self.hid_dim, self.act_dim)
                                           }
@@ -47,7 +48,8 @@ class IC3Net(Model):
         self.construct_policy_net()
 
     def gate(self, h):
-        gate = self.action_dict['g_module'](h) # shape = (batch_size, n, 2)
+        h = torch.relu( self.action_dict['g_module_0'](h) )
+        gate = self.action_dict['g_module_1'](h) # shape = (batch_size, n, 2)
         return gate
 
     def schedule(self, gate):

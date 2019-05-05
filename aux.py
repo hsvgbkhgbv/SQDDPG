@@ -14,4 +14,4 @@ mfqArgs = namedtuple( 'mfqArgs', [] )
 
 mfacArgs = namedtuple( 'mfacArgs', [] )
 
-schednetArgs = namedtuple( 'schednetArgs', ['schedule', 'k'] )
+schednetArgs = namedtuple( 'schednetArgs', ['schedule', 'k', 'l'] )

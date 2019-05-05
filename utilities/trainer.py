@@ -20,7 +20,7 @@ if args.model_name in ['coma']:
 elif args.model_name in ['ic3net']:
     Transition = namedtuple('Transition', ('state', 'action', 'last_action', 'hidden_state', 'last_hidden_state', 'reward', 'next_state', 'done', 'last_step', 'schedule'))
 elif args.model_name in ['schednet']:
-    Transition = namedtuple('Transition', ('state', 'action', 'last_action', 'reward', 'next_state', 'done', 'last_step', 'schedule'))
+    Transition = namedtuple('Transition', ('state', 'action', 'last_action', 'reward', 'next_state', 'done', 'last_step', 'schedule', 'weight'))
 else:
     Transition = namedtuple('Transition', ('state', 'action', 'last_action', 'reward', 'next_state', 'done', 'last_step'))
 
@@ -135,7 +135,7 @@ class PGTrainer(object):
         for t in range(self.args.max_steps):
             state_ = cuda_wrapper(prep_obs(state).contiguous().view(1, self.args.agent_num, self.args.obs_size), self.cuda_)
             if self.args.model_name in ['schednet']:
-                weight = self.behaviour_net.weight_generator(state_)
+                weight = self.behaviour_net.weight_generator(state_).detach()
                 schedule = self.behaviour_net.weight_based_scheduler(weight)
             else:
                 schedule = None
@@ -157,7 +157,8 @@ class PGTrainer(object):
                                    next_state,
                                    done,
                                    done_,
-                                   schedule.cpu().numpy()
+                                   schedule.cpu().numpy(),
+                                   weight.cpu().numpy()
                                   )
             else:
                 trans = Transition(state,

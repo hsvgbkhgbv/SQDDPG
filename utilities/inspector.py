@@ -65,3 +65,4 @@ def inspector(args):
         assert args.gumbel_softmax is False
         assert hasattr(args, 'schedule')
         assert hasattr(args, 'k')
+        assert hasattr(args, 'l')
