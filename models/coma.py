@@ -53,57 +53,54 @@ class COMA(Model):
         return (rewards, last_step, done, actions, last_actions, hidden_states, last_hidden_states, state, next_state)
 
     def construct_policy_net(self):
-        self.action_dict = nn.ModuleDict( {'transform': nn.ModuleList([nn.Linear(self.obs_dim+self.act_dim, self.hid_dim) for _ in range(self.n_)]),\
+        self.action_dict = nn.ModuleDict( {'encoder': nn.ModuleList([nn.Linear(self.obs_dim+self.act_dim, self.hid_dim) for _ in range(self.n_)]),\
                                            'gru_layer': nn.ModuleList([nn.GRUCell(self.hid_dim, self.hid_dim) for _ in range(self.n_)]),\
                                            'action_head': nn.ModuleList([nn.Linear(self.hid_dim, self.act_dim) for _ in range(self.n_)])
                                           }
                                         )
 
     def construct_value_net(self):
-        self.value_dict = nn.ModuleDict( {'layer_1': nn.ModuleList([nn.Linear( self.obs_dim+self.act_dim*(self.n_-1), self.hid_dim ) for _ in range(self.n_)]),\
-                                          'layer_2': nn.ModuleList([nn.Linear(self.hid_dim, self.hid_dim) for _ in range(self.n_)]),\
-                                          'value_head': nn.ModuleList([nn.Linear(self.hid_dim, self.act_dim) for _ in range(self.n_)])
+        self.value_dict = nn.ModuleDict( {'layer_1': nn.Linear( self.obs_dim+self.act_dim*self.n_, self.hid_dim ),\
+                                          'layer_2': nn.Linear(self.hid_dim, self.hid_dim),\
+                                          'value_head': nn.Linear(self.hid_dim, self.act_dim)
                                          }
                                        )
 
     def construct_model(self):
+        self.comm_mask = cuda_wrapper(torch.ones(self.n_, self.n_) - torch.eye(self.n_, self.n_), self.cuda_)
         self.construct_value_net()
         self.construct_policy_net()
 
     def policy(self, obs, schedule=None, last_act=None, last_hid=None, info={}, stat={}):
         batch_size = obs.size(0)
+        inp = torch.cat( (obs, last_act), dim=-1 ) # shape = (b, n, o+a)
         actions = []
         hs = []
         for i in range(self.n_):
-            h = torch.cat( (obs[:, i, :], last_act[:, i, :]), dim=-1 ) # shape=(batch_size, n, act_dim+hid_dim)
-            h = h.contiguous().view(batch_size, self.obs_dim+self.act_dim) # shape=(batch_size*n, act_dim+hid_dim)
-            h = torch.relu( self.action_dict['transform'][i](h) )
-            h = self.action_dict['gru_layer'][i](h, last_hid[:, i, :])
+            enc = torch.relu( self.action_dict['encoder'][i](inp[:, i, :]) )
+            h = self.action_dict['gru_layer'][i](enc, last_hid[:, i, :])
             hs.append(h)
             h = torch.relu(h)
-            h = h.contiguous().view(batch_size, self.hid_dim)
             a = self.action_dict['action_head'][i](h)
             actions.append(a)
-        a = torch.stack(actions, dim=1)
-        return a
+        self.gru_hid = torch.stack(hs, dim=1)
+        actions = torch.stack(actions, dim=1)
+        return actions
 
     def value(self, obs, act):
         batch_size = obs.size(0)
-        act = act.contiguous().view(batch_size, -1)
-        values = []
-        for i in range(self.n_):
-            h = torch.relu( self.value_dict['layer_1'][i]( torch.cat( (obs[:, i, :], act[:, :i*self.act_dim], act[:, (i+1)*self.act_dim:]), dim=-1 ) ) )
-            h = torch.relu( self.value_dict['layer_2'][i](h) )
-            v = self.value_dict['value_head'][i](h)
-            values.append(v)
-        values = torch.stack(values, dim=1)
+        act = act.unsqueeze(1).expand(batch_size, self.n_, self.n_, self.act_dim) # shape = (b, n, a) -> (b, 1, n, a) -> (b, n, n, a)
+        act = act * self.comm_mask.unsqueeze(0).unsqueeze(-1).expand_as(act)
+        act = act.contiguous().view(batch_size, self.n_, -1) # shape = (b, n, a*n)
+        inp = torch.cat((obs, act), dim=-1) # shape = (b, n, a*n+o)
+        h = torch.relu( self.value_dict['layer_1'](inp) )
+        h = torch.relu( self.value_dict['layer_2'](h) )
+        values = self.value_dict['value_head'](h)
         return values
 
     def get_loss(self, batch):
-        info = {'softmax_eps': self.eps} if self.args.epsilon_softmax else {}
+        info = {}
         batch_size = len(batch.state)
-        n = self.args.agent_num
-        action_dim = self.args.action_dim
         # collect the transition data
         rewards, last_step, done, actions, last_actions, hidden_state, last_hidden_state, state, next_state = self.unpack_data(batch)
         # construct computational graph
@@ -111,14 +108,14 @@ class COMA(Model):
         values_ = self.value(state, actions)
         if self.args.q_func:
             values = torch.sum(values_*actions, dim=-1)
-        values = values.contiguous().view(-1, n)
+        values = values.contiguous().view(-1, self.n_)
         next_action_out = self.target_net.policy(next_state, last_act=actions, last_hid=hidden_state, info=info)
         next_actions = select_action(self.args, next_action_out, status='train', info=info, exploration=False)
         next_values = self.target_net.value(next_state, next_actions)
         # returns = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda_)
         if self.args.q_func:
             next_values = torch.sum(next_values*next_actions, dim=-1)
-        next_values = next_values.contiguous().view(-1, n)
+        next_values = next_values.contiguous().view(-1, self.n_)
         # n-step TD estimate
         assert values.size() == next_values.size()
         returns = td_lambda(rewards, last_step, done, next_values, self.args)
@@ -132,6 +129,7 @@ class COMA(Model):
         deltas = returns - values
         # calculate coma
         advantages = ( values - torch.sum(values_*torch.softmax(action_out, dim=-1), dim=-1) ).detach()
+        # advantages = values.detach()
         log_p_a = action_out
         log_prob = multinomials_log_density(actions, log_p_a).contiguous().view(-1, 1)
         advantages = advantages.contiguous().view(-1, 1)
