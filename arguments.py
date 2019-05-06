@@ -4,10 +4,9 @@ import multiagent.scenarios as scenario
 from utilities.gym_wrapper import *
 import numpy as np
 from models.commnet import *
-from models.ic3netReal import *
+from models.ic3net import *
 from models.maddpg import *
 from models.coma import *
-from models.mf import *
 from models.schednet import *
 from aux import *
 from environments.traffic_junction_env import TrafficJunctionEnv
@@ -20,8 +19,6 @@ Model = dict(commnet=CommNet,
              independent_commnet=IndependentCommNet,
              maddpg=MADDPG,
              coma=COMA,
-             mfac=MFAC,
-             mfq=MFQ,
              schednet=SchedNet
             )
 
@@ -30,8 +27,6 @@ AuxArgs = dict(commnet=commnetArgs,
                ic3net=ic3netArgs,
                maddpg=maddpgArgs,
                coma=comaArgs,
-               mfac=mfacArgs,
-               mfq=mfqArgs,
                schednet=schednetArgs
               )
 
@@ -40,8 +35,6 @@ Strategy=dict(commnet='pg',
               ic3net='pg',
               maddpg='pg',
               coma='pg',
-              mfac='pg',
-              mfq='q',
               schednet='pg'
              )
 
@@ -50,10 +43,8 @@ Strategy=dict(commnet='pg',
 # model_name = 'ic3net'
 # model_name = 'independent_commnet'
 # model_name = 'maddpg'
-# model_name = 'coma'
-# model_name = 'mfac'
-# model_name = 'mfq'
-model_name = 'schednet'
+model_name = 'coma'
+# model_name = 'schednet'
 
 '''define the scenario name'''
 scenario_name = 'simple_spread'
@@ -64,11 +55,9 @@ scenario_name = 'simple_spread'
 # ic3netArgs = namedtuple( 'ic3netArgs', [] )
 # maddpgArgs = namedtuple( 'maddpgArgs', [] )
 # comaArgs = namedtuple( 'comaArgs', ['epsilon_softmax', 'softmax_eps_init', 'softmax_eps_end', 'n_step', 'td_lambda'] )
-# mfacArgs = namedtuple( 'mfacArgs', [] )
-# mfqArgs = namedtuple( 'mfqArgs', [] )
 # schednetArgs = namedtuple( 'schednetArgs', ['schedule', 'k', 'l'] )
 
-aux_args = AuxArgs[model_name]('top_k', 1, 1)
+aux_args = AuxArgs[model_name](False, 0.5, 0.02, 4, 0.2)
 alias = ''
 
 '''load scenario from script'''
@@ -118,15 +107,15 @@ MergeArgs = namedtuple('MergeArgs', Args._fields+AuxArgs[model_name]._fields)
 # under offline trainer if set batch_size=replay_buffer_size=update_freq -> epoch update
 args = Args(model_name=model_name,
             agent_num=env.get_num_of_agents(),
-            hid_size=16,
+            hid_size=32,
             obs_size=np.max(env.get_shape_of_obs()),
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
             init_std=0.1,
-            policy_lrate=1e-4,
+            policy_lrate=1e-2,
             value_lrate=1e-1,
             max_steps=200,
-            batch_size=1024,
+            batch_size=8,
             gamma=0.95,
             normalize_advantages=False,
             entr=1e-3,
@@ -134,17 +123,17 @@ args = Args(model_name=model_name,
             q_func=True,
             train_episodes_num=int(1e5),
             replay=True,
-            replay_buffer_size=1e6,
+            replay_buffer_size=8,
             replay_warmup=0,
             cuda=True,
             grad_clip=True,
             save_model_freq=10,
             target=True,
-            target_lr=1e-1,
-            behaviour_update_freq=100,
-            target_update_freq=100,
+            target_lr=1e-2,
+            behaviour_update_freq=8,
+            target_update_freq=8,
             gumbel_softmax=False,
-            online=True
+            online=False
            )
 
 args = MergeArgs(*(args+aux_args))

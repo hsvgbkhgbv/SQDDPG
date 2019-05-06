@@ -39,7 +39,7 @@ stat = dict()
 
 for i in range(args.train_episodes_num):
     train.run(stat)
-    train.record(stat)
+    train.logging(stat)
     if i%args.save_model_freq == args.save_model_freq-1:
         train.print_info(stat)
         if 'model_save' not in os.listdir(save_path):

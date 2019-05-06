@@ -4,6 +4,7 @@ import numpy as np
 from utilities.util import *
 from models.model import Model
 from learning_algorithms.reinforce import *
+from collections import namedtuple
 
 
 
@@ -11,25 +12,32 @@ class IC3Net(Model):
 
     def __init__(self, args):
         super(IC3Net, self).__init__(args)
-        self.comm_iters = self.args.comm_iters
-        self.rl = REINFORCE(self.args)
-        self.identifier()
         self.construct_model()
         self.apply(self.init_weights)
+        self.Transition = namedtuple('Transition', ('state', 'action', 'last_action', 'hidden_state', 'last_hidden_state', 'reward', 'next_state', 'done', 'last_step', 'schedule'))
 
-    def identifier(self):
-        if self.comm_iters == 0:
-            raise RuntimeError('Please guarantee the comm iters is at least greater equal to 1.')
-        elif self.comm_iters < 2:
-            raise RuntimeError('Please use IndependentIC3Net if the comm iters is set to 1.')
+    def unpack_data(self, batch):
+        batch_size = len(batch.state)
+        rewards = cuda_wrapper(torch.tensor(batch.reward, dtype=torch.float), self.cuda_)
+        last_step = cuda_wrapper(torch.tensor(batch.last_step, dtype=torch.float).contiguous().view(-1, 1), self.cuda_)
+        done = cuda_wrapper(torch.tensor(batch.done, dtype=torch.float).contiguous().view(-1, 1), self.cuda_)
+        actions = cuda_wrapper(torch.tensor(np.stack(list(zip(*batch.action))[0], axis=0), dtype=torch.float), self.cuda_)
+        last_actions = cuda_wrapper(torch.tensor(np.stack(list(zip(*batch.last_action))[0], axis=0), dtype=torch.float), self.cuda_)
+        hidden_states = cuda_wrapper(torch.tensor(np.stack(list(zip(*batch.hidden_state))[0], axis=0), dtype=torch.float), self.cuda_)
+        last_hidden_states = cuda_wrapper(torch.tensor(np.stack(list(zip(*batch.last_hidden_state))[0], axis=0), dtype=torch.float), self.cuda_)
+        state = cuda_wrapper(prep_obs(list(zip(batch.state))), self.cuda_)
+        next_state = cuda_wrapper(prep_obs(list(zip(batch.next_state))), self.cuda_)
+        schedules = cuda_wrapper(torch.tensor(np.stack(list(zip(*batch.schedule))[0], axis=0), dtype=torch.float), self.cuda_)
+        return (rewards, last_step, done, actions, last_actions, hidden_states, last_hidden_states, state, next_state, schedules)
 
     def construct_policy_net(self):
         self.action_dict = nn.ModuleDict( {'encoder': nn.Linear(self.obs_dim, self.hid_dim),\
+                                           'g_module_0': nn.Linear(self.hid_dim, self.hid_dim),\
+                                           'g_module_1': nn.Linear(self.hid_dim, 2),\
                                            'f_module': nn.LSTMCell(self.hid_dim, self.hid_dim),\
-                                           'g_module': nn.Linear(self.hid_dim, self.n_),\
                                            'action_head': nn.Linear(self.hid_dim, self.act_dim)
-                                          } )
-        self.action_dict['g_modules'] = nn.ModuleList( [ self.action_dict['g_module'] for _ in range(self.comm_iters) ] )
+                                          }
+                                        )
 
     def construct_value_net(self):
         self.value_dict = nn.ModuleDict()
@@ -41,49 +49,57 @@ class IC3Net(Model):
         self.construct_value_net()
         self.construct_policy_net()
 
-    def policy(self, obs, last_act=None, last_hid=None, info={}, stat={}):
+    def gate(self, h):
+        h = torch.relu( self.action_dict['g_module_0'](h) )
+        gate = self.action_dict['g_module_1'](h) # shape = (batch_size, n, 2)
+        return gate
+
+    def schedule(self, gate):
+        return torch.argmin(gate, dim=-1, keepdim=True).float() # act0: comm, act1: not comm
+
+    def policy(self, obs, schedule=None, last_act=None, last_hid=None, info={}, stat={}):
         batch_size = obs.size(0)
         # encode observation
         e = torch.relu(self.action_dict['encoder'](obs))
         # get the initial state
-        h, cell = self.init_hidden(batch_size)
+        # if info.get('start', False):
+        #     h, cell = self.init_hidden(batch_size)
+        h, cell = last_hid[:, :, :self.hid_dim], last_hid[:, :, self.hid_dim:]
         # get the agent mask
-        num_agents_alive, agent_mask = self.get_agent_mask(batch_size, info)
+        # num_agents_alive, agent_mask = self.get_agent_mask(batch_size, info)
         # conduct the main process of communication
-        for i in range(self.comm_iters):
-            h_ = h.contiguous().view(batch_size, self.n_, self.hid_dim)
-            # define the gate function
-            gate_ = torch.sigmoid(self.action_dict['g_modules'][i](h_))
-            gate_ = cuda_wrapper(torch.ones(self.n_, self.n_) - torch.eye(self.n_, self.n_), self.cuda_) * gate_
-            gate_ = torch.round(gate_)
-            # shape = (batch_size, n, hid_size)->(batch_size, n, 1, hid_size)->(batch_size, n, n, hid_size)
-            h_ = h_.unsqueeze(-2).expand(batch_size, self.n_, self.n_, self.hid_dim)
-            # construct the communication mask
-            mask = self.comm_mask.contiguous().view(1, self.n_, self.n_) # shape = (1, n, n)
-            mask = mask.expand(batch_size, self.n_, self.n_) # shape = (batch_size, n, n)
-            mask = mask.unsqueeze(-1) # shape = (batch_size, n, n, 1)
-            mask = mask.expand_as(h_) # shape = (batch_size, n, n, hid_size)
-            # construct the commnication gate
-            gate_ = gate_.contiguous().view(batch_size, self.n_, self.n_) # shape = (batch_size, n, n)
-            gate = gate_.unsqueeze(-1) # shape = (batch_size, n, n, 1)
-            gate = gate.expand_as(h_) # shape = (batch_size, n, n, hid_size)
-            # mask each agent itself (collect the hidden state of other agents)
-            h_ = h_ * gate * mask
-            # mask the dead agent
-            h_ = h_ * agent_mask * agent_mask.transpose(1, 2)
-            # average the hidden state
-            if num_agents_alive > 1: h_ = h_ / (num_agents_alive - 1)
-            # calculate the communication vector
-            c = h_.sum(dim=1) # shape = (batch_size, n, hid_size)
-            inp = e + c
-            inp = inp.contiguous().view(batch_size*self.n_, self.hid_dim)
-            # f_moudle
-            h, cell = self.action_dict['f_module'](inp, (h, cell))
+        # shape = (batch_size, n, hid_size)->(batch_size, 1, n, hid_size)->(batch_size, n, n, hid_size)
+        h_ = h.unsqueeze(1).expand(batch_size, self.n_, self.n_, self.hid_dim)
+        # construct the communication mask
+        mask = self.comm_mask.unsqueeze(0) # shape = (1, n, n)
+        mask = mask.expand(batch_size, self.n_, self.n_) # shape = (batch_size, n, n)
+        mask = mask.unsqueeze(-1) # shape = (batch_size, n, n, 1)
+        mask = mask.expand_as(h_) # shape = (batch_size, n, n, hid_size)
+        # construct the commnication gate
+        gate = schedule.unsqueeze(1) # shape = (batch_size, 1, n, 1)
+        gate = gate.expand_as(h_) # shape = (batch_size, n, n, hid_size)
+        # mask each agent itself (collect the hidden state of other agents)
+        h_ = h_ * gate * mask
+        # mask the dead agent
+        # h_ = h_ * agent_mask * agent_mask.transpose(1, 2)
+        # average the hidden state
+        # if num_agents_alive > 1: h_ = h_ / (num_agents_alive - 1)
+        h_ = h_ / (self.n_ - 1)
+        # calculate the communication vector
+        c = h_.sum(dim=2) # shape = (batch_size, n, hid_size)
+        inp = e + c
+        inp = inp.contiguous().view(batch_size*self.n_, self.hid_dim)
+        # f_moudle
+        cell = cell.contiguous().view(batch_size*self.n_, self.hid_dim)
+        h = h.contiguous().view(batch_size*self.n_, self.hid_dim)
+        h, cell = self.action_dict['f_module'](inp, (h, cell))
+        cell = cell.contiguous().view(batch_size, self.n_, self.hid_dim)
         h = h.contiguous().view(batch_size, self.n_, self.hid_dim)
+        self.lstm_hid = torch.cat([h, cell], dim=-1)
         # calculate the action vector (policy)
         action = self.action_dict['action_head'](h)
         if batch_size == 1:
-            stat['comm_gate'] = gate_.detach().cpu().numpy()
+            stat['comm_gate'] = schedule.transpose(1, 2).detach().cpu().numpy()
         return action
 
     def value(self, obs, act=None):
@@ -94,22 +110,104 @@ class IC3Net(Model):
 
     def init_hidden(self, batch_size):
         # dim 0 = num of layers * num of direction
-        return (cuda_wrapper(torch.zeros(batch_size * self.n_, self.hid_dim), self.cuda_),
-                cuda_wrapper(torch.zeros(batch_size * self.n_, self.hid_dim), self.cuda_))
+        self.lstm_hid = cuda_wrapper(torch.zeros(batch_size, self.n_, self.hid_dim*2), self.cuda_)
+
+    def get_hidden(self):
+        return self.lstm_hid.detach()
 
     def get_loss(self, batch):
-        action_loss, value_loss, log_p_a = self.rl.get_loss(batch, self)
+        batch_size = len(batch.state)
+        # collect the transition data
+        rewards, last_step, done, actions, last_actions, hidden_states, last_hidden_states, state, next_state, schedules = self.unpack_data(batch)
+        # construct the computational graph
+        gate_action_out = self.gate(last_hidden_states[:, :, :self.hid_dim])
+        action_out = self.policy(state, schedule=schedules, last_hid=last_hidden_states)
+        values = self.value(state).contiguous().view(-1, self.n_)
+        # get the next actions and the next values
+        next_values = self.value(next_state).contiguous().view(-1, self.n_)
+        returns = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda_)
+        # calculate the return
+        assert returns.size() == rewards.size()
+        for i in reversed(range(rewards.size(0))):
+            if last_step[i]:
+                next_return = 0 if done[i] else next_values[i].detach()
+            returns[i] = rewards[i] + self.args.gamma * next_return
+            next_return = returns[i]
+        # construct the action loss and the value loss
+        deltas = returns - values
+        advantages = deltas.contiguous().view(-1, 1).detach()
+        if self.args.normalize_advantages:
+            advantages = batchnorm(advantages)
+        if self.args.continuous:
+            action_means = actions.contiguous().view(-1, self.act_dim)
+            action_stds = cuda_wrapper(torch.ones_like(action_means), self.cuda_)
+            log_p_a = normal_log_density(actions.detach(), action_means, action_stds)
+            log_prob_a = log_p_a.clone()
+        else:
+            log_p_a = action_out
+            log_prob_a = multinomials_log_density(actions.detach(), log_p_a).contiguous().view(-1, 1)
+        log_prob_g = gate_action_out.gather(-1, schedules.long()).contiguous().view(-1, 1)
+        assert log_prob_a.size() == advantages.size()
+        assert log_prob_g.size() == advantages.size()
+        action_loss = -advantages * (log_prob_a + log_prob_g)
+        action_loss = action_loss.sum() / batch_size
+        value_loss = deltas.pow(2).view(-1).sum() / batch_size
         return action_loss, value_loss, log_p_a
 
+    def get_episode(self, stat, trainer):
+        info = {}
+        episode = []
+        state = trainer.env.reset()
+        action = trainer.init_action
+        self.init_hidden(batch_size=1)
+        last_hidden_state = self.get_hidden()
+        for t in range(self.args.max_steps):
+            start_step = True if t == 0 else False
+            state_ = cuda_wrapper(prep_obs(state).contiguous().view(1, self.n_, self.obs_dim), self.cuda_)
+            action_ = action.clone()
+            gate = self.gate(last_hidden_state[:, :, :self.hid_dim])
+            schedule = self.schedule(gate)
+            action_out = self.policy(state_, schedule=schedule, last_act=action_, last_hid=last_hidden_state, info=info, stat=stat)
+            action = select_action(self.args, action_out, status='train', info=info)
+            # return the rescaled (clipped) actions
+            _, actual = translate_action(self.args, action, trainer.env)
+            next_state, reward, done, _ = trainer.env.step(actual)
+            if isinstance(done, list): done = np.sum(done)
+            done_ = done or t==self.args.max_steps-1
+            hidden_state = self.get_hidden()
+            trans = self.Transition(state,
+                                    action.cpu().numpy(),
+                                    action_.cpu().numpy(),
+                                    hidden_state.cpu().numpy(),
+                                    last_hidden_state.cpu().numpy(),
+                                    np.array(reward),
+                                    next_state,
+                                    done,
+                                    done_,
+                                    schedule.cpu().numpy()
+                                   )
+            last_hidden_state = hidden_state
+            episode.append(trans)
+            trainer.steps += 1
+            trainer.mean_reward = trainer.mean_reward + 1/trainer.steps*(np.mean(reward) - trainer.mean_reward)
+            if done_:
+                break
+            state = next_state
+        stat['mean_reward'] = trainer.mean_reward
+        trainer.episodes += 1
+        return episode
 
-
-class IndependentIC3Net(IC3Net):
-
-    def __init__(self, args):
-        super(IndependentIC3Net, self).__init__(args)
-
-    def identifier(self):
-        if self.comm_iters == 0:
-            raise RuntimeError('Please guarantee the comm iters is at least greater equal to 1.')
-        elif self.comm_iters > 1:
-            raise RuntimeError('Please use IC3Net if the comm iters is set to the value greater than 1.')
+    def train(self, stat, trainer):
+        episode = self.get_episode(stat, trainer)
+        if self.args.replay:
+            trainer.replay_buffer.add_experience(episode)
+            replay_cond = trainer.episodes>self.args.replay_warmup\
+             and len(trainer.replay_buffer.buffer)>=self.args.batch_size\
+             and trainer.episodes%self.args.behaviour_update_freq==0
+            if replay_cond:
+                trainer.replay_process(stat)
+        else:
+            offline_cond = trainer.episodes%self.args.behaviour_update_freq==0
+            if offline_cond:
+                episode = self.Transition(*zip(*episode))
+                trainer.transition_process(stat, episode)

@@ -3,6 +3,7 @@ import torch.nn as nn
 import numpy as np
 from utilities.util import *
 from models.model import Model
+from collections import namedtuple
 
 
 
@@ -18,6 +19,7 @@ class COMA(Model):
         if self.args.epsilon_softmax:
             self.eps_delta = (args.softmax_eps_init - args.softmax_eps_end) / args.train_episodes_num
             self.eps = args.softmax_eps_init
+        self.Transition = namedtuple('Transition', ('state', 'action', 'last_action', 'hidden_state', 'last_hidden_state', 'reward', 'next_state', 'done', 'last_step'))
 
     def update_eps(self):
         self.eps -= self.eps_delta
@@ -146,3 +148,62 @@ class COMA(Model):
 
     def get_hidden(self):
         return self.gru_hid.detach()
+
+    def get_episode(self, stat, trainer):
+        episode = []
+        info = {}
+        state = trainer.env.reset()
+        action = trainer.init_action
+        if self.args.epsilon_softmax:
+            info['softmax_eps'] = self.eps
+        self.init_hidden(batch_size=1)
+        last_hidden_state = self.get_hidden()
+        for t in range(self.args.max_steps):
+            start_step = True if t == 0 else False
+            state_ = cuda_wrapper(prep_obs(state).contiguous().view(1, self.n_, self.obs_dim), self.cuda_)
+            action_ = action.clone()
+            action_out = self.policy(state_, last_act=action_, last_hid=last_hidden_state, info=info, stat=stat)
+            action = select_action(self.args, action_out, status='train', info=info)
+            # return the rescaled (clipped) actions
+            _, actual = translate_action(self.args, action, trainer.env)
+            next_state, reward, done, _ = trainer.env.step(actual)
+            if isinstance(done, list): done = np.sum(done)
+            done_ = done or t==self.args.max_steps-1
+            hidden_state = self.get_hidden()
+            trans = self.Transition(state,
+                                    action.cpu().numpy(),
+                                    action_.cpu().numpy(),
+                                    hidden_state.cpu().numpy(),
+                                    last_hidden_state.cpu().numpy(),
+                                    np.array(reward),
+                                    next_state,
+                                    done,
+                                    done_
+                                   )
+            last_hidden_state = hidden_state
+            episode.append(trans)
+            trainer.steps += 1
+            trainer.mean_reward = trainer.mean_reward + 1/trainer.steps*(np.mean(reward) - trainer.mean_reward)
+            if done_:
+                break
+            state = next_state
+        stat['mean_reward'] = trainer.mean_reward
+        trainer.episodes += 1
+        if self.args.epsilon_softmax:
+            self.update_eps()
+        return episode
+
+    def train(self, stat, trainer):
+        episode = self.get_episode(stat, trainer)
+        if self.args.replay:
+            trainer.replay_buffer.add_experience(episode)
+            replay_cond = trainer.episodes>self.args.replay_warmup\
+             and len(trainer.replay_buffer.buffer)>=self.args.batch_size\
+             and trainer.episodes%self.args.behaviour_update_freq==0
+            if replay_cond:
+                trainer.replay_process(stat)
+        else:
+            offline_cond = trainer.episodes%self.args.behaviour_update_freq==0
+            if offline_cond:
+                episode = self.Transition(*zip(*episode))
+                trainer.transition_process(stat, episode)

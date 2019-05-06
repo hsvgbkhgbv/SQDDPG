@@ -4,6 +4,7 @@ import numpy as np
 from utilities.util import *
 from models.model import Model
 from learning_algorithms.reinforce import *
+from collections import namedtuple
 
 
 
@@ -16,12 +17,23 @@ class CommNet(Model):
         self.identifier()
         self.construct_model()
         self.apply(self.init_weights)
+        self.Transition = namedtuple('Transition', ('state', 'action', 'reward', 'next_state', 'done', 'last_step'))
 
     def identifier(self):
         if self.comm_iters == 0:
             raise RuntimeError('Please guarantee the comm iters is at least greater equal to 1.')
         elif self.comm_iters < 2:
             raise RuntimeError('Please use IndependentCommNet if the comm iters is set to 1.')
+
+    def unpack_data(self, batch):
+        batch_size = len(batch.state)
+        rewards = cuda_wrapper(torch.tensor(batch.reward, dtype=torch.float), self.cuda_)
+        last_step = cuda_wrapper(torch.tensor(batch.last_step, dtype=torch.float).contiguous().view(-1, 1), self.cuda_)
+        done = cuda_wrapper(torch.tensor(batch.done, dtype=torch.float).contiguous().view(-1, 1), self.cuda_)
+        actions = cuda_wrapper(torch.tensor(np.stack(list(zip(*batch.action))[0], axis=0), dtype=torch.float), self.cuda_)
+        state = cuda_wrapper(prep_obs(list(zip(batch.state))), self.cuda_)
+        next_state = cuda_wrapper(prep_obs(list(zip(batch.next_state))), self.cuda_)
+        return (rewards, last_step, done, actions, state, next_state)
 
     def construct_policy_net(self):
         self.action_dict = nn.ModuleDict( {'encoder': nn.Linear(self.obs_dim, self.hid_dim),\
@@ -94,6 +106,52 @@ class CommNet(Model):
     def get_loss(self, batch):
         action_loss, value_loss, log_p_a = self.rl.get_loss(batch, self)
         return action_loss, value_loss, log_p_a
+
+    def get_episode(self, stat, trainer):
+        info = {}
+        episode = []
+        state = trainer.env.reset()
+        for t in range(self.args.max_steps):
+            start_step = True if t == 0 else False
+            state_ = cuda_wrapper(prep_obs(state).contiguous().view(1, self.n_, self.obs_dim), self.cuda_)
+            action_out = self.policy(state_, info=info, stat=stat)
+            action = select_action(self.args, action_out, status='train', info=info)
+            # return the rescaled (clipped) actions
+            _, actual = translate_action(self.args, action, trainer.env)
+            next_state, reward, done, _ = trainer.env.step(actual)
+            if isinstance(done, list): done = np.sum(done)
+            done_ = done or t==self.args.max_steps-1
+            trans = self.Transition(state,
+                                    action.cpu().numpy(),
+                                    np.array(reward),
+                                    next_state,
+                                    done,
+                                    done_
+                                   )
+            episode.append(trans)
+            trainer.steps += 1
+            trainer.mean_reward = trainer.mean_reward + 1/trainer.steps*(np.mean(reward) - trainer.mean_reward)
+            if done_:
+                break
+            state = next_state
+        stat['mean_reward'] = trainer.mean_reward
+        trainer.episodes += 1
+        return episode
+
+    def train(self, stat, trainer):
+        episode = self.get_episode(stat, trainer)
+        if self.args.replay:
+            trainer.replay_buffer.add_experience(episode)
+            replay_cond = trainer.episodes>self.args.replay_warmup\
+             and len(trainer.replay_buffer.buffer)>=self.args.batch_size\
+             and trainer.episodes%self.args.behaviour_update_freq==0
+            if replay_cond:
+                trainer.replay_process(stat)
+        else:
+            offline_cond = trainer.episodes%self.args.behaviour_update_freq==0
+            if offline_cond:
+                episode = self.Transition(*zip(*episode))
+                trainer.transition_process(stat, episode)
 
 
 

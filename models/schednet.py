@@ -4,6 +4,7 @@ import numpy as np
 from utilities.util import *
 from models.model import Model
 from learning_algorithms.reinforce import *
+from collections import namedtuple
 
 
 
@@ -16,6 +17,7 @@ class SchedNet(Model):
         if target_net != None:
             self.target_net = target_net
             self.reload_params_to_target()
+        self.Transition = namedtuple('Transition', ('state', 'action', 'last_action', 'reward', 'next_state', 'done', 'last_step', 'schedule', 'weight'))
 
     def reload_params_to_target(self):
         self.target_net.action_dict.load_state_dict( self.action_dict.state_dict() )
@@ -55,7 +57,8 @@ class SchedNet(Model):
                                         )
 
     def construct_value_net(self):
-        self.value_dict = nn.ModuleDict( {'share_critic': nn.Linear(self.obs_dim, self.hid_dim),\
+        self.value_dict = nn.ModuleDict( {'share_critic0': nn.Linear(self.obs_dim, self.hid_dim),\
+                                          'share_critic1': nn.Linear(self.obs_dim, self.hid_dim),\
                                           'weight_critic': nn.Linear(self.hid_dim+1, 1),\
                                           'action_critic': nn.Linear(self.hid_dim, 1)
                                          }
@@ -113,14 +116,14 @@ class SchedNet(Model):
         return action
 
     def value(self, obs, w, act=None):
-        shared_param = self.value_dict['share_critic'](obs)
-        q = self.value_dict['weight_critic']( torch.cat([shared_param, w], dim=-1) )
-        v = self.value_dict['action_critic'](shared_param)
+        shared_param0 = self.value_dict['share_critic0'](obs)
+        shared_param1 = self.value_dict['share_critic1'](obs)
+        q = self.value_dict['weight_critic']( torch.cat([shared_param0, w], dim=-1) )
+        v = self.value_dict['action_critic'](shared_param1)
         return q.contiguous().view(-1, self.n_), v.contiguous().view(-1, self.n_)
 
     def get_loss(self, batch):
         batch_size = len(batch.state)
-        n = self.args.agent_num
         # collect the transition data
         rewards, last_step, done, actions, last_actions, state, next_state, schedules, weights = self.unpack_data(batch)
         # construct the computational graph
@@ -129,9 +132,9 @@ class SchedNet(Model):
         q, v = self.value(state, weights.unsqueeze(-1))
         q_, _ = self.value(state, weight_action_out.unsqueeze(-1))
         # get the next actions and the next values
-        next_q, next_v = self.target_net.value(next_state, self.target_net.weight_generator(next_state).unsqueeze(-1).detach())
-        returns_q = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda_)
-        returns_v = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda_)
+        next_q, next_v = self.target_net.value( next_state, self.target_net.weight_generator(next_state).unsqueeze(-1).detach() )
+        returns_q = cuda_wrapper(torch.zeros((batch_size, self.n_), dtype=torch.float), self.cuda_)
+        returns_v = cuda_wrapper(torch.zeros((batch_size, self.n_), dtype=torch.float), self.cuda_)
         # calculate the return
         assert returns_v.size() == rewards.size()
         assert returns_q.size() == rewards.size()
@@ -146,7 +149,7 @@ class SchedNet(Model):
                 next_return = 0 if done[i] else next_q[i].detach()
             else:
                 next_return = next_q[i].detach()
-            returns_v[i] = rewards[i] + self.args.gamma * next_return
+            returns_q[i] = rewards[i] + self.args.gamma * next_return
         # construct the action loss and the value loss
         deltas_v = returns_v - v
         deltas_q = returns_q - q
@@ -155,10 +158,10 @@ class SchedNet(Model):
         if self.args.normalize_advantages:
             advantages = batchnorm(advantages)
         if self.args.continuous:
-            action_means = actions.contiguous().view(-1, self.args.action_dim)
+            action_means = actions.contiguous().view(-1, self.act_dim)
             action_stds = cuda_wrapper(torch.ones_like(action_means), self.cuda_)
             log_p_a = normal_log_density(actions.detach(), action_means, action_stds)
-            log_prob_a = log_p_a.clone()
+            log_prob_a = log_p_a
         else:
             log_p_a = action_out
             log_prob_a = multinomials_log_density(actions.detach(), log_p_a).contiguous().view(-1, 1)
@@ -168,3 +171,54 @@ class SchedNet(Model):
         action_loss = action_loss.sum() / batch_size
         value_loss = ( deltas_v.pow(2).view(-1).sum() + deltas_q.pow(2).view(-1).sum() ) / batch_size
         return action_loss, value_loss, log_p_a
+
+    def train(self, stat, trainer):
+        info = {}
+        state = trainer.env.reset()
+        action = trainer.init_action
+        for t in range(self.args.max_steps):
+            state_ = cuda_wrapper(prep_obs(state).contiguous().view(1, self.n_, self.obs_dim), self.cuda_)
+            weight = self.weight_generator(state_).detach()
+            schedule = self.weight_based_scheduler(weight)
+            start_step = True if t == 0 else False
+            state_ = cuda_wrapper(prep_obs(state).contiguous().view(1, self.n_, self.obs_dim), self.cuda_)
+            action_ = action.clone()
+            action_out = self.policy(state_, schedule=schedule, last_act=action_, info=info, stat=stat)
+            action = select_action(self.args, action_out, status='train', info=info)
+            # return the rescaled (clipped) actions
+            _, actual = translate_action(self.args, action, trainer.env)
+            next_state, reward, done, _ = trainer.env.step(actual)
+            if isinstance(done, list): done = np.sum(done)
+            done_ = done or t==self.args.max_steps-1
+            trans = self.Transition(state,
+                                    action.cpu().numpy(),
+                                    action_.cpu().numpy(),
+                                    np.array(reward),
+                                    next_state,
+                                    done,
+                                    done_,
+                                    schedule.cpu().numpy(),
+                                    weight.cpu().numpy()
+                                   )
+            if self.args.replay:
+                trainer.replay_buffer.add_experience(trans)
+                replay_cond = trainer.steps>self.args.replay_warmup\
+                 and len(trainer.replay_buffer.buffer)>=self.args.batch_size\
+                 and trainer.steps%self.args.behaviour_update_freq==0
+                if replay_cond:
+                    trainer.replay_process(stat)
+            else:
+                online_cond = trainer.steps%self.args.behaviour_update_freq==0
+                if online_cond:
+                    trainer.transition_process(stat, trans)
+            if self.args.target:
+                target_cond = trainer.steps%self.args.target_update_freq==0
+                if target_cond:
+                    self.update_target()
+            trainer.steps += 1
+            trainer.mean_reward = trainer.mean_reward + 1/trainer.steps*(np.mean(reward) - trainer.mean_reward)
+            stat['mean_reward'] = trainer.mean_reward
+            if done_:
+                break
+            state = next_state
+        trainer.episodes += 1
