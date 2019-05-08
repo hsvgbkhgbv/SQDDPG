@@ -8,6 +8,7 @@ def inspector(args):
         assert args.q_func is True
         assert args.target is True
         assert args.gumbel_softmax is True
+        assert args.epsilon_softmax is False
         assert args.online is True
     elif args.model_name is 'commnet':
         assert args.replay is True
@@ -17,6 +18,7 @@ def inspector(args):
         assert args.target is False
         assert args.online is False
         assert args.gumbel_softmax is False
+        assert args.epsilon_softmax is False
         assert args.behaviour_update_freq is args.replay_buffer_size
         assert args.replay_buffer_size is args.batch_size
         assert hasattr(args, 'skip_connection')
@@ -28,6 +30,7 @@ def inspector(args):
         assert args.target is False
         assert args.online is False
         assert args.gumbel_softmax is False
+        assert args.epsilon_softmax is False
         assert args.behaviour_update_freq is args.replay_buffer_size
         assert args.replay_buffer_size is args.batch_size
         assert hasattr(args, 'skip_connection')
@@ -37,6 +40,7 @@ def inspector(args):
         assert args.target is False
         assert args.online is False
         assert args.gumbel_softmax is False
+        assert args.epsilon_softmax is False
         assert args.behaviour_update_freq is args.replay_buffer_size
         assert args.replay_buffer_size is args.batch_size
     elif args.model_name is 'coma':
@@ -46,7 +50,7 @@ def inspector(args):
         assert args.online is False
         assert args.continuous is False
         assert args.gumbel_softmax is False
-        assert hasattr(args, 'epsilon_softmax')
+        assert args.epsilon_softmax is True
         assert hasattr(args, 'softmax_eps_init')
         assert hasattr(args, 'softmax_eps_end')
         assert hasattr(args, 'n_step')
@@ -57,6 +61,7 @@ def inspector(args):
         assert args.target is True
         assert args.online is True
         assert args.gumbel_softmax is False
+        assert args.epsilon_softmax is False
         assert hasattr(args, 'schedule')
         assert hasattr(args, 'k')
         assert hasattr(args, 'l')

@@ -37,7 +37,6 @@ class COMA(Model):
         params_behaviour_value = list(self.value_dict.parameters())
         for i in range(len(params_target_value)):
             params_target_value[i] = (1 - self.args.target_lr) * params_target_value[i] + self.args.target_lr * params_behaviour_value[i]
-        # print ('traget net is updated!\n')
 
     def unpack_data(self, batch):
         batch_size = len(batch.state)
@@ -83,7 +82,7 @@ class COMA(Model):
             h = torch.relu(h)
             a = self.action_dict['action_head'][i](h)
             actions.append(a)
-        self.gru_hid = torch.stack(hs, dim=1)
+        self.update_gru(hs)
         actions = torch.stack(actions, dim=1)
         return actions
 
@@ -92,7 +91,7 @@ class COMA(Model):
         act = act.unsqueeze(1).expand(batch_size, self.n_, self.n_, self.act_dim) # shape = (b, n, a) -> (b, 1, n, a) -> (b, n, n, a)
         act = act * self.comm_mask.unsqueeze(0).unsqueeze(-1).expand_as(act)
         act = act.contiguous().view(batch_size, self.n_, -1) # shape = (b, n, a*n)
-        inp = torch.cat((obs, act), dim=-1) # shape = (b, n, a*n+o)
+        inp = torch.cat((obs, act), dim=-1) # shape = (b, n, o+a*n)
         h = torch.relu( self.value_dict['layer_1'](inp) )
         h = torch.relu( self.value_dict['layer_2'](h) )
         values = self.value_dict['value_head'](h)
@@ -101,9 +100,7 @@ class COMA(Model):
     def get_loss(self, batch):
         info = {}
         batch_size = len(batch.state)
-        # collect the transition data
         rewards, last_step, done, actions, last_actions, hidden_state, last_hidden_state, state, next_state = self.unpack_data(batch)
-        # construct computational graph
         action_out = self.policy(state, last_act=last_actions, last_hid=last_hidden_state, info=info)
         values_ = self.value(state, actions)
         if self.args.q_func:
@@ -112,24 +109,14 @@ class COMA(Model):
         next_action_out = self.target_net.policy(next_state, last_act=actions, last_hid=hidden_state, info=info)
         next_actions = select_action(self.args, next_action_out, status='train', info=info, exploration=False)
         next_values = self.target_net.value(next_state, next_actions)
-        # returns = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda_)
         if self.args.q_func:
             next_values = torch.sum(next_values*next_actions, dim=-1)
         next_values = next_values.contiguous().view(-1, self.n_)
-        # n-step TD estimate
         assert values.size() == next_values.size()
         returns = td_lambda(rewards, last_step, done, next_values, self.args)
         assert returns.size() == rewards.size()
-        # for i in reversed(range(rewards.size(0))):
-        #     if last_step[i]:
-        #         next_return = 0 if done[i] else next_values[i].detach()
-        #     else:
-        #         next_return = next_values[i].detach()
-        #     returns[i] = rewards[i] + self.args.gamma * next_return
         deltas = returns - values
-        # calculate coma
         advantages = ( values - torch.sum(values_*torch.softmax(action_out, dim=-1), dim=-1) ).detach()
-        # advantages = values.detach()
         log_p_a = action_out
         log_prob = multinomials_log_density(actions, log_p_a).contiguous().view(-1, 1)
         advantages = advantages.contiguous().view(-1, 1)
@@ -147,6 +134,9 @@ class COMA(Model):
     def get_hidden(self):
         return self.gru_hid.detach()
 
+    def update_gru(self, hidden_states):
+        self.gru_hid = torch.stack(hidden_states, dim=1)
+
     def get_episode(self, stat, trainer):
         episode = []
         info = {}
@@ -162,7 +152,6 @@ class COMA(Model):
             action_ = action.clone()
             action_out = self.policy(state_, last_act=action_, last_hid=last_hidden_state, info=info, stat=stat)
             action = select_action(self.args, action_out, status='train', info=info)
-            # return the rescaled (clipped) actions
             _, actual = translate_action(self.args, action, trainer.env)
             next_state, reward, done, _ = trainer.env.step(actual)
             if isinstance(done, list): done = np.sum(done)

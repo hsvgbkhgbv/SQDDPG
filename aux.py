@@ -8,7 +8,7 @@ ic3netArgs = namedtuple( 'ic3netArgs', [] )
 
 maddpgArgs = namedtuple( 'maddpgArgs', [] )
 
-comaArgs = namedtuple( 'comaArgs', ['epsilon_softmax', 'softmax_eps_init', 'softmax_eps_end', 'n_step', 'td_lambda'] ) # (bool, float, float, int, float)
+comaArgs = namedtuple( 'comaArgs', ['softmax_eps_init', 'softmax_eps_end', 'n_step', 'td_lambda'] ) # (bool, float, float, int, float)
 
 mfqArgs = namedtuple( 'mfqArgs', [] )
 

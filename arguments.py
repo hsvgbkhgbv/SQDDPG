@@ -43,8 +43,8 @@ Strategy=dict(commnet='pg',
 # model_name = 'ic3net'
 # model_name = 'independent_commnet'
 # model_name = 'maddpg'
-model_name = 'coma'
-# model_name = 'schednet'
+# model_name = 'coma'
+model_name = 'schednet'
 
 '''define the scenario name'''
 scenario_name = 'simple_spread'
@@ -54,10 +54,10 @@ scenario_name = 'simple_spread'
 # commnetArgs = namedtuple( 'commnetArgs', ['skip_connection', 'comm_iters'] )
 # ic3netArgs = namedtuple( 'ic3netArgs', [] )
 # maddpgArgs = namedtuple( 'maddpgArgs', [] )
-# comaArgs = namedtuple( 'comaArgs', ['epsilon_softmax', 'softmax_eps_init', 'softmax_eps_end', 'n_step', 'td_lambda'] )
+# comaArgs = namedtuple( 'comaArgs', ['softmax_eps_init', 'softmax_eps_end', 'n_step', 'td_lambda'] )
 # schednetArgs = namedtuple( 'schednetArgs', ['schedule', 'k', 'l'] )
 
-aux_args = AuxArgs[model_name](True, 0.5, 0.02, 4, 0.8)
+aux_args = AuxArgs[model_name]('top_k', 1, 1)
 alias = ''
 
 '''load scenario from script'''
@@ -98,6 +98,7 @@ Args = namedtuple('Args', ['model_name',
                            'behaviour_update_freq', # steps<-online/episodes<-offline
                            'target_update_freq', # steps<-online/episodes<-offline
                            'gumbel_softmax',
+                           'epsilon_softmax',
                            'online'
                           ]
                  )
@@ -112,28 +113,29 @@ args = Args(model_name=model_name,
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
             init_std=0.1,
-            policy_lrate=1e-3,
-            value_lrate=1e-2,
+            policy_lrate=1e-4,
+            value_lrate=1e-3,
             max_steps=200,
-            batch_size=8,
+            batch_size=1024,
             gamma=0.95,
             normalize_advantages=False,
-            entr=1e-3,
+            entr=1e-2,
             action_num=np.max(env.get_input_shape_of_act()),
             q_func=True,
             train_episodes_num=int(1e5),
             replay=True,
-            replay_buffer_size=8,
+            replay_buffer_size=1e6,
             replay_warmup=0,
             cuda=True,
             grad_clip=True,
             save_model_freq=10,
             target=True,
             target_lr=1e-2,
-            behaviour_update_freq=8,
-            target_update_freq=8,
+            behaviour_update_freq=100,
+            target_update_freq=100,
             gumbel_softmax=False,
-            online=False
+            epsilon_softmax=False,
+            online=True
            )
 
 args = MergeArgs(*(args+aux_args))

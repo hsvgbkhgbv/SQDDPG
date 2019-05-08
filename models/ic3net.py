@@ -51,7 +51,7 @@ class IC3Net(Model):
 
     def gate(self, h):
         h = torch.relu( self.action_dict['g_module_0'](h) )
-        gate = self.action_dict['g_module_1'](h) # shape = (batch_size, n, 2)
+        gate = self.action_dict['g_module_1'](h) # shape = (b, n, 2)
         return gate
 
     def schedule(self, gate):
@@ -59,44 +59,26 @@ class IC3Net(Model):
 
     def policy(self, obs, schedule=None, last_act=None, last_hid=None, info={}, stat={}):
         batch_size = obs.size(0)
-        # encode observation
         e = torch.relu(self.action_dict['encoder'](obs))
-        # get the initial state
-        # if info.get('start', False):
-        #     h, cell = self.init_hidden(batch_size)
         h, cell = last_hid[:, :, :self.hid_dim], last_hid[:, :, self.hid_dim:]
-        # get the agent mask
-        # num_agents_alive, agent_mask = self.get_agent_mask(batch_size, info)
-        # conduct the main process of communication
-        # shape = (batch_size, n, hid_size)->(batch_size, 1, n, hid_size)->(batch_size, n, n, hid_size)
-        h_ = h.unsqueeze(1).expand(batch_size, self.n_, self.n_, self.hid_dim)
-        # construct the communication mask
+        h_ = h.unsqueeze(1).expand(batch_size, self.n_, self.n_, self.hid_dim) # shape = (b, n, h) -> (b, 1, n, h) -> (b, n, n, h)
         mask = self.comm_mask.unsqueeze(0) # shape = (1, n, n)
-        mask = mask.expand(batch_size, self.n_, self.n_) # shape = (batch_size, n, n)
-        mask = mask.unsqueeze(-1) # shape = (batch_size, n, n, 1)
-        mask = mask.expand_as(h_) # shape = (batch_size, n, n, hid_size)
-        # construct the commnication gate
-        gate = schedule.unsqueeze(1) # shape = (batch_size, 1, n, 1)
-        gate = gate.expand_as(h_) # shape = (batch_size, n, n, hid_size)
-        # mask each agent itself (collect the hidden state of other agents)
+        mask = mask.expand(batch_size, self.n_, self.n_) # shape = (b, n, n)
+        mask = mask.unsqueeze(-1) # shape = (b, n, n, 1)
+        mask = mask.expand_as(h_) # shape = (b, n, n, h)
+        gate = schedule.unsqueeze(1) # shape = (b, 1, n, 1)
+        gate = gate.expand_as(h_) # shape = (b, n, n, h)
         h_ = h_ * gate * mask
-        # mask the dead agent
-        # h_ = h_ * agent_mask * agent_mask.transpose(1, 2)
-        # average the hidden state
-        # if num_agents_alive > 1: h_ = h_ / (num_agents_alive - 1)
         h_ = h_ / (self.n_ - 1)
-        # calculate the communication vector
-        c = h_.sum(dim=2) # shape = (batch_size, n, hid_size)
+        c = h_.sum(dim=2) # shape = (b, n, h)
         inp = e + c
         inp = inp.contiguous().view(batch_size*self.n_, self.hid_dim)
-        # f_moudle
         cell = cell.contiguous().view(batch_size*self.n_, self.hid_dim)
         h = h.contiguous().view(batch_size*self.n_, self.hid_dim)
         h, cell = self.action_dict['f_module'](inp, (h, cell))
         cell = cell.contiguous().view(batch_size, self.n_, self.hid_dim)
         h = h.contiguous().view(batch_size, self.n_, self.hid_dim)
         self.lstm_hid = torch.cat([h, cell], dim=-1)
-        # calculate the action vector (policy)
         action = self.action_dict['action_head'](h)
         if batch_size == 1:
             stat['comm_gate'] = schedule.transpose(1, 2).detach().cpu().numpy()
@@ -117,23 +99,18 @@ class IC3Net(Model):
 
     def get_loss(self, batch):
         batch_size = len(batch.state)
-        # collect the transition data
         rewards, last_step, done, actions, last_actions, hidden_states, last_hidden_states, state, next_state, schedules = self.unpack_data(batch)
-        # construct the computational graph
         gate_action_out = self.gate(last_hidden_states[:, :, :self.hid_dim])
         action_out = self.policy(state, schedule=schedules, last_hid=last_hidden_states)
         values = self.value(state).contiguous().view(-1, self.n_)
-        # get the next actions and the next values
         next_values = self.value(next_state).contiguous().view(-1, self.n_)
         returns = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda_)
-        # calculate the return
         assert returns.size() == rewards.size()
         for i in reversed(range(rewards.size(0))):
             if last_step[i]:
                 next_return = 0 if done[i] else next_values[i].detach()
             returns[i] = rewards[i] + self.args.gamma * next_return
             next_return = returns[i]
-        # construct the action loss and the value loss
         deltas = returns - values
         advantages = deltas.contiguous().view(-1, 1).detach()
         if self.args.normalize_advantages:
@@ -169,7 +146,6 @@ class IC3Net(Model):
             schedule = self.schedule(gate)
             action_out = self.policy(state_, schedule=schedule, last_act=action_, last_hid=last_hidden_state, info=info, stat=stat)
             action = select_action(self.args, action_out, status='train', info=info)
-            # return the rescaled (clipped) actions
             _, actual = translate_action(self.args, action, trainer.env)
             next_state, reward, done, _ = trainer.env.step(actual)
             if isinstance(done, list): done = np.sum(done)
