@@ -57,7 +57,7 @@ scenario_name = 'simple_spread'
 # comaArgs = namedtuple( 'comaArgs', ['softmax_eps_init', 'softmax_eps_end', 'n_step', 'td_lambda'] )
 # schednetArgs = namedtuple( 'schednetArgs', ['schedule', 'k', 'l'] )
 
-aux_args = AuxArgs[model_name]('top_k', 1, 1)
+aux_args = AuxArgs[model_name]('top_k', 1, 16)
 alias = ''
 
 '''load scenario from script'''
@@ -113,13 +113,13 @@ args = Args(model_name=model_name,
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
             init_std=0.1,
-            policy_lrate=1e-4,
-            value_lrate=1e-3,
+            policy_lrate=1e-3,
+            value_lrate=1e-2,
             max_steps=200,
             batch_size=1024,
-            gamma=0.95,
+            gamma=0.9,
             normalize_advantages=False,
-            entr=1e-2,
+            entr=1e-3,
             action_num=np.max(env.get_input_shape_of_act()),
             q_func=True,
             train_episodes_num=int(1e5),
@@ -130,7 +130,7 @@ args = Args(model_name=model_name,
             grad_clip=True,
             save_model_freq=10,
             target=True,
-            target_lr=1e-2,
+            target_lr=5e-2,
             behaviour_update_freq=100,
             target_update_freq=100,
             gumbel_softmax=False,

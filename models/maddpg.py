@@ -33,7 +33,6 @@ class MADDPG(Model):
         params_behaviour_value = list(self.value_dict.parameters())
         for i in range(len(params_target_value)):
             params_target_value[i] = (1 - self.args.target_lr) * params_target_value[i] + self.args.target_lr * params_behaviour_value[i]
-        # print ('traget net is updated!\n')
 
     def unpack_data(self, batch):
         batch_size = len(batch.state)
@@ -96,7 +95,6 @@ class MADDPG(Model):
             state_ = cuda_wrapper(prep_obs(state).contiguous().view(1, self.n_, self.obs_dim), self.cuda_)
             action_out = self.policy(state_, info=info, stat=stat)
             action = select_action(self.args, action_out, status='train', info=info)
-            # return the rescaled (clipped) actions
             _, actual = translate_action(self.args, action, trainer.env)
             next_state, reward, done, _ = trainer.env.step(actual)
             if isinstance(done, list): done = np.sum(done)

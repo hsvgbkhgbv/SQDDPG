@@ -18,8 +18,7 @@ class SchedNet(Model):
             self.target_net = target_net
             self.reload_params_to_target()
         self.Transition = namedtuple('Transition', ('state', 'action', 'reward', 'next_state', 'done', 'last_step', 'schedule', 'weight'))
-        self.eps=0.5
-        self.eps_decay= (self.eps - 0.01) / self.args.train_episodes_num
+        self.eps=0.2
 
     def reload_params_to_target(self):
         self.target_net.action_dict.load_state_dict( self.action_dict.state_dict() )
@@ -58,7 +57,8 @@ class SchedNet(Model):
                                         )
 
     def construct_value_net(self):
-        self.value_dict = nn.ModuleDict( {'share_critic': nn.Linear(self.obs_dim*self.n_, self.hid_dim),\
+        self.value_dict = nn.ModuleDict( {'share_critic_0': nn.Linear(self.obs_dim*self.n_, self.hid_dim),\
+                                          'share_critic_1': nn.Linear(self.hid_dim, self.hid_dim),\
                                           'weight_critic': nn.Linear(self.hid_dim+self.n_, 1),\
                                           'action_critic': nn.Linear(self.hid_dim, 1)
                                          }
@@ -76,7 +76,7 @@ class SchedNet(Model):
             h = torch.relu( self.action_dict['weight_generator_0'][i](obs[:, i, :]) )
             h = self.action_dict['weight_generator_1'][i](h)
             w.append(h)
-        w = torch.stack(w, dim=1).contiguous().view(batch_size, self.n_) # shape = (batch_size, n)
+        w = torch.stack(w, dim=1).contiguous().view(batch_size, self.n_) # shape = (b, n)
         return w
 
     def weight_based_scheduler(self, w, exploration):
@@ -100,7 +100,7 @@ class SchedNet(Model):
             h = torch.relu( self.action_dict['message_encoder_0'][i](obs[:, i, :]) )
             h = torch.relu( self.action_dict['message_encoder_1'][i](h) )
             m.append(h)
-        m = torch.stack(m, dim=1) # shape = (batch_size, n, hid_size)
+        m = torch.stack(m, dim=1) # shape = (b, n, h)
         return m
 
     def policy(self, obs, schedule=None, last_act=None, last_hid=None, gate=None, info={}, stat={}):
@@ -122,7 +122,8 @@ class SchedNet(Model):
         batch_size = obs.size(0)
         obs = obs.unsqueeze(1).expand(batch_size, self.n_, self.n_, -1) # shape = (b, n, n, o)
         obs = obs.contiguous().view(batch_size, self.n_, -1) # shape = (b, n, n*o)
-        shared_param = self.value_dict['share_critic'](obs) # shape = (b, n, h)
+        shared_param = torch.relu( self.value_dict['share_critic_0'](obs) ) # shape = (b, n, h)
+        shared_param = torch.relu( self.value_dict['share_critic_1'](shared_param) ) # shape = (b, n, h)
         w = w.squeeze().unsqueeze(1).expand(batch_size, self.n_, self.n_) # shape = (b, n, n)
         q = self.value_dict['weight_critic']( torch.cat([shared_param, w], dim=-1) )
         q = q.contiguous().view(batch_size, self.n_)
@@ -170,6 +171,7 @@ class SchedNet(Model):
             log_prob_a = multinomials_log_density(actions, log_p_a).contiguous().view(-1, 1)
         assert log_prob_a.size() == advantages_v.size()
         action_loss = - advantages_v * log_prob_a - advantages_q
+        # action_loss = - advantages_v * log_prob_a
         action_loss = action_loss.sum() / batch_size
         value_loss = ( deltas_v.pow(2).view(-1).sum() + deltas_q.pow(2).view(-1).sum() ) / batch_size
         return action_loss, value_loss, log_p_a
@@ -225,4 +227,3 @@ class SchedNet(Model):
                 break
             state = next_state
         trainer.episodes += 1
-        self.eps -= self.eps_decay

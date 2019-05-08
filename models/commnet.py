@@ -59,41 +59,27 @@ class CommNet(Model):
         self.construct_policy_net()
 
     def policy(self, obs, schedule=None, last_act=None, last_hid=None, info={}, stat={}):
-        # get the batch size
         batch_size = obs.size(0)
-        # encode observation
         if self.args.skip_connection:
             e = torch.relu( self.action_dict['encoder'](obs) )
             h = torch.zeros_like(e)
         else:
             h = torch.tanh( self.action_dict['encoder'](obs) )
-        # get the agent mask
-        # num_agents_alive, agent_mask = self.get_agent_mask(batch_size, info)
-        # conduct the main process of communication
         for i in range(self.comm_iters):
-            # shape = (batch_size, n, hid_size)->(batch_size, 1, n, hid_size)->(batch_size, n, n, hid_size)
-            h_ = h.unsqueeze(1).expand(batch_size, self.n_, self.n_, self.hid_dim)
-            # construct the communication mask
+            h_ = h.unsqueeze(1).expand(batch_size, self.n_, self.n_, self.hid_dim) # shape = (b, n, h)->(b, 1, n, h)->(b, n, n, h)
             mask = self.comm_mask.unsqueeze(0) # shape = (1, n, n)
-            mask = mask.expand(batch_size, self.n_, self.n_) # shape = (batch_size, n, n)
-            mask = mask.unsqueeze(-1) # shape = (batch_size, n, n, 1)
-            mask = mask.expand_as(h_) # shape = (batch_size, n, n, hid_size)
-            # mask each agent itself (collect the hidden state of other agents)
+            mask = mask.expand(batch_size, self.n_, self.n_) # shape = (b, n, n)
+            mask = mask.unsqueeze(-1) # shape = (b, n, n, 1)
+            mask = mask.expand_as(h_) # shape = (b, n, n, h)
             h_ = h_ * mask
-            # mask the dead agent
-            # h_ = h_ * agent_mask * agent_mask.transpose(1, 2)
-            # average the hidden state
-            # h_ = h_ / (num_agents_alive - 1) if num_agents_alive > 1 else torch.zeros_like(h_)
             h_ = h_ / (self.n_ - 1)
-            # calculate the communication vector
-            c = h_.sum(dim=2) if i != 0 else torch.zeros_like(h) # shape = (batch_size, n, hid_size)
+            c = h_.sum(dim=2) if i != 0 else torch.zeros_like(h) # shape = (b, n, h)
             if self.args.skip_connection:
                 # h_{j}^{i+1} = \sigma(H_j * h_j^{i+1} + C_j * c_j^{i+1} + E_{j} * e_j^{i+1})
                 h = torch.tanh( sum( [ self.action_dict['f_modules'][i](h), self.action_dict['c_modules'][i](c), self.action_dict['e_modules'][i](e) ] ) )
             else:
                 # h_{j}^{i+1} = \sigma(H_j * h_j^{i+1} + C_j * c_j^{i+1})
                 h = torch.tanh( sum( [ self.action_dict['f_modules'][i](h), self.action_dict['c_modules'][i](c) ] ) )
-        # calculate the action vector (policy)
         action = self.action_dict['action_head'](h)
         return action
 
@@ -116,7 +102,6 @@ class CommNet(Model):
             state_ = cuda_wrapper(prep_obs(state).contiguous().view(1, self.n_, self.obs_dim), self.cuda_)
             action_out = self.policy(state_, info=info, stat=stat)
             action = select_action(self.args, action_out, status='train', info=info)
-            # return the rescaled (clipped) actions
             _, actual = translate_action(self.args, action, trainer.env)
             next_state, reward, done, _ = trainer.env.step(actual)
             if isinstance(done, list): done = np.sum(done)

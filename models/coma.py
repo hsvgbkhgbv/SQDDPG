@@ -59,7 +59,7 @@ class COMA(Model):
                                         )
 
     def construct_value_net(self):
-        self.value_dict = nn.ModuleDict( {'layer_1': nn.Linear( self.obs_dim+self.act_dim*self.n_, self.hid_dim ),\
+        self.value_dict = nn.ModuleDict( {'layer_1': nn.Linear( self.obs_dim*self.n_+self.act_dim*self.n_, self.hid_dim ),\
                                           'layer_2': nn.Linear(self.hid_dim, self.hid_dim),\
                                           'value_head': nn.Linear(self.hid_dim, self.act_dim)
                                          }
@@ -91,6 +91,7 @@ class COMA(Model):
         act = act.unsqueeze(1).expand(batch_size, self.n_, self.n_, self.act_dim) # shape = (b, n, a) -> (b, 1, n, a) -> (b, n, n, a)
         act = act * self.comm_mask.unsqueeze(0).unsqueeze(-1).expand_as(act)
         act = act.contiguous().view(batch_size, self.n_, -1) # shape = (b, n, a*n)
+        obs = obs.unsqueeze(1).expand(batch_size, self.n_, self.n_, self.obs_dim).contiguous().view(batch_size, self.n_, -1)
         inp = torch.cat((obs, act), dim=-1) # shape = (b, n, o+a*n)
         h = torch.relu( self.value_dict['layer_1'](inp) )
         h = torch.relu( self.value_dict['layer_2'](h) )
