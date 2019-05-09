@@ -17,6 +17,9 @@ class PGTester(object):
 
     def run_step(self, state, schedule, last_action, last_hidden, info={}):
         state = cuda_wrapper(prep_obs(state).contiguous().view(1, self.args.agent_num, self.args.obs_size), cuda=self.cuda_)
+        if self.args.model_name in ['schednet']:
+            weight = self.behaviour_net.weight_generator(state).detach()
+            schedule, _ = self.behaviour_net.weight_based_scheduler(weight, exploration=False)
         action_out = self.action_logits(state, schedule, last_action, last_hidden, info)
         action = select_action(self.args, action_out, status='test')
         _, actual = translate_action(self.args, action, self.env)

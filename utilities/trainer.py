@@ -81,7 +81,7 @@ class PGTrainer(object):
         stat['action_loss'] = action_loss.item()
 
     def run(self, stat):
-        self.behaviour_net.train(stat, self)
+        self.behaviour_net.train_process(stat, self)
 
     def logging(self, stat):
         for tag, value in stat.items():

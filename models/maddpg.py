@@ -86,7 +86,7 @@ class MADDPG(Model):
         action_loss, value_loss, log_p_a = self.rl.get_loss(batch, self, self.target_net)
         return action_loss, value_loss, log_p_a
 
-    def train(self, stat, trainer):
+    def train_process(self, stat, trainer):
         info = {}
         state = trainer.env.reset()
         for t in range(self.args.max_steps):

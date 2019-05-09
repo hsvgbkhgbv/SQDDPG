@@ -173,7 +173,7 @@ class IC3Net(Model):
         trainer.episodes += 1
         return episode
 
-    def train(self, stat, trainer):
+    def train_process(self, stat, trainer):
         episode = self.get_episode(stat, trainer)
         if self.args.replay:
             trainer.replay_buffer.add_experience(episode)

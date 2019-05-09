@@ -110,14 +110,20 @@ class COMA(Model):
         next_action_out = self.target_net.policy(next_state, last_act=actions, last_hid=hidden_state, info=info)
         next_actions = select_action(self.args, next_action_out, status='train', info=info, exploration=False)
         next_values = self.target_net.value(next_state, next_actions)
+        next_action_out_ = self.policy(next_state, last_act=actions, last_hid=hidden_state, info=info)
+        next_actions_ = select_action(self.args, next_action_out_, status='train', info=info, exploration=False)
+        next_values_ = self.value(next_state, next_actions_)
         if self.args.q_func:
             next_values = torch.sum(next_values*next_actions, dim=-1)
+            next_values_ = torch.sum(next_values_*next_actions_, dim=-1)
         next_values = next_values.contiguous().view(-1, self.n_)
         assert values.size() == next_values.size()
         returns = td_lambda(rewards, last_step, done, next_values, self.args)
+        returns_ = td_lambda(rewards, last_step, done, next_values_, self.args)
         assert returns.size() == rewards.size()
+        assert returns_.size() == rewards.size()
         deltas = returns - values
-        advantages = ( values - torch.sum(values_*torch.softmax(action_out, dim=-1), dim=-1) ).detach()
+        advantages = ( returns_ - torch.sum(values_*torch.softmax(action_out, dim=-1), dim=-1) ).detach()
         log_p_a = action_out
         log_prob = multinomials_log_density(actions, log_p_a).contiguous().view(-1, 1)
         advantages = advantages.contiguous().view(-1, 1)
@@ -181,7 +187,7 @@ class COMA(Model):
             self.update_eps()
         return episode
 
-    def train(self, stat, trainer):
+    def train_process(self, stat, trainer):
         episode = self.get_episode(stat, trainer)
         if self.args.replay:
             trainer.replay_buffer.add_experience(episode)
