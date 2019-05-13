@@ -57,7 +57,7 @@ scenario_name = 'simple_spread'
 # comaArgs = namedtuple( 'comaArgs', ['softmax_eps_init', 'softmax_eps_end', 'n_step', 'td_lambda'] )
 # schednetArgs = namedtuple( 'schednetArgs', ['schedule', 'k', 'l'] )
 
-aux_args = AuxArgs[model_name]('top_k', 1, 16)
+aux_args = AuxArgs[model_name]('top_k', 1, 32)
 alias = ''
 
 '''load scenario from script'''
@@ -108,13 +108,13 @@ MergeArgs = namedtuple('MergeArgs', Args._fields+AuxArgs[model_name]._fields)
 # under offline trainer if set batch_size=replay_buffer_size=update_freq -> epoch update
 args = Args(model_name=model_name,
             agent_num=env.get_num_of_agents(),
-            hid_size=16,
+            hid_size=32,
             obs_size=np.max(env.get_shape_of_obs()),
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
             init_std=0.1,
             policy_lrate=1e-3,
-            value_lrate=1e-1,
+            value_lrate=1e-2,
             max_steps=200,
             batch_size=64,
             gamma=0.9,
@@ -124,13 +124,13 @@ args = Args(model_name=model_name,
             q_func=True,
             train_episodes_num=int(1e5),
             replay=True,
-            replay_buffer_size=1e4,
+            replay_buffer_size=1e6,
             replay_warmup=0,
             cuda=True,
             grad_clip=True,
             save_model_freq=10,
             target=True,
-            target_lr=1e-2,
+            target_lr=5e-2,
             behaviour_update_freq=200,
             target_update_freq=200,
             gumbel_softmax=False,
