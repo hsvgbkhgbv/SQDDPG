@@ -46,15 +46,14 @@ class PredatorPreyEnv(gym.Env):
 
         # init args
         self.nprey = 1 # Total number of preys in play
-        self.npredator = 2 # Total number of predators in play
-        self.n = self.nprey + self.npredator
-        self.no_stay = False #Whether predators have an action to stay in place
+        self.npredator = 3 # Total number of predators in play
+        self.no_stay = False # Whether predators have an action to stay in place
         self.dim = 5  # Dimension of box
-        self.vision = 2 # Vision of predator
+        self.vision = 1 # Vision of predator
         self.moving_prey = False # Whether prey is fixed or moxing
-        self.mode = 'mixed' # cooperative|competitive|mixed (default: mixed)
+        self.mode = 'cooperative' # cooperative|competitive|mixed (default: mixed)
         self.enemy_comm = False # Whether prey can communicate
-
+        self.n = self.npredator if not self.enemy_comm else self.nprey + self.npredator
 
         self.dims = dims = (self.dim, self.dim)
         self.stay = not self.no_stay
@@ -79,26 +78,19 @@ class PredatorPreyEnv(gym.Env):
         # Setting max vocab size for 1-hot encoding
         self.vocab_size = 1 + 1 + self.BASE + 1 + 1
         #          predator + prey + grid + outside
-
-
+        # observation dim
+        self.obs_dim = self.vocab_size*(2*self.vision+1)*(2*self.vision+1)
+        
+        # gym like environment
         self.action_space = []
         self.observation_space = []
         for agent_id in range(self.n):
             # Action for each agent will be naction 
-            self.action_space.append(spaces.MultiDiscrete([self.naction]))
+            self.action_space.append(spaces.Discrete(self.naction))
             # Observation for each agent will be vision * vision ndarray
-            self.observation_space.append(spaces.Box(low=0, high=1, shape=(self.vocab_size, (2 * self.vision) + 1, (2 * self.vision) + 1), dtype=int))
-            # Actual observation will be of the shape 1 * npredator * (2v+1) * (2v+1) * vocab_size
+            self.observation_space.append(spaces.Box(low=0, high=1, shape=(self.obs_dim,), dtype=int))
         return
 
-    def init_curses(self):
-        self.stdscr = curses.initscr()
-        curses.start_color()
-        curses.use_default_colors()
-        curses.init_pair(1, curses.COLOR_RED, -1)
-        curses.init_pair(2, curses.COLOR_YELLOW, -1)
-        curses.init_pair(3, curses.COLOR_CYAN, -1)
-        curses.init_pair(4, curses.COLOR_GREEN, -1)
 
     def step(self, action):
         """
@@ -120,16 +112,16 @@ class PredatorPreyEnv(gym.Env):
         action = np.atleast_1d(action)
 
         for i, a in enumerate(action):
-            self._take_action(i, a)
+            # a is a onehot vector
+            self._take_action(i, np.argmax(a))
 
         assert np.all(action <= self.naction), "Actions should be in the range [0,naction)."
-
 
         self.episode_over = False
         self.obs = self._get_obs()
 
         debug = {'predator_locs':self.predator_loc,'prey_locs':self.prey_loc}
-        return self.obs, self._get_reward(), self.episode_over, debug
+        return self._flatten_obs(self.obs), self._get_reward(), self.episode_over, debug
 
     def reset(self):
         """
@@ -152,10 +144,7 @@ class PredatorPreyEnv(gym.Env):
 
         # Observation will be npredator * vision * vision ndarray
         self.obs = self._get_obs()
-        return self.obs
-
-    def seed(self):
-        return
+        return self._flatten_obs(self.obs)
 
     def _get_cordinates(self):
         idx = np.random.choice(np.prod(self.dims),(self.npredator + self.nprey), replace=False)
@@ -239,8 +228,7 @@ class PredatorPreyEnv(gym.Env):
             self.predator_loc[idx][1] = max(0, self.predator_loc[idx][1]-1)
 
     def _get_reward(self):
-        n = self.npredator if not self.enemy_comm else self.npredator + self.nprey
-        reward = np.full(n, self.TIMESTEP_PENALTY)
+        reward = np.full(self.n, self.TIMESTEP_PENALTY)
 
         on_prey = np.where(np.all(self.predator_loc == self.prey_loc,axis=1))[0]
         nb_predator_on_prey = on_prey.size
@@ -274,10 +262,10 @@ class PredatorPreyEnv(gym.Env):
             else:
                 self.stat['success'] = 0
 
+        # global reward special for coma & commnet
+        mean_reward = reward.mean()
+        reward = np.full(self.n, mean_reward)
         return reward
-
-    def reward_terminal(self):
-        return np.zeros_like(self._get_reward())
 
 
     def _onehot_initialization(self, a):
@@ -290,6 +278,19 @@ class PredatorPreyEnv(gym.Env):
         grid = np.ogrid[tuple(map(slice, idx.shape))]
         grid.insert(axis, idx)
         return tuple(grid)
+
+    def _flatten_obs(self, obs):
+        obs = [ob.reshape(self.obs_dim) for ob in obs]
+        return obs
+
+    def init_curses(self):
+        self.stdscr = curses.initscr()
+        curses.start_color()
+        curses.use_default_colors()
+        curses.init_pair(1, curses.COLOR_RED, -1)
+        curses.init_pair(2, curses.COLOR_YELLOW, -1)
+        curses.init_pair(3, curses.COLOR_CYAN, -1)
+        curses.init_pair(4, curses.COLOR_GREEN, -1)
 
     def render(self, mode='human', close=False):
         grid = np.zeros(self.BASE, dtype=object).reshape(self.dims)

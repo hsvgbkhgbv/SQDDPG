@@ -1,6 +1,7 @@
-__pycache__/
-learning_algorithms/__pycache__/
 logs/
 model_save/
+__pycache__/
+learning_algorithms/__pycache__/
 models/__pycache__/
 utilities/__pycache__/
+environments/__pycache__/
