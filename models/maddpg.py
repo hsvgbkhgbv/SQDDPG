@@ -20,20 +20,6 @@ class MADDPG(Model):
             self.reload_params_to_target()
         self.Transition = namedtuple('Transition', ('state', 'action', 'reward', 'next_state', 'done', 'last_step'))
 
-    def reload_params_to_target(self):
-        self.target_net.action_dict.load_state_dict( self.action_dict.state_dict() )
-        self.target_net.value_dict.load_state_dict( self.value_dict.state_dict() )
-
-    def update_target(self):
-        params_target_action = list(self.target_net.action_dict.parameters())
-        params_behaviour_action = list(self.action_dict.parameters())
-        for i in range(len(params_target_action)):
-            params_target_action[i] = (1 - self.args.target_lr) * params_target_action[i] + self.args.target_lr * params_behaviour_action[i]
-        params_target_value = list(self.target_net.value_dict.parameters())
-        params_behaviour_value = list(self.value_dict.parameters())
-        for i in range(len(params_target_value)):
-            params_target_value[i] = (1 - self.args.target_lr) * params_target_value[i] + self.args.target_lr * params_behaviour_value[i]
-
     def unpack_data(self, batch):
         batch_size = len(batch.state)
         rewards = cuda_wrapper(torch.tensor(batch.reward, dtype=torch.float), self.cuda_)

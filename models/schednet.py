@@ -21,20 +21,6 @@ class SchedNet(Model):
         self.eps = 0.5
         self.eps_decay = (self.eps - 0.1) / self.args.train_episodes_num
 
-    def reload_params_to_target(self):
-        self.target_net.action_dict.load_state_dict( self.action_dict.state_dict() )
-        self.target_net.value_dict.load_state_dict( self.value_dict.state_dict() )
-
-    def update_target(self):
-        params_target_action = list(self.target_net.action_dict.parameters())
-        params_behaviour_action = list(self.action_dict.parameters())
-        for i in range(len(params_target_action)):
-            params_target_action[i] = (1 - self.args.target_lr) * params_target_action[i] + self.args.target_lr * params_behaviour_action[i]
-        params_target_value = list(self.target_net.value_dict.parameters())
-        params_behaviour_value = list(self.value_dict.parameters())
-        for i in range(len(params_target_value)):
-            params_target_value[i] = (1 - self.args.target_lr) * params_target_value[i] + self.args.target_lr * params_behaviour_value[i]
-
     def unpack_data(self, batch):
         batch_size = len(batch.state)
         rewards = cuda_wrapper(torch.tensor(batch.reward, dtype=torch.float), self.cuda_)
@@ -48,22 +34,17 @@ class SchedNet(Model):
         return (rewards, last_step, done, actions, state, next_state, schedules, weights)
 
     def construct_policy_net(self):
-        self.action_dict = nn.ModuleDict( {'message_encoder_0': nn.ModuleList([nn.Linear(self.obs_dim, self.args.l) for _ in range(self.n_)]),\
-                                           # 'message_encoder_1': nn.ModuleList([nn.Linear(self.hid_dim, self.hid_dim) for _ in range(self.n_)]),\
-                                           # 'message_encoder_2': nn.ModuleList([nn.Linear(self.hid_dim, self.args.l) for _ in range(self.n_)]),\
+        self.action_dict = nn.ModuleDict( {'message_encoder': nn.ModuleList([nn.Linear(self.obs_dim, self.args.l) for _ in range(self.n_)]),\
                                            'weight_generator_0': nn.ModuleList([nn.Linear(self.obs_dim, self.hid_dim) for _ in range(self.n_)]),\
-                                           # 'weight_generator_1': nn.ModuleList([nn.Linear(self.hid_dim, self.hid_dim) for _ in range(self.n_)]),\
-                                           'weight_generator_2': nn.ModuleList([nn.Linear(self.hid_dim, 1) for _ in range(self.n_)]),\
+                                           'weight_generator_1': nn.ModuleList([nn.Linear(self.hid_dim, 1) for _ in range(self.n_)]),\
                                            'action_selector_0': nn.ModuleList([nn.Linear(self.obs_dim+self.args.l*self.args.k, self.hid_dim) for _ in range(self.n_)]),\
-                                           # 'action_selector_1': nn.ModuleList([nn.Linear(self.hid_dim, self.hid_dim) for _ in range(self.n_)]),\
-                                           'action_selector_2': nn.ModuleList([nn.Linear(self.hid_dim, self.act_dim) for _ in range(self.n_)])
+                                           'action_selector_1': nn.ModuleList([nn.Linear(self.hid_dim, self.act_dim) for _ in range(self.n_)])
                                           }
                                         )
 
     def construct_value_net(self):
         self.value_dict = nn.ModuleDict( {'share_critic': nn.Linear(self.obs_dim*self.n_, self.hid_dim),\
-                                          'weight_critic_0': nn.Linear(self.hid_dim+self.n_, self.hid_dim),\
-                                          'weight_critic_1': nn.Linear(self.hid_dim, 1),\
+                                          'weight_critic': nn.Linear(self.hid_dim+self.n_, 1),\
                                           'action_critic': nn.Linear(self.hid_dim, 1)
                                          }
                                        )
@@ -77,8 +58,7 @@ class SchedNet(Model):
         w = []
         for i in range(self.n_):
             h = torch.relu( self.action_dict['weight_generator_0'][i](obs[:, i, :]) )
-            # h = torch.relu( self.action_dict['weight_generator_1'][i](h) )
-            h = self.action_dict['weight_generator_2'][i](h)
+            h = self.action_dict['weight_generator_1'][i](h)
             w.append(h)
         w = torch.stack(w, dim=1).contiguous().view(batch_size, self.n_) # shape = (b, n)
         return w
@@ -101,9 +81,7 @@ class SchedNet(Model):
     def message_encoder(self, obs):
         m = []
         for i in range(self.n_):
-            h = torch.relu( self.action_dict['message_encoder_0'][i](obs[:, i, :]) )
-            # h = torch.relu( self.action_dict['message_encoder_1'][i](h) )
-            # h = self.action_dict['message_encoder_2'][i](h)
+            h = torch.relu( self.action_dict['message_encoder'][i](obs[:, i, :]) )
             m.append(h)
         m = torch.stack(m, dim=1) # shape = (b, n, h)
         return m
@@ -118,8 +96,7 @@ class SchedNet(Model):
         action = []
         for i in range(self.n_):
             h = torch.relu( self.action_dict['action_selector_0'][i]( torch.cat([obs[:, i, :], shared_m[:, i, :]], dim=-1) ) )
-            # h = torch.relu( self.action_dict['action_selector_1'][i](h) )
-            h = self.action_dict['action_selector_2'][i](h)
+            h = self.action_dict['action_selector_1'][i](h)
             action.append(h)
         action = torch.stack(action, dim=1)
         return action
@@ -130,8 +107,7 @@ class SchedNet(Model):
         obs = obs.contiguous().view(batch_size, self.n_, -1) # shape = (b, n, n*o)
         w = w.transpose(1, 2).expand(batch_size, self.n_, self.n_) # shape = (b, n, n)
         h = torch.relu( self.value_dict['share_critic'](obs) ) # shape = (b, n, h)
-        q = torch.relu( self.value_dict['weight_critic_0']( torch.cat([h, w], dim=-1) ) )
-        q = torch.relu( self.value_dict['weight_critic_1'](q) )
+        q = self.value_dict['weight_critic']( torch.cat([h, w], dim=-1) )
         q = q.contiguous().view(batch_size, self.n_)
         v = self.value_dict['action_critic'](h)
         v = v.contiguous().view(batch_size, self.n_)
@@ -146,13 +122,11 @@ class SchedNet(Model):
         q_, _ = self.value(state, weight_action_out.unsqueeze(-1))
         next_weight_action_out = self.target_net.weight_generator(next_state)
         next_q, next_v = self.target_net.value(next_state, next_weight_action_out.unsqueeze(-1).detach())
-        next_weight_action_out_ = self.weight_generator(next_state)
-        _, next_v_ = self.value(next_state, next_weight_action_out.unsqueeze(-1).detach())
+        # next_weight_action_out = self.weight_generator(next_state)
+        # next_q, next_v = self.value(next_state, next_weight_action_out.unsqueeze(-1).detach())
         returns_q = cuda_wrapper(torch.zeros((batch_size, self.n_), dtype=torch.float), self.cuda_)
         returns_v = cuda_wrapper(torch.zeros((batch_size, self.n_), dtype=torch.float), self.cuda_)
-        returns_v_ = cuda_wrapper(torch.zeros((batch_size, self.n_), dtype=torch.float), self.cuda_)
         assert returns_v.size() == rewards.size()
-        assert returns_v_.size() == rewards.size()
         assert returns_q.size() == rewards.size()
         for i in reversed(range(rewards.size(0))):
             if last_step[i]:
@@ -162,20 +136,13 @@ class SchedNet(Model):
             returns_v[i] = rewards[i] + self.args.gamma * next_return
         for i in reversed(range(rewards.size(0))):
             if last_step[i]:
-                next_return = 0 if done[i] else next_v_[i].detach()
-            else:
-                next_return = next_v_[i].detach()
-            returns_v_[i] = rewards[i] + self.args.gamma * next_return
-        for i in reversed(range(rewards.size(0))):
-            if last_step[i]:
                 next_return = 0 if done[i] else next_q[i].detach()
             else:
                 next_return = next_q[i].detach()
             returns_q[i] = rewards[i] + self.args.gamma * next_return
         deltas_v = returns_v - v
-        deltas_v_ = returns_v_ - v
         deltas_q = returns_q - q
-        advantages_v = deltas_v_.contiguous().view(-1, 1).detach()
+        advantages_v = deltas_v.contiguous().view(-1, 1).detach()
         advantages_q = q_.contiguous().view(-1, 1)
         if self.args.normalize_advantages:
             advantages = batchnorm(advantages)
@@ -190,7 +157,7 @@ class SchedNet(Model):
         assert log_prob_a.size() == advantages_v.size()
         action_loss = - advantages_v*log_prob_a - advantages_q
         action_loss = action_loss.sum() / batch_size
-        value_loss = ( deltas_v_.pow(2).view(-1).mean() + deltas_q.pow(2).view(-1).mean() )
+        value_loss = ( deltas_v.pow(2).view(-1).mean() + deltas_q.pow(2).view(-1).mean() )
         return action_loss, value_loss, log_p_a
 
     def train_process(self, stat, trainer):

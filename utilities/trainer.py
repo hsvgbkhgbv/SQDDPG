@@ -30,8 +30,10 @@ class PGTrainer(object):
             else:
                 self.replay_buffer = EpisodeReplayBuffer(int(self.args.replay_buffer_size))
         self.env = env
-        self.action_optimizer = optim.Adam(self.behaviour_net.action_dict.parameters(), lr=args.policy_lrate, weight_decay=1e-3)
-        self.value_optimizer = optim.Adam(self.behaviour_net.value_dict.parameters(), lr=args.value_lrate, weight_decay=1e-3)
+        self.action_optimizer = optim.Adam(self.behaviour_net.action_dict.parameters(), lr=args.policy_lrate)
+        self.action_optimizer_sched = optim.lr_scheduler.StepLR(self.action_optimizer, step_size=2000, gamma=0.99)
+        self.value_optimizer = optim.Adam(self.behaviour_net.value_dict.parameters(), lr=args.value_lrate)
+        self.value_optimizer_sched = optim.lr_scheduler.StepLR(self.value_optimizer, step_size=2000, gamma=0.99)
         self.init_action = cuda_wrapper( torch.zeros(1, self.args.agent_num, self.args.action_dim), cuda=self.cuda_ )
         self.steps = 0
         self.episodes = 0
@@ -82,6 +84,8 @@ class PGTrainer(object):
 
     def run(self, stat):
         self.behaviour_net.train_process(stat, self)
+        self.action_optimizer_sched.step()
+        self.value_optimizer_sched.step()
 
     def logging(self, stat):
         for tag, value in stat.items():

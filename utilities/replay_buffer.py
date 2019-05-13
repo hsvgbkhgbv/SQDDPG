@@ -15,7 +15,7 @@ class TransReplayBuffer(object):
 
     def get_batch(self, batch_size):
         length = len(self.buffer)
-        indices = np.random.choice(length, batch_size)
+        indices = np.random.choice(length, batch_size, replace=False)
         batch_buffer = [self.buffer[i] for i in indices]
         return batch_buffer
 
@@ -41,7 +41,7 @@ class EpisodeReplayBuffer(object):
 
     def get_batch(self, batch_size):
         length = len(self.buffer)
-        indices = np.random.choice(length, batch_size)
+        indices = np.random.choice(length, batch_size, replace=False)
         batch_buffer = []
         for i in indices:
             batch_buffer.extend(self.buffer[i])

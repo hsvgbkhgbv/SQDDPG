@@ -24,20 +24,6 @@ class COMA(Model):
     def update_eps(self):
         self.eps -= self.eps_delta
 
-    def reload_params_to_target(self):
-        self.target_net.action_dict.load_state_dict( self.action_dict.state_dict() )
-        self.target_net.value_dict.load_state_dict( self.value_dict.state_dict() )
-
-    def update_target(self):
-        params_target_action = list(self.target_net.action_dict.parameters())
-        params_behaviour_action = list(self.action_dict.parameters())
-        for i in range(len(params_target_action)):
-            params_target_action[i] = (1 - self.args.target_lr) * params_target_action[i] + self.args.target_lr * params_behaviour_action[i]
-        params_target_value = list(self.target_net.value_dict.parameters())
-        params_behaviour_value = list(self.value_dict.parameters())
-        for i in range(len(params_target_value)):
-            params_target_value[i] = (1 - self.args.target_lr) * params_target_value[i] + self.args.target_lr * params_behaviour_value[i]
-
     def unpack_data(self, batch):
         batch_size = len(batch.state)
         rewards = cuda_wrapper(torch.tensor(batch.reward, dtype=torch.float), self.cuda_)
@@ -59,11 +45,11 @@ class COMA(Model):
                                         )
 
     def construct_value_net(self):
-        self.value_dict = nn.ModuleDict( {'layer_1': nn.Linear( self.obs_dim*self.n_+self.act_dim*self.n_, self.hid_dim ),\
+        self.value_dict = nn.ModuleDict( {'layer_1': nn.Linear( self.obs_dim+self.act_dim*self.n_, self.hid_dim ),\
                                           'layer_2': nn.Linear(self.hid_dim, self.hid_dim),\
                                           'value_head': nn.Linear(self.hid_dim, self.act_dim)
                                          }
-                                       )
+                                         )
 
     def construct_model(self):
         self.comm_mask = cuda_wrapper(torch.ones(self.n_, self.n_) - torch.eye(self.n_, self.n_), self.cuda_)
@@ -91,7 +77,7 @@ class COMA(Model):
         act = act.unsqueeze(1).expand(batch_size, self.n_, self.n_, self.act_dim) # shape = (b, n, a) -> (b, 1, n, a) -> (b, n, n, a)
         act = act * self.comm_mask.unsqueeze(0).unsqueeze(-1).expand_as(act)
         act = act.contiguous().view(batch_size, self.n_, -1) # shape = (b, n, a*n)
-        obs = obs.unsqueeze(1).expand(batch_size, self.n_, self.n_, self.obs_dim).contiguous().view(batch_size, self.n_, -1)
+        # obs = obs.unsqueeze(1).expand(batch_size, self.n_, self.n_, self.obs_dim).contiguous().view(batch_size, self.n_, -1)
         inp = torch.cat((obs, act), dim=-1) # shape = (b, n, o+a*n)
         h = torch.relu( self.value_dict['layer_1'](inp) )
         h = torch.relu( self.value_dict['layer_2'](h) )
@@ -197,3 +183,7 @@ class COMA(Model):
             if offline_cond:
                 episode = self.Transition(*zip(*episode))
                 trainer.transition_process(stat, episode)
+        if self.args.target:
+            target_cond = trainer.steps%self.args.target_update_freq==0
+            if target_cond:
+                self.update_target()
