@@ -128,13 +128,14 @@ class CommNet(Model):
         if self.args.replay:
             trainer.replay_buffer.add_experience(episode)
             replay_cond = trainer.episodes>self.args.replay_warmup\
-             and len(trainer.replay_buffer.buffer)>=self.args.batch_size\
-             and trainer.episodes%self.args.behaviour_update_freq==0
+             and len(trainer.replay_buffer.buffer)>=self.args.batch_size
             if replay_cond:
-                trainer.replay_process(stat)
+                if trainer.episodes%self.args.behaviour_policy_update_freq==self.args.behaviour_policy_update_freq-1:
+                    trainer.policy_replay_process(stat)
+                if trainer.episodes%self.args.behaviour_critic_update_freq==self.args.behaviour_critic_update_freq-1:
+                    trainer.value_replay_process(stat)
         else:
-            offline_cond = trainer.episodes%self.args.behaviour_update_freq==0
-            if offline_cond:
+            if trainer.episodes%self.args.behaviour_update_freq==self.args.behaviour_update_freq-1:
                 episode = self.Transition(*zip(*episode))
                 trainer.transition_process(stat, episode)
 
