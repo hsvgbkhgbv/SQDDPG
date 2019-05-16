@@ -162,7 +162,6 @@ class SchedNet(Model):
         info = {}
         state = trainer.env.reset()
         for t in range(self.args.max_steps):
-            trainer.steps += 1
             state_ = cuda_wrapper(prep_obs(state).contiguous().view(1, self.n_, self.obs_dim), self.cuda_)
             weight = self.weight_generator(state_).detach()
             epsilon = np.random.rand()
@@ -192,23 +191,8 @@ class SchedNet(Model):
                                     schedule.cpu().numpy(),
                                     weight.cpu().numpy()
                                    )
-            if self.args.replay:
-                trainer.replay_buffer.add_experience(trans)
-                replay_cond = trainer.steps>self.args.replay_warmup\
-                 and len(trainer.replay_buffer.buffer)>=self.args.batch_size
-                if replay_cond:
-                    if trainer.steps%self.args.behaviour_policy_update_freq==self.args.behaviour_policy_update_freq-1:
-                        trainer.policy_replay_process(stat)
-                    if trainer.steps%self.args.behaviour_critic_update_freq==self.args.behaviour_critic_update_freq-1:
-                        trainer.value_replay_process(stat)
-            else:
-                if trainer.steps%self.args.behaviour_policy_update_freq==self.args.behaviour_policy_update_freq-1:
-                    trainer.policy_transition_process(stat, trans)
-                if trainer.steps%self.args.behaviour_critic_update_freq==self.args.behaviour_critic_update_freq-1:
-                    trainer.value_transition_process(stat, trans)
-            if self.args.target:
-                if trainer.steps%self.args.target_update_freq==self.args.target_update_freq-1:
-                    self.update_target()
+            self.transition_update(trainer, trans, stat)
+            trainer.steps += 1
             trainer.mean_reward = trainer.mean_reward + 1/trainer.steps*(np.mean(reward) - trainer.mean_reward)
             stat['mean_reward'] = trainer.mean_reward
             if done_:

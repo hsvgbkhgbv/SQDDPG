@@ -58,25 +58,24 @@ class PGTrainer(object):
         for name, param in module.named_parameters():
             param.grad.data.clamp_(-1, 1)
 
-    def policy_replay_process(self, stat):
+    def action_replay_process(self, stat):
         batch = self.replay_buffer.get_batch(self.args.batch_size)
         batch = self.behaviour_net.Transition(*zip(*batch))
-        self.policy_transition_process(stat, batch)
+        self.action_transition_process(stat, batch)
 
     def value_replay_process(self, stat):
         batch = self.replay_buffer.get_batch(self.args.batch_size)
         batch = self.behaviour_net.Transition(*zip(*batch))
         self.value_transition_process(stat, batch)
 
-    def policy_transition_process(self, stat, trans):
+    def action_transition_process(self, stat, trans):
         action_loss, value_loss, log_p_a = self.get_loss(trans)
         self.action_optimizer.zero_grad()
         self.action_compute_grad(stat, (action_loss, log_p_a))
         if self.args.grad_clip:
             self.grad_clip(self.behaviour_net.action_dict)
         stat['policy_grad_norm'] = get_grad_norm(self.behaviour_net.action_dict)
-        if self.steps%(self.args.behaviour_policy_update_freq)==0:
-            self.action_optimizer.step()
+        self.action_optimizer.step()
         stat['action_loss'] = action_loss.item()
 
     def value_transition_process(self, stat, trans):
