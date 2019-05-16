@@ -32,37 +32,40 @@ class Model(nn.Module):
         if self.args.replay:
             trainer.replay_buffer.add_experience(trans)
             replay_cond = trainer.steps>self.args.replay_warmup\
-             and len(trainer.replay_buffer.buffer)>=self.args.batch_size
+             and len(trainer.replay_buffer.buffer)>=self.args.batch_size\
+             and trainer.steps%self.args.behaviour_update_freq==self.args.behaviour_update_freq-1
             if replay_cond:
-                if trainer.steps%self.args.behaviour_policy_update_freq==self.args.behaviour_policy_update_freq-1:
-                    trainer.action_replay_process(stat)
-                if trainer.steps%self.args.behaviour_critic_update_freq==self.args.behaviour_critic_update_freq-1:
+                trainer.action_replay_process(stat)
+                for _ in range(self.args.critic_update_times):
                     trainer.value_replay_process(stat)
         else:
-            if trainer.steps%self.args.behaviour_policy_update_freq==self.args.behaviour_policy_update_freq-1:
+            trans_cond = trainer.steps%self.args.behaviour_update_freq==self.args.behaviour_update_freq-1
+            if trans_cond:
                 trainer.action_transition_process(stat, trans)
-            if trainer.steps%self.args.behaviour_critic_update_freq==self.args.behaviour_critic_update_freq-1:
-                trainer.value_transition_process(stat, trans)
+                for _ in range(self.args.critic_update_times):
+                    trainer.value_replay_process(stat)
         if self.args.target:
-            if trainer.steps%self.args.target_update_freq==self.args.target_update_freq-1:
+            target_cond = trainer.steps%self.args.target_update_freq==self.args.target_update_freq-1
+            if target_cond:
                 self.update_target()
 
     def episode_update(self, trainer, episode, stat):
         if self.args.replay:
             trainer.replay_buffer.add_experience(episode)
             replay_cond = trainer.episodes>self.args.replay_warmup\
-             and len(trainer.replay_buffer.buffer)>=self.args.batch_size
+             and len(trainer.replay_buffer.buffer)>=self.args.batch_size\
+             and trainer.episodes%self.args.behaviour_update_freq==self.args.behaviour_update_freq-1
             if replay_cond:
-                if trainer.episodes%self.args.behaviour_policy_update_freq==self.args.behaviour_policy_update_freq-1:
-                    trainer.action_replay_process(stat)
-                if trainer.episodes%self.args.behaviour_critic_update_freq==self.args.behaviour_critic_update_freq-1:
+                trainer.action_replay_process(stat)
+                for _ in range(self.args.critic_update_times):
                     trainer.value_replay_process(stat)
         else:
             episode = self.Transition(*zip(*episode))
-            if trainer.episodes%self.args.behaviour_policy_update_freq==self.args.behaviour_policy_update_freq-1:
+            episode_cond = trainer.episodes%self.args.behaviour_update_freq==self.args.behaviour_update_freq-1
+            if episode_cond:
                 trainer.action_transition_process(stat)
-            if trainer.episodes%self.args.behaviour_critic_update_freq==self.args.behaviour_critic_update_freq-1:
-                trainer.value_transition_process(stat)
+                for _ in range(self.args.critic_update_times):
+                    trainer.value_replay_process(stat)
 
     def construct_model(self):
         raise NotImplementedError()
