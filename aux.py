@@ -15,3 +15,5 @@ mfqArgs = namedtuple( 'mfqArgs', [] )
 mfacArgs = namedtuple( 'mfacArgs', [] )
 
 schednetArgs = namedtuple( 'schednetArgs', ['schedule', 'k', 'l'] )
+
+randomArgs = namedtuple( 'randomArgs', [] )

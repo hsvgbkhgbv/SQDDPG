@@ -262,9 +262,10 @@ class PredatorPreyEnv(gym.Env):
             else:
                 self.stat['success'] = 0
 
-        # global reward special for coma & commnet
-        mean_reward = reward.mean()
-        reward = np.full(self.n, mean_reward)
+        # global reward special for cooperative game 
+        if self.mode == 'cooperative':
+            mean_reward = reward.mean()
+            reward = np.full(self.n, mean_reward)
         return reward
 
 
