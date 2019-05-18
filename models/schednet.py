@@ -122,8 +122,6 @@ class SchedNet(Model):
         q_, _ = self.value(state, weight_action_out.unsqueeze(-1))
         next_weight_action_out = self.target_net.weight_generator(next_state)
         next_q, next_v = self.target_net.value(next_state, next_weight_action_out.unsqueeze(-1).detach())
-        # next_weight_action_out = self.weight_generator(next_state)
-        # next_q, next_v = self.value(next_state, next_weight_action_out.unsqueeze(-1).detach())
         returns_q = cuda_wrapper(torch.zeros((batch_size, self.n_), dtype=torch.float), self.cuda_)
         returns_v = cuda_wrapper(torch.zeros((batch_size, self.n_), dtype=torch.float), self.cuda_)
         assert returns_v.size() == rewards.size()
@@ -193,21 +191,7 @@ class SchedNet(Model):
                                     schedule.cpu().numpy(),
                                     weight.cpu().numpy()
                                    )
-            if self.args.replay:
-                trainer.replay_buffer.add_experience(trans)
-                replay_cond = trainer.steps>self.args.replay_warmup\
-                 and len(trainer.replay_buffer.buffer)>=self.args.batch_size\
-                 and trainer.steps%self.args.behaviour_update_freq==0
-                if replay_cond:
-                    trainer.replay_process(stat)
-            else:
-                online_cond = trainer.steps%self.args.behaviour_update_freq==0
-                if online_cond:
-                    trainer.transition_process(stat, trans)
-            if self.args.target:
-                target_cond = trainer.steps%self.args.target_update_freq==0
-                if target_cond:
-                    self.update_target()
+            self.transition_update(trainer, trans, stat)
             trainer.steps += 1
             trainer.mean_reward = trainer.mean_reward + 1/trainer.steps*(np.mean(reward) - trainer.mean_reward)
             stat['mean_reward'] = trainer.mean_reward

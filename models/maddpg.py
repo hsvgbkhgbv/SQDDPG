@@ -92,21 +92,7 @@ class MADDPG(Model):
                                     done,
                                     done_
                                    )
-            if self.args.replay:
-                trainer.replay_buffer.add_experience(trans)
-                replay_cond = trainer.steps>self.args.replay_warmup\
-                 and len(trainer.replay_buffer.buffer)>=self.args.batch_size\
-                 and trainer.steps%self.args.behaviour_update_freq==0
-                if replay_cond:
-                    trainer.replay_process(stat)
-            else:
-                online_cond = trainer.steps%self.args.behaviour_update_freq==0
-                if online_cond:
-                    trainer.transition_process(stat, trans)
-            if self.args.target:
-                target_cond = trainer.steps%self.args.target_update_freq==0
-                if target_cond:
-                    self.update_target()
+            self.transition_update(trainer, trans, stat)
             trainer.steps += 1
             trainer.mean_reward = trainer.mean_reward + 1/trainer.steps*(np.mean(reward) - trainer.mean_reward)
             stat['mean_reward'] = trainer.mean_reward

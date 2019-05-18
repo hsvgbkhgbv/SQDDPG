@@ -27,7 +27,46 @@ class Model(nn.Module):
         for name, param in self.target_net.value_dict.state_dict().items():
             update_params = (1 - self.args.target_lr) * param + self.args.target_lr * self.value_dict.state_dict()[name]
             self.target_net.value_dict.state_dict()[name].copy_(update_params)
-            
+
+    def transition_update(self, trainer, trans, stat):
+        if self.args.replay:
+            trainer.replay_buffer.add_experience(trans)
+            replay_cond = trainer.steps>self.args.replay_warmup\
+             and len(trainer.replay_buffer.buffer)>=self.args.batch_size\
+             and trainer.steps%self.args.behaviour_update_freq==self.args.behaviour_update_freq-1
+            if replay_cond:
+                trainer.action_replay_process(stat)
+                for _ in range(self.args.critic_update_times):
+                    trainer.value_replay_process(stat)
+        else:
+            trans_cond = trainer.steps%self.args.behaviour_update_freq==self.args.behaviour_update_freq-1
+            if trans_cond:
+                trainer.action_transition_process(stat, trans)
+                for _ in range(self.args.critic_update_times):
+                    trainer.value_replay_process(stat)
+        if self.args.target:
+            target_cond = trainer.steps%self.args.target_update_freq==self.args.target_update_freq-1
+            if target_cond:
+                self.update_target()
+
+    def episode_update(self, trainer, episode, stat):
+        if self.args.replay:
+            trainer.replay_buffer.add_experience(episode)
+            replay_cond = trainer.episodes>self.args.replay_warmup\
+             and len(trainer.replay_buffer.buffer)>=self.args.batch_size\
+             and trainer.episodes%self.args.behaviour_update_freq==self.args.behaviour_update_freq-1
+            if replay_cond:
+                trainer.action_replay_process(stat)
+                for _ in range(self.args.critic_update_times):
+                    trainer.value_replay_process(stat)
+        else:
+            episode = self.Transition(*zip(*episode))
+            episode_cond = trainer.episodes%self.args.behaviour_update_freq==self.args.behaviour_update_freq-1
+            if episode_cond:
+                trainer.action_transition_process(stat)
+                for _ in range(self.args.critic_update_times):
+                    trainer.value_replay_process(stat)
+
     def construct_model(self):
         raise NotImplementedError()
 

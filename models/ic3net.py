@@ -175,15 +175,4 @@ class IC3Net(Model):
 
     def train_process(self, stat, trainer):
         episode = self.get_episode(stat, trainer)
-        if self.args.replay:
-            trainer.replay_buffer.add_experience(episode)
-            replay_cond = trainer.episodes>self.args.replay_warmup\
-             and len(trainer.replay_buffer.buffer)>=self.args.batch_size\
-             and trainer.episodes%self.args.behaviour_update_freq==0
-            if replay_cond:
-                trainer.replay_process(stat)
-        else:
-            offline_cond = trainer.episodes%self.args.behaviour_update_freq==0
-            if offline_cond:
-                episode = self.Transition(*zip(*episode))
-                trainer.transition_process(stat, episode)
+        self.episode_update(trainer, episode, stat)
