@@ -118,18 +118,16 @@ class IC3Net(Model):
         if self.args.continuous:
             action_means = actions.contiguous().view(-1, self.act_dim)
             action_stds = cuda_wrapper(torch.ones_like(action_means), self.cuda_)
-            log_p_a = normal_log_density(actions.detach(), action_means, action_stds)
-            log_prob_a = log_p_a.clone()
+            log_prob_a = normal_log_density(actions.detach(), action_means, action_stds)
         else:
-            log_p_a = action_out
-            log_prob_a = multinomials_log_density(actions.detach(), log_p_a).contiguous().view(-1, 1)
-        log_prob_g = gate_action_out.gather(-1, schedules.long()).contiguous().view(-1, 1)
+            log_prob_a = multinomials_log_density(actions.detach(), action_out).contiguous().view(-1, 1)
+        log_prob_g = torch.log_softmax(gate_action_out, dim=-1).gather(-1, schedules.long()).contiguous().view(-1, 1)
         assert log_prob_a.size() == advantages.size()
         assert log_prob_g.size() == advantages.size()
         action_loss = -advantages * (log_prob_a + log_prob_g)
         action_loss = action_loss.sum() / batch_size
         value_loss = deltas.pow(2).view(-1).sum() / batch_size
-        return action_loss, value_loss, log_p_a
+        return action_loss, value_loss, action_out
 
     def get_episode(self, stat, trainer):
         info = {}

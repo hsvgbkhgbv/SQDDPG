@@ -42,15 +42,13 @@ class DDPG(ReinforcementLearning):
         advantages = advantages.contiguous().view(-1, 1)
         if self.args.normalize_advantages:
             advantages = batchnorm(advantages)
-        if self.args.continuous:
-            action_means = actions.contiguous().view(-1, self.args.action_dim)
-            action_stds = cuda_wrapper(torch.ones_like(action_means), self.cuda_)
-            log_p_a = normal_log_density(actions.detach(), action_means, action_stds)
-            log_p_prob = log_p_a.clone()
-        else:
-            log_p_a = action_out
-            log_prob = multinomials_log_density(actions.detach(), log_p_a).contiguous().view(-1, 1)
+        # if self.args.continuous:
+        #     action_means = actions.contiguous().view(-1, self.args.action_dim)
+        #     action_stds = cuda_wrapper(torch.ones_like(action_means), self.cuda_)
+        #     log_prob_a = normal_log_density(actions.detach(), action_means, action_stds)
+        # else:
+        #     log_prob_a = multinomials_log_density(actions.detach(), action_out).contiguous().view(-1, 1)
         action_loss = -advantages
         action_loss = action_loss.sum() / batch_size
         value_loss = deltas.pow(2).view(-1).sum() / batch_size
-        return action_loss, value_loss, log_p_a
+        return action_loss, value_loss, action_out

@@ -39,20 +39,20 @@ class GumbelSoftmax(OneHotCategorical):
 def normal_entropy(mean, std):
     return Normal(mean, std).entropy().sum()
 
-def multinomial_entropy(log_probs):
-    assert log_probs.size(-1) > 1
-    return GumbelSoftmax(logits=log_probs).entropy().sum()
+def multinomial_entropy(logits):
+    assert logits.size(-1) > 1
+    return GumbelSoftmax(logits=logits).entropy().sum()
 
 def normal_log_density(x, mean, std):
     return Normal(mean, std).log_prob(x)
 
-def multinomials_log_density(actions, log_probs):
-    assert log_probs.size(-1) > 1
-    return GumbelSoftmax(logits=log_probs).log_prob(actions)
+def multinomials_log_density(actions, logits):
+    assert logits.size(-1) > 1
+    return GumbelSoftmax(logits=logits).log_prob(actions)
 
-def select_action(args, log_p_a, status='train', exploration=True, info={}):
+def select_action(args, logits, status='train', exploration=True, info={}):
     if args.continuous:
-        act_mean = log_p_a
+        act_mean = logits
         act_std = cuda_wrapper(torch.ones_like(act_mean), args.cuda)
         if status == 'train':
             return Normal(act_mean, act_std).sample()
@@ -63,20 +63,20 @@ def select_action(args, log_p_a, status='train', exploration=True, info={}):
             if exploration:
                 if args.epsilon_softmax:
                     eps = info['softmax_eps']
-                    p_a = (1 - eps) * torch.softmax(log_p_a, dim=-1) + eps / log_p_a.size(-1)
+                    p_a = (1 - eps) * torch.softmax(logits, dim=-1) + eps / logits.size(-1)
                     return OneHotCategorical(logits=None, probs=p_a).sample()
                 elif args.gumbel_softmax:
-                    return GumbelSoftmax(logits=log_p_a).sample()
+                    return GumbelSoftmax(logits=logits).sample()
                 else:
-                    return OneHotCategorical(logits=log_p_a).sample()
+                    return OneHotCategorical(logits=logits).sample()
             else:
                 if args.gumbel_softmax:
                     temperature = 1.0
-                    return torch.softmax(log_p_a/temperature, dim=-1)
+                    return torch.softmax(logits/temperature, dim=-1)
                 else:
-                    return OneHotCategorical(logits=log_p_a).sample()
+                    return OneHotCategorical(logits=logits).sample()
         elif status == 'test':
-            p_a = torch.softmax(log_p_a, dim=-1)
+            p_a = torch.softmax(logits, dim=-1)
             return  (p_a == torch.max(p_a, dim=-1, keepdim=True)[0]).float()
 
 def translate_action(args, action, env):

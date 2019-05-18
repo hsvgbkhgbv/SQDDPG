@@ -105,9 +105,9 @@ class COMA(Model):
         returns = td_lambda(rewards, last_step, done, next_values, self.args)
         assert returns.size() == rewards.size()
         deltas = returns - values
-        advantages = ( returns - torch.sum(values_*torch.distributions.categorical.Categorical(logits=action_out).probs, dim=-1) ).detach()
-        log_p_a = action_out
-        log_prob = multinomials_log_density(actions, log_p_a).contiguous().view(-1, 1)
+        # advantages = ( returns - torch.sum(values_*torch.softmax(action_out, dim=-1), dim=-1) + ( torch.log_softmax(action_out, dim=-1)*torch.softmax(action_out, dim=-1) ).sum(dim=-1) ).detach()
+        advantages = ( returns - torch.sum(values_*torch.softmax(action_out, dim=-1), dim=-1) ).detach()
+        log_prob = multinomials_log_density(actions, action_out).contiguous().view(-1, 1)
         advantages = advantages.contiguous().view(-1, 1)
         if self.args.normalize_advantages:
             advantages = batchnorm(advantages)
@@ -115,7 +115,7 @@ class COMA(Model):
         action_loss = - advantages * log_prob
         action_loss = action_loss.sum() / batch_size
         value_loss = deltas.pow(2).view(-1).sum() / batch_size
-        return action_loss, value_loss, log_p_a
+        return action_loss, value_loss, action_out
 
     def init_hidden(self, batch_size):
         self.gru_hid = cuda_wrapper(torch.zeros(batch_size, self.n_, self.hid_dim), self.cuda_)
@@ -140,7 +140,7 @@ class COMA(Model):
             state_ = cuda_wrapper(prep_obs(state).contiguous().view(1, self.n_, self.obs_dim), self.cuda_)
             action_ = action.clone()
             action_out = self.policy(state_, last_act=action_, last_hid=last_hidden_state, info=info, stat=stat)
-            action = select_action(self.args, action_out, status='train', info=info)
+            action = select_action(self.args, torch.log_softmax(action_out, dim=-1), status='train', info=info)
             _, actual = translate_action(self.args, action, trainer.env)
             next_state, reward, done, _ = trainer.env.step(actual)
             if isinstance(done, list): done = np.sum(done)

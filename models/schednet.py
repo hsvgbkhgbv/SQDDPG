@@ -19,7 +19,7 @@ class SchedNet(Model):
             self.reload_params_to_target()
         self.Transition = namedtuple('Transition', ('state', 'action', 'reward', 'next_state', 'done', 'last_step', 'schedule', 'weight'))
         self.eps = 0.5
-        self.eps_decay = (self.eps - 0.1) / self.args.train_episodes_num
+        self.eps_decay = (self.eps - 0.4) / self.args.train_episodes_num
 
     def unpack_data(self, batch):
         batch_size = len(batch.state)
@@ -70,7 +70,7 @@ class SchedNet(Model):
             if self.args.schedule is 'top_k':
                 _, k_ind = torch.topk(w, self.args.k, dim=-1, sorted=False)
             elif self.args.schedule is 'softmax_k':
-                k_ind = torch.multinomial(torch.distributions.categorical.Categorical(logits=w).probs, self.args.k, replacement=False)
+                k_ind = torch.multinomial(torch.softmax(w, dim=-1), self.args.k, replacement=False)
                 k_ind, _ = torch.sort(k_ind)
             else:
                 raise RuntimeError('Please input the the correct schedule, e.g. top_k or softmax_k.')
@@ -147,16 +147,14 @@ class SchedNet(Model):
         if self.args.continuous:
             action_means = actions.contiguous().view(-1, self.act_dim)
             action_stds = cuda_wrapper(torch.ones_like(action_means), self.cuda_)
-            log_p_a = normal_log_density(actions, action_means, action_stds)
-            log_prob_a = log_p_a
+            log_prob_a = normal_log_density(actions, action_means, action_stds)
         else:
-            log_p_a = action_out
-            log_prob_a = multinomials_log_density(actions, log_p_a).contiguous().view(-1, 1)
+            log_prob_a = multinomials_log_density(actions, action_out).contiguous().view(-1, 1)
         assert log_prob_a.size() == advantages_v.size()
         action_loss = - advantages_v*log_prob_a - advantages_q
         action_loss = action_loss.sum() / batch_size
-        value_loss = ( deltas_v.pow(2).view(-1).mean() + deltas_q.pow(2).view(-1).mean() )
-        return action_loss, value_loss, log_p_a
+        value_loss = deltas_v.pow(2).view(-1).mean() + deltas_q.pow(2).view(-1).mean()
+        return action_loss, value_loss, action_out
 
     def train_process(self, stat, trainer):
         info = {}
