@@ -19,7 +19,7 @@ class SchedNet(Model):
             self.reload_params_to_target()
         self.Transition = namedtuple('Transition', ('state', 'action', 'reward', 'next_state', 'done', 'last_step', 'schedule', 'weight'))
         self.eps = 0.5
-        self.eps_decay = (self.eps - 0.4) / self.args.train_episodes_num
+        self.eps_decay = (self.eps - 0.1) / self.args.train_episodes_num
 
     def unpack_data(self, batch):
         batch_size = len(batch.state)
@@ -61,6 +61,7 @@ class SchedNet(Model):
             h = self.action_dict['weight_generator_1'][i](h)
             w.append(h)
         w = torch.stack(w, dim=1).contiguous().view(batch_size, self.n_) # shape = (b, n)
+        w = torch.sigmoid(w)
         return w
 
     def weight_based_scheduler(self, w, exploration):

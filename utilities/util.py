@@ -54,12 +54,12 @@ def select_action(args, logits, status='train', exploration=True, info={}):
     if args.continuous:
         act_mean = logits
         act_std = cuda_wrapper(torch.ones_like(act_mean), args.cuda)
-        if status == 'train':
+        if status is 'train':
             return Normal(act_mean, act_std).sample()
-        elif status == 'test':
+        elif status is 'test':
             return act_mean
     else:
-        if status == 'train':
+        if status is 'train':
             if exploration:
                 if args.epsilon_softmax:
                     eps = info['softmax_eps']
@@ -75,7 +75,7 @@ def select_action(args, logits, status='train', exploration=True, info={}):
                     return torch.softmax(logits/temperature, dim=-1)
                 else:
                     return OneHotCategorical(logits=logits).sample()
-        elif status == 'test':
+        elif status is 'test':
             p_a = torch.softmax(logits, dim=-1)
             return  (p_a == torch.max(p_a, dim=-1, keepdim=True)[0]).float()
 
