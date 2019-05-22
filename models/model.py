@@ -33,19 +33,19 @@ class Model(nn.Module):
             trainer.replay_buffer.add_experience(trans)
             replay_cond = trainer.steps>self.args.replay_warmup\
              and len(trainer.replay_buffer.buffer)>=self.args.batch_size\
-             and trainer.steps%self.args.behaviour_update_freq==self.args.behaviour_update_freq-1
+             and trainer.steps%self.args.behaviour_update_freq==0
             if replay_cond:
                 for _ in range(self.args.critic_update_times):
                     trainer.value_replay_process(stat)
                 trainer.action_replay_process(stat)
         else:
-            trans_cond = trainer.steps%self.args.behaviour_update_freq==self.args.behaviour_update_freq-1
+            trans_cond = trainer.steps%self.args.behaviour_update_freq==0
             if trans_cond:
                 for _ in range(self.args.critic_update_times):
                     trainer.value_replay_process(stat)
                 trainer.action_transition_process(stat, trans)
         if self.args.target:
-            target_cond = trainer.steps%self.args.target_update_freq==self.args.target_update_freq-1
+            target_cond = trainer.steps%self.args.target_update_freq==0
             if target_cond:
                 self.update_target()
 
@@ -54,14 +54,14 @@ class Model(nn.Module):
             trainer.replay_buffer.add_experience(episode)
             replay_cond = trainer.episodes>self.args.replay_warmup\
              and len(trainer.replay_buffer.buffer)>=self.args.batch_size\
-             and trainer.episodes%self.args.behaviour_update_freq==self.args.behaviour_update_freq-1
+             and trainer.episodes%self.args.behaviour_update_freq==0
             if replay_cond:
                 for _ in range(self.args.critic_update_times):
                     trainer.value_replay_process(stat)
                 trainer.action_replay_process(stat)
         else:
             episode = self.Transition(*zip(*episode))
-            episode_cond = trainer.episodes%self.args.behaviour_update_freq==self.args.behaviour_update_freq-1
+            episode_cond = trainer.episodes%self.args.behaviour_update_freq==0
             if episode_cond:
                 for _ in range(self.args.critic_update_times):
                     trainer.value_replay_process(stat)

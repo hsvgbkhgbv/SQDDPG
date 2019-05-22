@@ -104,7 +104,7 @@ class IC3Net(Model):
         action_out = self.policy(state, schedule=schedules, last_hid=last_hidden_states)
         values = self.value(state).contiguous().view(-1, self.n_)
         next_values = self.value(next_state).contiguous().view(-1, self.n_)
-        returns = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda_)
+        returns = cuda_wrapper(torch.zeros((batch_size, self.n_), dtype=torch.float), self.cuda_)
         assert returns.size() == rewards.size()
         for i in reversed(range(rewards.size(0))):
             if last_step[i]:
