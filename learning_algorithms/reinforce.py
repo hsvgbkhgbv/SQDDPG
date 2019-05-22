@@ -43,7 +43,7 @@ class REINFORCE(ReinforcementLearning):
             log_prob_a = normal_log_density(actions.detach(), action_means, action_stds)
         else:
             log_prob_a = multinomials_log_density(actions.detach(), action_out).contiguous().view(-1,1)
-        assert log_prob.size() == advantages.size()
+        assert log_prob_a.size() == advantages.size()
         action_loss = -advantages * log_prob_a
         action_loss = action_loss.sum() / batch_size
         value_loss = deltas.pow(2).view(-1).sum() / batch_size
