@@ -42,10 +42,9 @@ class REINFORCE(ReinforcementLearning):
             action_stds = cuda_wrapper(torch.ones_like(action_means), self.cuda_)
             log_prob_a = normal_log_density(actions.detach(), action_means, action_stds)
         else:
-            log_prob_a = multinomials_log_density(actions.detach(), action_out).contiguous()
-        log_prob = log_prob_a.view(-1,1)
+            log_prob_a = multinomials_log_density(actions.detach(), action_out).contiguous().view(-1,1)
         assert log_prob.size() == advantages.size()
-        action_loss = -advantages * log_prob
+        action_loss = -advantages * log_prob_a
         action_loss = action_loss.sum() / batch_size
         value_loss = deltas.pow(2).view(-1).sum() / batch_size
-        return action_loss, value_loss, log_prob_a
+        return action_loss, value_loss, action_out

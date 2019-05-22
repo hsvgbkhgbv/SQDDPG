@@ -55,7 +55,7 @@ class ActorCritic(ReinforcementLearning):
         advantages = advantages.contiguous().view(-1, 1)
         if self.args.normalize_advantages:
             advantages = batchnorm(advantages)
-        assert log_prob.size() == advantages.size()
+        assert log_prob_a.size() == advantages.size()
         action_loss = -advantages * log_prob_a
         action_loss = action_loss.sum() / batch_size
         value_loss = deltas.pow(2).view(-1).sum() / batch_size
