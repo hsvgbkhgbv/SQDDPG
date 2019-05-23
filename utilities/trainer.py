@@ -36,6 +36,8 @@ class PGTrainer(object):
         self.steps = 0
         self.episodes = 0
         self.mean_reward = 0
+        self.entr = self.args.entr
+        self.entr_inc = self.args.entr_inc
 
     def get_loss(self, batch):
         action_loss, value_loss, log_p_a = self.behaviour_net.get_loss(batch)
@@ -44,9 +46,9 @@ class PGTrainer(object):
     def action_compute_grad(self, stat, loss):
         action_loss, log_p_a = loss
         if not self.args.continuous:
-            if self.args.entr > 0:
+            if self.entr > 0:
                 entropy = multinomial_entropy(log_p_a)
-                action_loss -= self.args.entr * entropy
+                action_loss -= self.entr * entropy
                 stat['entropy'] = entropy.item()
         action_loss.backward()
 
@@ -90,6 +92,7 @@ class PGTrainer(object):
 
     def run(self, stat):
         self.behaviour_net.train_process(stat, self)
+        self.entr += self.entr_inc
 
     def logging(self, stat):
         for tag, value in stat.items():
