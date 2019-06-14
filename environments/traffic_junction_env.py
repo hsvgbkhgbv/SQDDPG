@@ -49,17 +49,17 @@ class TrafficJunctionEnv(gym.Env):
         self.has_failed = 0
 
         # init_args
-        self.dim = 8 # Dimension of box (i.e length of road)
-        self.vision = 1 # Vision of car
-        self.add_rate_min = 0.05 # min rate at which to add car (till curr. start)
-        self.add_rate_max = 0.2 # max rate at which to add car (till curr. start)
-        self.curr_start = 0 # start making harder after this many epochs [0]
-        self.curr_end = 0 # when to make the game hardest [0]
+        self.dim = 6 # Dimension of box (i.e length of road)
+        self.vision = 1 # Vision of car ### 0
+        self.add_rate_min = 0.1 # min rate at which to add car (till curr. start)
+        self.add_rate_max = 0.3 # max rate at which to add car (till curr. start)
+        self.curr_start = np.inf # start making harder after this many epochs [0] #
+        self.curr_end = np.inf # when to make the game hardest [0] #
         self.difficulty = 'easy' # Difficulty level, easy|medium|hard
         self.vocab_type = 'bool' # Type of location vector to use, bool|scalar
 
 
-        self.ncar = self.n = 2 # Number of cars
+        self.ncar = self.n = 5 # Number of cars
         self.dims = dims = (self.dim, self.dim)
         difficulty = self.difficulty
         vision = self.vision
@@ -106,21 +106,9 @@ class TrafficJunctionEnv(gym.Env):
             self.CAR_CLASS += self.BASE
             # car_type + base + outside + 0-index
             self.vocab_size = 1 + self.BASE + 1 + 1
-            observation_space_per_agent = spaces.Tuple((
-                                    spaces.Discrete(self.naction),
-                                    spaces.Discrete(self.npath),
-                                    spaces.MultiBinary( (2*vision + 1, 2*vision + 1, self.vocab_size))))
+            self.obs_dim = self.naction + self.npath + self.vocab_size*(2*self.vision+1)*(2*self.vision+1)
         else:
-            # r_i, (x,y), vocab = [road class + car]
-            self.vocab_size = 1 + 1
-
-            # Observation for each agent will be 4-tuple of (r_i, last_act, len(dims), vision * vision * vocab)
-            observation_space_per_agent = spaces.Tuple((
-                                    spaces.Discrete(self.naction),
-                                    spaces.Discrete(self.npath),
-                                    spaces.MultiDiscrete(dims),
-                                    spaces.MultiBinary( (2*vision + 1, 2*vision + 1, self.vocab_size))))
-            # Actual observation will be of the shape 1 * ncar * ((x,y) , (2v+1) * (2v+1) * vocab_size)
+            raise NotImplementedError
 
         self._set_grid()
 
@@ -132,20 +120,28 @@ class TrafficJunctionEnv(gym.Env):
         self.action_space = []
         self.observation_space = []
         for agent_id in range(self.n):
-            self.action_space.append(copy.deepcopy(action_space_per_agent))
-            self.observation_space.append(copy.deepcopy(observation_space_per_agent))
+            self.action_space.append(spaces.Discrete(self.naction))
+            self.observation_space.append(spaces.Box(low=0, high=1, shape=(self.obs_dim,), dtype=int))
 
         return
 
-    def init_curses(self):
-        self.stdscr = curses.initscr()
-        curses.start_color()
-        curses.use_default_colors()
-        curses.init_pair(1, curses.COLOR_RED, -1)
-        curses.init_pair(2, curses.COLOR_YELLOW, -1)
-        curses.init_pair(3, curses.COLOR_CYAN, -1)
-        curses.init_pair(4, curses.COLOR_GREEN, -1)
-        curses.init_pair(5, curses.COLOR_BLUE, -1)
+    def _flatten_obs(self, obs):
+        _obs=[]
+        for agent_obs in obs: #list/tuple of observations.
+            agent_onehot = self._onehot(agent_obs[0], self.naction)
+            path_onehot = self._onehot(agent_obs[1], self.npath)
+            vision_onehot = np.array(agent_obs[2]).flatten()
+            agent_obs = [agent_onehot, path_onehot, vision_onehot]
+            _obs.append(np.concatenate(agent_obs))
+        return _obs
+
+
+    def _onehot(self, a, n):
+        # a is a number
+        # return 1*n one hot vector
+        eye = np.eye(n,dtype=np.int32)
+        return eye[int(a)]
+
 
     def reset(self, epoch=None):
         """
@@ -190,7 +186,7 @@ class TrafficJunctionEnv(gym.Env):
 
         # Observation will be ncar * vision * vision ndarray
         obs = self._get_obs()
-        return obs
+        return self._flatten_obs(obs)
 
     def step(self, action):
         """
@@ -220,7 +216,7 @@ class TrafficJunctionEnv(gym.Env):
         self.is_completed = np.zeros(self.ncar)
 
         for i, a in enumerate(action):
-            self._take_action(i, a)
+            self._take_action(i, np.argmax(a))
 
         self._add_cars()
 
@@ -236,7 +232,7 @@ class TrafficJunctionEnv(gym.Env):
         self.stat['success'] = 1 - self.has_failed
         self.stat['add_rate'] = self.add_rate
 
-        return obs, reward, self.episode_over, debug
+        return self._flatten_obs(obs), reward, self.episode_over, debug
 
     def render(self, mode='human', close=False):
 
@@ -568,7 +564,6 @@ class TrafficJunctionEnv(gym.Env):
             self.car_last_act[idx] = 0
 
 
-
     def _get_reward(self):
         reward = np.full(self.ncar, self.TIMESTEP_PENALTY) * self.wait
 
@@ -611,3 +606,14 @@ class TrafficJunctionEnv(gym.Env):
         if self.curr_start <= epoch < self.curr_end:
             self.exact_rate = self.exact_rate + step
             self.add_rate = step_size * (self.exact_rate // step_size)
+
+    def init_curses(self):
+        self.stdscr = curses.initscr()
+        curses.start_color()
+        curses.use_default_colors()
+        curses.init_pair(1, curses.COLOR_RED, -1)
+        curses.init_pair(2, curses.COLOR_YELLOW, -1)
+        curses.init_pair(3, curses.COLOR_CYAN, -1)
+        curses.init_pair(4, curses.COLOR_GREEN, -1)
+        curses.init_pair(5, curses.COLOR_BLUE, -1)
+

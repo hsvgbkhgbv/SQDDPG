@@ -22,7 +22,15 @@ if argv.save_path[-1] is '/':
 else:
     save_path = argv.save_path+'/'
 
-logger = Logger(save_path+'logs/'+log_name)
+# create save folders
+if 'model_save' not in os.listdir(save_path):
+    os.mkdir(save_path+'model_save')
+if log_name not in os.listdir(save_path+'model_save/'):
+    os.mkdir(save_path+'model_save/'+log_name)
+if 'tensorboard' not in os.listdir(save_path+'model_save/'+log_name+'/'):
+    os.mkdir(save_path+'model_save/'+log_name+'/tensorboard')
+
+logger = Logger(save_path+'model_save/'+log_name+'/tensorboard')
 
 model = Model[model_name]
 
@@ -42,10 +50,6 @@ for i in range(args.train_episodes_num):
     train.logging(stat)
     if i%args.save_model_freq == args.save_model_freq-1:
         train.print_info(stat)
-        if 'model_save' not in os.listdir(save_path):
-            os.mkdir(save_path+'model_save')
-        if log_name not in os.listdir(save_path+'model_save/'):
-            os.mkdir(save_path+'model_save/'+log_name)
         torch.save({'model_state_dict': train.behaviour_net.state_dict()}, save_path+'model_save/'+log_name+'/model.pt')
         print ('The model is saved!\n')
         with open(save_path+'model_save/'+log_name +'/log.txt', 'w+') as file:

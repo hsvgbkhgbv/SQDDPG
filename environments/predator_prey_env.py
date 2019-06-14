@@ -162,7 +162,8 @@ class PredatorPreyEnv(gym.Env):
         self.empty_bool_base_grid = self._onehot_initialization(self.grid)
 
     def _get_obs(self):
-        self.bool_base_grid = self.empty_bool_base_grid.copy()
+        self.bool_base_grid = self.empty_bool_base_grid.copy()  # size: 7*7*29=(dim+2*vision)*(dim+2*vision)*vocab
+
 
         for i, p in enumerate(self.predator_loc):
             self.bool_base_grid[p[0] + self.vision, p[1] + self.vision, self.PREDATOR_CLASS] += 1

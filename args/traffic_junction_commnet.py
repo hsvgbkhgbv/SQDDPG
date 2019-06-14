@@ -50,10 +50,10 @@ aux_args = AuxArgs[model_name](True,3) # commnet
 alias = ''
 
 '''define the scenario name'''
-scenario_name = 'predator_prey' 
+scenario_name = 'traffic_junction' 
 
 '''define the environment'''
-env = PredatorPreyEnv()
+env = TrafficJunctionEnv()
 env = GymWrapper(env)
 
 Args = namedtuple('Args', ['model_name',

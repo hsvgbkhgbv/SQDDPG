@@ -43,17 +43,17 @@ Strategy=dict(commnet='pg',
              )
 
 '''define the model name'''
-model_name = 'commnet'
+model_name = 'coma'
 
 '''define the special property'''
-aux_args = AuxArgs[model_name](True,3) # commnet
+aux_args = AuxArgs[model_name](0.5,0.02,5,0.8) # coma
 alias = ''
 
 '''define the scenario name'''
-scenario_name = 'predator_prey' 
+scenario_name = 'traffic_junction' 
 
 '''define the environment'''
-env = PredatorPreyEnv()
+env = TrafficJunctionEnv()
 env = GymWrapper(env)
 
 Args = namedtuple('Args', ['model_name',
@@ -101,30 +101,30 @@ args = Args(model_name=model_name,
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
             init_std=0.1,
-            policy_lrate=1e-3,
-            value_lrate=1e-2,
+            policy_lrate=5e-4,
+            value_lrate=5e-4,
             max_steps=20,
-            batch_size=20,
-            gamma=0.9,
+            batch_size=2,
+            gamma=0.99,
             normalize_advantages=False,
-            entr=1e-3,
+            entr=1e-2,
             entr_inc=0.0,
             action_num=np.max(env.get_input_shape_of_act()),
-            q_func=False,
+            q_func=True,
             train_episodes_num=int(2e5),
             replay=True,
-            replay_buffer_size=20,
+            replay_buffer_size=2,
             replay_warmup=0,
             cuda=True,
-            grad_clip=True,
+            grad_clip=False,
             save_model_freq=100,
-            target=False,
+            target=True,
             target_lr=1.0,
-            behaviour_update_freq=20,
+            behaviour_update_freq=2,
             critic_update_times=5,
-            target_update_freq=20,
+            target_update_freq=2,
             gumbel_softmax=False,
-            epsilon_softmax=False,
+            epsilon_softmax=True,
             online=False
            )
 
