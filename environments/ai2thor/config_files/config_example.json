@@ -1,6 +1,5 @@
 {
-    "render_options": {"depth": true, "class":true, "object":true},
-    "open_close_interaction": true,
+    "open_close_interaction": false,
     "pickup_put_interaction": true,
     "pickup_objects": [
         "Mug"
@@ -15,13 +14,14 @@
     ],
     "scene_id": "FloorPlan28",
     "grayscale": true,
-    "resolution": [128, 128],
+    "resolution": [64, 64],
     "cameraY": 0.0,
     "gridSize": 0.1,
     "continuous_movement": false,
     "build_file_name": false,
     "task": {
         "task_name": "PickUpTask",
-        "target_objects": {"Mug": 1}
+        "target_objects": {"Mug": 10},
+        "movement_reward": -1
     }
 }

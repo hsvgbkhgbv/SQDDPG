@@ -201,7 +201,7 @@ class AI2ThorEnv(gym.Env):
                 for obj in visible_objects:
                     # look for closest closed receptacle to open it
                     is_closest_closed_receptacle = obj['openable'] and \
-                            obj['distance'] < distance and not obj['isopen'] and \
+                            obj['distance'] < distance and not obj['isOpen'] and \
                             obj['objectType'] in self.objects['openables']
                     if is_closest_closed_receptacle:
                         closest_openable = obj
@@ -218,7 +218,7 @@ class AI2ThorEnv(gym.Env):
                 for obj in visible_objects:
                     # look for closest opened receptacle to close it
                     is_closest_open_receptacle = obj['openable'] and obj['distance'] < distance \
-                                                 and obj['isopen'] and \
+                                                 and obj['isOpen'] and \
                                                  obj['objectType'] in self.objects['openables']
                     if is_closest_open_receptacle:
                         closest_openable = obj
