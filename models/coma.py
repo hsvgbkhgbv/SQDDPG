@@ -45,7 +45,7 @@ class COMA(Model):
                                         )
 
     def construct_value_net(self):
-        self.value_dict = nn.ModuleDict( {'layer_1': nn.Linear( self.obs_dim+self.act_dim*self.n_, self.hid_dim ),\
+        self.value_dict = nn.ModuleDict( {'layer_1': nn.Linear( self.obs_dim*self.n_+self.act_dim*self.n_, self.hid_dim ),\
                                           'layer_2': nn.Linear(self.hid_dim, self.hid_dim),\
                                           'value_head': nn.Linear(self.hid_dim, self.act_dim)
                                          }
@@ -77,8 +77,8 @@ class COMA(Model):
         act = act.unsqueeze(1).expand(batch_size, self.n_, self.n_, self.act_dim) # shape = (b, n, a) -> (b, 1, n, a) -> (b, n, n, a)
         act = act * self.comm_mask.unsqueeze(0).unsqueeze(-1).expand_as(act)
         act = act.contiguous().view(batch_size, self.n_, -1) # shape = (b, n, a*n)
-        # obs = obs.unsqueeze(1).expand(batch_size, self.n_, self.n_, self.obs_dim).contiguous().view(batch_size, self.n_, -1)
-        inp = torch.cat((obs, act), dim=-1) # shape = (b, n, o+a*n)
+        obs = obs.unsqueeze(1).expand(batch_size, self.n_, self.n_, self.obs_dim).contiguous().view(batch_size, self.n_, -1)
+        inp = torch.cat((obs, act), dim=-1) # shape = (b, n, o*n+a*n)
         h = torch.relu( self.value_dict['layer_1'](inp) )
         h = torch.relu( self.value_dict['layer_2'](h) )
         values = self.value_dict['value_head'](h)
@@ -105,8 +105,7 @@ class COMA(Model):
         returns = td_lambda(rewards, last_step, done, next_values, self.args)
         assert returns.size() == rewards.size()
         deltas = returns - values
-        # advantages = ( returns - torch.sum(values_*torch.softmax(action_out, dim=-1), dim=-1) + ( torch.log_softmax(action_out, dim=-1)*torch.softmax(action_out, dim=-1) ).sum(dim=-1) ).detach()
-        advantages = ( returns - torch.sum(values_*torch.softmax(action_out, dim=-1), dim=-1) ).detach()
+        advantages = ( values - torch.sum(values_*torch.softmax(action_out, dim=-1), dim=-1) ).detach()
         log_prob = multinomials_log_density(actions, action_out).contiguous().view(-1, 1)
         advantages = advantages.contiguous().view(-1, 1)
         if self.args.normalize_advantages:
