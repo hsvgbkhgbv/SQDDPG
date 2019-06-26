@@ -135,6 +135,8 @@ class COMA(Model):
             info['softmax_eps'] = self.eps
         self.init_hidden(batch_size=1)
         last_hidden_state = self.get_hidden()
+        if self.args.reward_record_type is 'episode_mean_step':
+            trainer.mean_reward = 0
         for t in range(self.args.max_steps):
             start_step = True if t == 0 else False
             state_ = cuda_wrapper(prep_obs(state).contiguous().view(1, self.n_, self.obs_dim), self.cuda_)
@@ -159,7 +161,12 @@ class COMA(Model):
             last_hidden_state = hidden_state
             episode.append(trans)
             trainer.steps += 1
-            trainer.mean_reward = trainer.mean_reward + 1/trainer.steps*(np.mean(reward) - trainer.mean_reward)
+            if self.args.reward_record_type is 'mean_step':
+                trainer.mean_reward = trainer.mean_reward + 1/trainer.steps*(np.mean(reward) - trainer.mean_reward)
+            elif self.args.reward_record_type is 'episode_mean_step':
+                trainer.mean_reward = trainer.mean_reward + 1/(t+1)*(np.mean(reward) - trainer.mean_reward)
+            else:
+                raise RuntimeError('Please enter a correct reward record type, e.g. mean_step or episode_mean_step.')
             if done_:
                 break
             state = next_state

@@ -106,7 +106,8 @@ Args = namedtuple('Args', ['model_name',
                            'target_update_freq', # steps<-online/episodes<-offline
                            'gumbel_softmax',
                            'epsilon_softmax',
-                           'online'
+                           'online',
+                           'reward_record_type' # 'mean_step', 'episode_mean_step'
                           ]
                  )
 
@@ -144,7 +145,8 @@ args = Args(model_name=model_name,
             target_update_freq=5,
             gumbel_softmax=False,
             epsilon_softmax=True,
-            online=False
+            online=False,
+            reward_record_type='episode_mean_step'
            )
 
 args = MergeArgs(*(args+aux_args))

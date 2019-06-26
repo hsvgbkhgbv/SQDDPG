@@ -160,6 +160,8 @@ class SchedNet(Model):
     def train_process(self, stat, trainer):
         info = {}
         state = trainer.env.reset()
+        if self.args.reward_record_type is 'episode_mean_step':
+            trainer.mean_reward = 0
         for t in range(self.args.max_steps):
             state_ = cuda_wrapper(prep_obs(state).contiguous().view(1, self.n_, self.obs_dim), self.cuda_)
             weight = self.weight_generator(state_).detach()
@@ -192,7 +194,12 @@ class SchedNet(Model):
                                    )
             self.transition_update(trainer, trans, stat)
             trainer.steps += 1
-            trainer.mean_reward = trainer.mean_reward + 1/trainer.steps*(np.mean(reward) - trainer.mean_reward)
+            if self.args.reward_record_type is 'mean_step':
+                trainer.mean_reward = trainer.mean_reward + 1/trainer.steps*(np.mean(reward) - trainer.mean_reward)
+            elif self.args.reward_record_type is 'episode_mean_step':
+                trainer.mean_reward = trainer.mean_reward + 1/(t+1)*(np.mean(reward) - trainer.mean_reward)
+            else:
+                raise RuntimeError('Please enter a correct reward record type, e.g. mean_step or episode_mean_step.')
             stat['mean_reward'] = trainer.mean_reward
             if done_:
                 break
