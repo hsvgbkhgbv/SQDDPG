@@ -103,7 +103,7 @@ class SQPG(Model):
     def grand_coalition_value(self, obs, act):
         batch_size = obs.size(0)
         _, grand_coalitions = self.sample_coalitions(obs) # shape = (b, n_s, n, n)
-        coalition_map = 1 - (torch.arange(self.n_).unsqueeze(0).unsqueeze(0).unsqueeze(-1).expand_as(grand_coalitions) == grand_coalitions).float()
+        coalition_map = 1 - (cuda_wrapper( torch.arange(self.n_), self.cuda_ ).unsqueeze(0).unsqueeze(0).unsqueeze(-1).expand_as(grand_coalitions) == grand_coalitions).float()
         grand_coalitions = grand_coalitions.unsqueeze(-1).expand(batch_size, self.sample_size, self.n_, self.n_, self.act_dim) # shape = (b, n_s, n, n, a)
         act = act.unsqueeze(1).unsqueeze(2).expand(batch_size, self.sample_size, self.n_, self.n_, self.act_dim).gather(3, grand_coalitions) # shape = (b, n, a) -> (b, 1, 1, n, a) -> (b, n_s, n, n, a)
         act_map = coalition_map.unsqueeze(-1).float() # shape = (b, n_s, n, n, 1)
