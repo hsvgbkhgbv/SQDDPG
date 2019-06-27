@@ -24,6 +24,9 @@ class NetworkCongestionEnv(gym.Env):
         self.n = 10
         self.nroads = 2
 
+        np.random.seed(2019)
+        self.roads = np.random.rand(self.nroads,3)
+        np.random.seed()
         self.roads = np.ones((self.nroads,3),dtype="float32")
 
         self.naction = self.nroads # each agent can choose one road
