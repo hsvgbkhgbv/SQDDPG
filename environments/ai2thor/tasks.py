@@ -11,7 +11,7 @@ class BaseTask:
     Base class for other tasks to subclass and create specific reward and reset functions
     """
     def __init__(self, config):
-        self.task_config = config
+        self.task_config = config['task']
         self.max_episode_length = config.get('max_episode_length', 1000)
         # default reward is negative to encourage the agent to move more
         self.movement_reward = config.get('movement_reward', -0.01)
