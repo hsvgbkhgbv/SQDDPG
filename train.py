@@ -25,12 +25,20 @@ else:
 # create save folders
 if 'model_save' not in os.listdir(save_path):
     os.mkdir(save_path+'model_save')
+if 'tensorboard' not in os.listdir(save_path):
+    os.mkdir(save_path+'tensorboard')
 if log_name not in os.listdir(save_path+'model_save/'):
     os.mkdir(save_path+'model_save/'+log_name)
-if 'tensorboard' not in os.listdir(save_path+'model_save/'+log_name+'/'):
-    os.mkdir(save_path+'model_save/'+log_name+'/tensorboard')
+if log_name not in os.listdir(save_path+'tensorboard/'):
+    os.mkdir(save_path+'tensorboard/'+log_name)
+else:
+    path = save_path+'tensorboard/'+log_name
+    for f in os.listdir(path):
+        file_path = os.path.join(path,f)
+        if os.path.isfile(file_path):
+            os.remove(file_path)
 
-logger = Logger(save_path+'model_save/'+log_name+'/tensorboard')
+logger = Logger(save_path+'tensorboard/' + log_name)
 
 model = Model[model_name]
 
