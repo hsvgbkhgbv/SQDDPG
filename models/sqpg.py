@@ -1,3 +1,4 @@
+# just copy COMA to make program run
 import torch
 import torch.nn as nn
 import numpy as np
@@ -7,10 +8,10 @@ from collections import namedtuple
 
 
 
-class COMA(Model):
+class SQPG(Model):
 
     def __init__(self, args, target_net=None):
-        super(COMA, self).__init__(args)
+        super(SQPG, self).__init__(args)
         self.construct_model()
         self.apply(self.init_weights)
         if target_net != None:
@@ -19,6 +20,7 @@ class COMA(Model):
         if self.args.epsilon_softmax:
             self.eps_delta = (args.softmax_eps_init - args.softmax_eps_end) / args.train_episodes_num
             self.eps = args.softmax_eps_init
+        self.sample_size = 10
         self.Transition = namedtuple('Transition', ('state', 'action', 'last_action', 'hidden_state', 'last_hidden_state', 'reward', 'next_state', 'done', 'last_step'))
 
     def update_eps(self):
@@ -45,9 +47,9 @@ class COMA(Model):
                                         )
 
     def construct_value_net(self):
-        self.value_dict = nn.ModuleDict( {'layer_1': nn.ModuleList([nn.Linear( self.obs_dim*self.n_+self.act_dim*self.n_, self.hid_dim ) for _ in range(self.n_)]),\
-                                          'layer_2': nn.ModuleList([nn.Linear(self.hid_dim, self.hid_dim) for _ in range(self.n_)]),\
-                                          'value_head': nn.ModuleList([nn.Linear(self.hid_dim, self.act_dim) for _ in range(self.n_)])
+        self.value_dict = nn.ModuleDict( {'layer_1': nn.Linear( self.obs_dim+self.act_dim*(self.n_-1), self.hid_dim ),\
+                                          'layer_2': nn.Linear(self.hid_dim, self.hid_dim),\
+                                          'value_head': nn.Linear(self.hid_dim, self.act_dim)
                                          }
                                          )
 
@@ -75,18 +77,37 @@ class COMA(Model):
     def value(self, obs, act):
         batch_size = obs.size(0)
         act = act.unsqueeze(1).expand(batch_size, self.n_, self.n_, self.act_dim) # shape = (b, n, a) -> (b, 1, n, a) -> (b, n, n, a)
-        comm_mask = self.comm_mask.unsqueeze(0).unsqueeze(-1).expand_as(act)
-        act = act * comm_mask
+        act = act * self.comm_mask.unsqueeze(0).unsqueeze(-1).expand_as(act) # shape = (n, n) -> (1, n, n) -> (1, n, n, 1) -> (b, n, n, a)
         act = act.contiguous().view(batch_size, self.n_, -1) # shape = (b, n, a*n)
-        obs = obs.unsqueeze(1).expand(batch_size, self.n_, self.n_, self.obs_dim).contiguous().view(batch_size, self.n_, -1)
-        inp = torch.cat((obs, act), dim=-1) # shape = (b, n, o*n+a*n)
-        values = []
-        for i in range(self.n_):
-            h = torch.relu( self.value_dict['layer_1'][i](inp[:, i, :]) )
-            h = torch.relu( self.value_dict['layer_2'][i](h) )
-            v = self.value_dict['value_head'][i](h)
-            values.append(v)
-        values = torch.stack(values, dim=1)
+        # obs = obs.unsqueeze(1).expand(batch_size, self.n_, self.n_, self.obs_dim).contiguous().view(batch_size, self.n_, -1)
+        inp = torch.cat((obs, act), dim=-1) # shape = (b, n, o+a*n)
+        h = torch.relu( self.value_dict['layer_1'](inp) )
+        h = torch.relu( self.value_dict['layer_2'](h) )
+        values = self.value_dict['value_head'](h)
+        return values
+
+    def sample_coalition(self, obs):
+        batch_size = obs.size(0)
+        grand_coalitions = cuda_wrapper( torch.multinomial(torch.ones(batch_size, self.sample_size, self.n_)/self.n_, self.n_, replacement=False), self.cuda_ )
+        grand_coalitions = grand_coalitions.unsqueeze(-1).expand(batch_size, self.sample_size, self.n_, self.act_dim).transpose(3, 2)
+        # return the matrix of b x n x n_sample x a
+        return grand_coalitions
+
+    def coalition_value(self, obs, act):
+        batch_size = obs.size(0)
+        grand_coalitions = self.sample_coalition() # shape = (b, n, n_s, a)
+        act = act.unsqueeze(2).expand(batch_size, self.n_, self.sample_size, self.act_dim).gather(2, grand_coalitions) # shape = (b, n, a) -> (b, n, 1, a) -> (b, n, n_s, a)
+        agent_map = cuda_wrapper( torch.arange(self.n_).unsqueeze(0).unsqueeze(2).unsqueeze(3).expand_as(grand_coalitions), self.cuda_ )
+        act_map = 1 - (agent_map == grand_coalitions).float() # shape = (b, n, n_s, a)
+        act = act * act_map # this does not consider the partial coalition, just remove the agent itself
+        act = act.transpose(1, 2).unsqueeze(3).expand(batch_size, self.sample_size, self.n_, self.n_, self.act_dim) # shape = (b, n_s, n, n, a)
+        act = act.continuous().view(batch_size, self.sample_size, self.n_, -1) # shape = (b, n_s, n, n*a)
+        obs = obs.unsqueeze(1).unsqueeze(3).expand(batch_size, self.sample_size, self.n_, self.n_, self.obs_dim) # shape = (b, n, o) -> (b, 1, n, o) -> (b, 1, n, 1, o) -> (b, n_s, n, n, o)
+        obs = obs.contiguous().view(batch_size, self.sample_size, self.n_, self.n_*self.obs_dim) # shape = (b, n_s, n, n, o) -> (b, n_s, n, n*o)
+        inp = torch.cat((obs, act), dim=-1)
+        h = torch.relu( self.value_dict['layer_1'](inp) )
+        h = torch.relu( self.value_dict['layer_2'](h) )
+        values = self.value_dict['value_head'](h) # shape = (b, n_s, n, a)
         return values
 
     def get_loss(self, batch):
@@ -98,11 +119,15 @@ class COMA(Model):
         if self.args.q_func:
             values = torch.sum(values_*actions, dim=-1)
         values = values.contiguous().view(-1, self.n_)
-        # next_action_out = self.target_net.policy(next_state, last_act=actions, last_hid=hidden_state, info=info)
-        next_action_out = self.policy(next_state, last_act=actions, last_hid=hidden_state, info=info)
+        next_action_out = self.target_net.policy(next_state, last_act=actions, last_hid=hidden_state, info=info)
+        # next_action_out = self.policy(next_state, last_act=actions, last_hid=hidden_state, info=info)
         next_actions = select_action(self.args, next_action_out, status='train', info=info, exploration=False)
-        # next_values = self.target_net.value(next_state, next_actions)
-        next_values = self.value(next_state, next_actions)
+        next_values = self.target_net.value(next_state, next_actions)
+        # next_values = self.value(next_state, next_actions)
+        coalition_values_ = self.coalition_value(state, actions)
+        actions_ = actions.unsqueeze(1)
+        coalition_values = torch.sum(coalition_values_*actions_, dim=-1) # shape = (b, n_s, n, 1)
+        coalition_values = coalition_values.contiguous().view(-1, self.n_) # shape = (b, n_s, n)
         if self.args.q_func:
             next_values = torch.sum(next_values*next_actions, dim=-1)
         next_values = next_values.contiguous().view(-1, self.n_)
@@ -110,7 +135,7 @@ class COMA(Model):
         returns = td_lambda(rewards, last_step, done, next_values, self.args)
         assert returns.size() == rewards.size()
         deltas = returns - values
-        advantages = ( values - torch.sum(values_*torch.softmax(action_out, dim=-1), dim=-1) ).detach()
+        advantages = ( coalition_values - torch.sum(coalition_values_*torch.softmax(action_out.unsqueeze(1), dim=-1), dim=-1) ).mean(dim=1).detach()
         log_prob = multinomials_log_density(actions, action_out).contiguous().view(-1, 1)
         advantages = advantages.contiguous().view(-1, 1)
         if self.args.normalize_advantages:
@@ -139,8 +164,6 @@ class COMA(Model):
             info['softmax_eps'] = self.eps
         self.init_hidden(batch_size=1)
         last_hidden_state = self.get_hidden()
-        if self.args.reward_record_type is 'episode_mean_step':
-            trainer.mean_reward = 0
         for t in range(self.args.max_steps):
             start_step = True if t == 0 else False
             state_ = cuda_wrapper(prep_obs(state).contiguous().view(1, self.n_, self.obs_dim), self.cuda_)
@@ -165,12 +188,7 @@ class COMA(Model):
             last_hidden_state = hidden_state
             episode.append(trans)
             trainer.steps += 1
-            if self.args.reward_record_type is 'mean_step':
-                trainer.mean_reward = trainer.mean_reward + 1/trainer.steps*(np.mean(reward) - trainer.mean_reward)
-            elif self.args.reward_record_type is 'episode_mean_step':
-                trainer.mean_reward = trainer.mean_reward + 1/(t+1)*(np.mean(reward) - trainer.mean_reward)
-            else:
-                raise RuntimeError('Please enter a correct reward record type, e.g. mean_step or episode_mean_step.')
+            trainer.mean_reward = trainer.mean_reward + 1/trainer.steps*(np.mean(reward) - trainer.mean_reward)
             if done_:
                 break
             state = next_state
