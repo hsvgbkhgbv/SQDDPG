@@ -45,9 +45,9 @@ class COMA(Model):
                                         )
 
     def construct_value_net(self):
-        self.value_dict = nn.ModuleDict( {'layer_1': nn.Linear( self.obs_dim*self.n_+self.act_dim*self.n_, self.hid_dim ),\
-                                          'layer_2': nn.Linear(self.hid_dim, self.hid_dim),\
-                                          'value_head': nn.Linear(self.hid_dim, self.act_dim)
+        self.value_dict = nn.ModuleDict( {'layer_1': nn.ModuleList([nn.Linear( self.obs_dim*self.n_+self.act_dim*self.n_, self.hid_dim ) for _ in range(self.n_)]),\
+                                          'layer_2': nn.ModuleList([nn.Linear(self.hid_dim, self.hid_dim) for _ in range(self.n_)]),\
+                                          'value_head': nn.ModuleList([nn.Linear(self.hid_dim, self.act_dim) for _ in range(self.n_)])
                                          }
                                          )
 
@@ -75,13 +75,18 @@ class COMA(Model):
     def value(self, obs, act):
         batch_size = obs.size(0)
         act = act.unsqueeze(1).expand(batch_size, self.n_, self.n_, self.act_dim) # shape = (b, n, a) -> (b, 1, n, a) -> (b, n, n, a)
-        act = act * self.comm_mask.unsqueeze(0).unsqueeze(-1).expand_as(act)
+        comm_mask = self.comm_mask.unsqueeze(0).unsqueeze(-1).expand_as(act)
+        act = act * comm_mask
         act = act.contiguous().view(batch_size, self.n_, -1) # shape = (b, n, a*n)
         obs = obs.unsqueeze(1).expand(batch_size, self.n_, self.n_, self.obs_dim).contiguous().view(batch_size, self.n_, -1)
         inp = torch.cat((obs, act), dim=-1) # shape = (b, n, o*n+a*n)
-        h = torch.relu( self.value_dict['layer_1'](inp) )
-        h = torch.relu( self.value_dict['layer_2'](h) )
-        values = self.value_dict['value_head'](h)
+        values = []
+        for i in range(self.n_):
+            h = torch.relu( self.value_dict['layer_1'][i](inp[:, i, :]) )
+            h = torch.relu( self.value_dict['layer_2'][i](h) )
+            v = self.value_dict['value_head'][i](h)
+            values.append(v)
+        values = torch.stack(values, dim=1)
         return values
 
     def get_loss(self, batch):
