@@ -78,7 +78,7 @@ class COMA(Model):
         comm_mask = self.comm_mask.unsqueeze(0).unsqueeze(-1).expand_as(act)
         act = act * comm_mask
         act = act.contiguous().view(batch_size, self.n_, -1) # shape = (b, n, a*n)
-        obs = obs.unsqueeze(1).expand(batch_size, self.n_, self.n_, self.obs_dim).contiguous().view(batch_size, self.n_, -1)
+        obs = obs.unsqueeze(1).expand(batch_size, self.n_, self.n_, self.obs_dim).contiguous().view(batch_size, self.n_, -1) # shape = (b, n, o) -> (b, 1, n, o) -> (b, n, n, o)
         inp = torch.cat((obs, act), dim=-1) # shape = (b, n, o*n+a*n)
         values = []
         for i in range(self.n_):
