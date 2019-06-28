@@ -19,3 +19,9 @@ schednetArgs = namedtuple( 'schednetArgs', ['schedule', 'k', 'l'] )
 randomArgs = namedtuple( 'randomArgs', [] )
 
 sqpgArgs = namedtuple( 'sqpgArgs', ['sample_size'] )
+
+gcddpgArgs = namedtuple( 'gcddpgArgs', ['sample_size'] )
+
+sqddpgArgs = namedtuple( 'gcddpgArgs', ['sample_size'] )
+
+independentArgs = namedtuple( 'independentArgs', [] )

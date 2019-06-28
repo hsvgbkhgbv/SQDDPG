@@ -6,9 +6,12 @@ import numpy as np
 from models.commnet import *
 from models.ic3net import *
 from models.maddpg import *
-from models.sqpg import *
 from models.coma import *
 from models.schednet import *
+from models.sqpg import *
+from models.gcddpg import *
+from models.sqddpg import *
+from models.independent import *
 from aux import *
 from environments.traffic_junction_env import TrafficJunctionEnv
 from environments.predator_prey_env import PredatorPreyEnv
@@ -21,7 +24,10 @@ Model = dict(commnet=CommNet,
              maddpg=MADDPG,
              sqpg=SQPG,
              coma=COMA,
-             schednet=SchedNet
+             schednet=SchedNet,
+             gcddpg=GCDDPG,
+             sqddpg=SQDDPG,
+             independent=Independent
             )
 
 AuxArgs = dict(commnet=commnetArgs,
@@ -30,7 +36,10 @@ AuxArgs = dict(commnet=commnetArgs,
                maddpg=maddpgArgs,
                sqpg=sqpgArgs,
                coma=comaArgs,
-               schednet=schednetArgs
+               schednet=schednetArgs,
+               gcddpg=gcddpgArgs,
+               sqddpg=sqddpgArgs,
+               independent=independentArgs
               )
 
 Strategy=dict(commnet='pg',
@@ -39,7 +48,10 @@ Strategy=dict(commnet='pg',
               maddpg='pg',
               sqpg='pg',
               coma='pg',
-              schednet='pg'
+              schednet='pg',
+              gcddpg='pg',
+              sqddpg='pg',
+              independent='pg'
              )
 
 '''define the model name'''
@@ -50,6 +62,9 @@ Strategy=dict(commnet='pg',
 model_name = 'sqpg'
 # model_name = 'coma'
 # model_name = 'schednet'
+# model_name = 'gcddpg'
+# model_name = 'sqddpg'
+# model_name = 'independent'
 
 '''define the scenario name'''
 scenario_name = 'simple_spread'
@@ -62,9 +77,11 @@ scenario_name = 'simple_spread'
 # comaArgs = namedtuple( 'comaArgs', ['softmax_eps_init', 'softmax_eps_end', 'n_step', 'td_lambda'] )
 # schednetArgs = namedtuple( 'schednetArgs', ['schedule', 'k', 'l'] )
 # sqpgArgs = namedtuple('sqpgArgs', ['sample_size'])
+# gcddpgArgs = namedtuple( 'gcddpgArgs', ['sample_size'] )
+# independentArgs = namedtuple( 'independentArgs', [] )
 
 aux_args = AuxArgs[model_name](1)
-alias = ''
+alias = '_6_agents'
 
 '''load scenario from script'''
 scenario = scenario.load(scenario_name+".py").Scenario()
@@ -117,7 +134,7 @@ MergeArgs = namedtuple('MergeArgs', Args._fields+AuxArgs[model_name]._fields)
 # under offline trainer if set batch_size=replay_buffer_size=update_freq -> epoch update
 args = Args(model_name=model_name,
             agent_num=env.get_num_of_agents(),
-            hid_size=64,
+            hid_size=32,
             obs_size=np.max(env.get_shape_of_obs()),
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
@@ -128,13 +145,13 @@ args = Args(model_name=model_name,
             batch_size=32,
             gamma=0.9,
             normalize_advantages=False,
-            entr=1e-3,
+            entr=1e-2,
             entr_inc=0.0,
             action_num=np.max(env.get_input_shape_of_act()),
             q_func=True,
             train_episodes_num=int(1e4),
             replay=True,
-            replay_buffer_size=1e3,
+            replay_buffer_size=1e4,
             replay_warmup=0,
             cuda=True,
             grad_clip=True,
@@ -144,7 +161,7 @@ args = Args(model_name=model_name,
             behaviour_update_freq=100,
             critic_update_times=10,
             target_update_freq=200,
-            gumbel_softmax=False,
+            gumbel_softmax=True,
             epsilon_softmax=False,
             online=True,
             reward_record_type='episode_mean_step'

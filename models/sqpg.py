@@ -48,10 +48,12 @@ class SQPG(Model):
         #                                  )
         l1 = nn.Linear( self.obs_dim*self.n_+self.act_dim*self.n_, self.hid_dim )
         l2 = nn.Linear(self.hid_dim, self.hid_dim)
-        l3 = nn.Linear(self.hid_dim, self.act_dim)
+        l3 = nn.Linear(self.hid_dim, self.hid_dim)
+        l4 = nn.Linear(self.hid_dim, self.act_dim)
         self.value_dict = nn.ModuleDict( {'layer_1': nn.ModuleList([l1 for _ in range(self.n_)]),\
                                           'layer_2': nn.ModuleList([l2 for _ in range(self.n_)]),\
-                                          'value_head': nn.ModuleList([l3 for _ in range(self.n_)])
+                                          'layer_3': nn.ModuleList([l3 for _ in range(self.n_)]),\
+                                          'value_head': nn.ModuleList([l4 for _ in range(self.n_)])
                                          }
                                          )
 
@@ -82,27 +84,27 @@ class SQPG(Model):
         for i in range(self.n_):
             h = torch.relu( self.value_dict['layer_1'][i](inp[:, i, :]) )
             h = torch.relu( self.value_dict['layer_2'][i](h) )
+            h = torch.relu( self.value_dict['layer_3'][i](h) )
             v = self.value_dict['value_head'][i](h)
             values.append(v)
         values = torch.stack(values, dim=1)
         return values
 
-    def sample_coalitions(self, obs):
-        batch_size = obs.size(0)
+    def sample_grandcoalitions(self, batch_size):
         grand_coalitions = cuda_wrapper( torch.multinomial(torch.ones(batch_size*self.sample_size, self.n_)/self.n_, self.n_, replacement=False), self.cuda_ )
         grand_coalitions = grand_coalitions.contiguous().view(batch_size, self.sample_size, self.n_) # shape = (b, n_s, n)
         grand_coalitions = grand_coalitions.unsqueeze(2).expand(batch_size, self.sample_size, self.n_, self.n_) # shape = (b, n_s, n) -> (b, n_s, 1, n) -> (b, n_s, n, n)
-        coalition_map = cuda_wrapper( torch.ones_like(grand_coalitions), self.cuda_ ) # shape = (b, n_s, n, n)
+        subcoalition_map = cuda_wrapper( torch.ones_like(grand_coalitions), self.cuda_ ) # shape = (b, n_s, n, n)
         for b in range(batch_size):
             for s in range(self.sample_size):
                 for i in range(self.n_):
                     agent_index = (grand_coalitions[b, s, i, :] == i).nonzero()
-                    coalition_map[b, s, i, agent_index:] = 0
-        return coalition_map, grand_coalitions
+                    subcoalition_map[b, s, i, agent_index:] = 0
+        return subcoalition_map, grand_coalitions
 
-    def grand_coalition_value(self, obs, act):
+    def grandcoalition_value(self, obs, act):
         batch_size = obs.size(0)
-        _, grand_coalitions = self.sample_coalitions(obs) # shape = (b, n_s, n, n)
+        _, grand_coalitions = self.sample_grandcoalitions(batch_size) # shape = (b, n_s, n, n)
         coalition_map = 1 - (cuda_wrapper( torch.arange(self.n_), self.cuda_ ).unsqueeze(0).unsqueeze(0).unsqueeze(-1).expand_as(grand_coalitions) == grand_coalitions).float()
         grand_coalitions = grand_coalitions.unsqueeze(-1).expand(batch_size, self.sample_size, self.n_, self.n_, self.act_dim) # shape = (b, n_s, n, n, a)
         act = act.unsqueeze(1).unsqueeze(2).expand(batch_size, self.sample_size, self.n_, self.n_, self.act_dim).gather(3, grand_coalitions) # shape = (b, n, a) -> (b, 1, 1, n, a) -> (b, n_s, n, n, a)
@@ -116,17 +118,18 @@ class SQPG(Model):
         for i in range(self.n_):
             h = torch.relu( self.value_dict['layer_1'][i](inp[:, :, i, :]) )
             h = torch.relu( self.value_dict['layer_2'][i](h) )
+            h = torch.relu( self.value_dict['layer_3'][i](h) )
             v = self.value_dict['value_head'][i](h)
             values.append(v)
         values = torch.stack(values, dim=2)
         return values
 
-    def small_coalition_value(self, obs, act):
+    def subcoalition_value(self, obs, act):
         batch_size = obs.size(0)
-        coalition_map, grand_coalitions = self.sample_coalitions(obs) # shape = (b, n_s, n, n)
+        subcoalition_map, grand_coalitions = self.sample_grandcoalitions(batch_size) # shape = (b, n_s, n, n)
         grand_coalitions = grand_coalitions.unsqueeze(-1).expand(batch_size, self.sample_size, self.n_, self.n_, self.act_dim) # shape = (b, n_s, n, n, a)
         act = act.unsqueeze(1).unsqueeze(2).expand(batch_size, self.sample_size, self.n_, self.n_, self.act_dim).gather(3, grand_coalitions) # shape = (b, n, a) -> (b, 1, 1, n, a) -> (b, n_s, n, n, a)
-        act_map = coalition_map.unsqueeze(-1).float() # shape = (b, n_s, n, n, 1)
+        act_map = subcoalition_map.unsqueeze(-1).float() # shape = (b, n_s, n, n, 1)
         act = act * act_map
         act = act.contiguous().view(batch_size, self.sample_size, self.n_, -1) # shape = (b, n_s, n, n*a)
         obs = obs.unsqueeze(1).unsqueeze(2).expand(batch_size, self.sample_size, self.n_, self.n_, self.obs_dim) # shape = (b, n, o) -> (b, 1, n, o) -> (b, 1, 1, n, o) -> (b, n_s, n, n, o)
@@ -136,6 +139,7 @@ class SQPG(Model):
         for i in range(self.n_):
             h = torch.relu( self.value_dict['layer_1'][i](inp[:, :, i, :]) )
             h = torch.relu( self.value_dict['layer_2'][i](h) )
+            h = torch.relu( self.value_dict['layer_3'][i](h) )
             v = self.value_dict['value_head'][i](h)
             values.append(v)
         values = torch.stack(values, dim=2)
@@ -147,7 +151,7 @@ class SQPG(Model):
         rewards, last_step, done, actions, state, next_state = self.unpack_data(batch)
         action_out = self.policy(state, info=info)
         # values_ = self.value(state, actions)
-        values_ = self.grand_coalition_value(state, actions).mean(dim=1) # shape = (b, n, a)
+        values_ = self.grandcoalition_value(state, actions).mean(dim=1) # shape = (b, n, a)
         if self.args.q_func:
             values = torch.sum(values_*actions, dim=-1)
         values = values.contiguous().view(-1, self.n_)
@@ -156,10 +160,10 @@ class SQPG(Model):
         next_actions = select_action(self.args, next_action_out, status='train', info=info, exploration=False)
         # next_actions_ = next_actions.unsqueeze(1)
         # next_values_ = self.target_net.value(next_state, next_actions)
-        next_values_ = self.target_net.grand_coalition_value(next_state, next_actions).mean(dim=1) # shape = (b, n, a)
+        next_values_ = self.target_net.grandcoalition_value(next_state, next_actions).mean(dim=1) # shape = (b, n, a)
         # next_coalition_values_ = self.target_net.coalition_value(next_state, next_actions)
         # next_values = self.value(next_state, next_actions)
-        coalition_values_ = self.small_coalition_value(state, actions) # shape = (b, n_s, n, a)
+        coalition_values_ = self.subcoalition_value(state, actions) # shape = (b, n_s, n, a)
         actions_ = actions.unsqueeze(1)
         coalition_values = torch.sum(coalition_values_*actions_, dim=-1) # shape = (b, n_s, n, 1)
         if self.args.q_func:
@@ -178,7 +182,8 @@ class SQPG(Model):
                 next_return = next_values[i].detach()
             returns[i] = rewards[i] + self.args.gamma * next_return
         deltas = returns - values
-        shapley_q = ( coalition_values - torch.sum(coalition_values_*torch.softmax(action_out.unsqueeze(1).expand_as(coalition_values_), dim=-1), dim=-1) ).mean(dim=1).detach()
+        action_out_ = action_out.unsqueeze(1).expand_as(coalition_values_)
+        shapley_q = ( coalition_values - torch.sum(coalition_values_*torch.softmax(action_out_, dim=-1), dim=-1) ).mean(dim=1).detach()
         log_prob = multinomials_log_density(actions, action_out).contiguous().view(-1, 1)
         advantages = shapley_q.contiguous().view(-1, 1)
         if self.args.normalize_advantages:
