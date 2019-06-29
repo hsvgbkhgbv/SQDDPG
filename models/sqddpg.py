@@ -58,29 +58,24 @@ class SQDDPG(Model):
         actions = torch.stack(actions, dim=1)
         return actions
 
-    def value(self, obs, act):
-        values = []
-        for i in range(self.n_):
-            h = torch.relu( self.value_dict['layer_1'][i]( torch.cat( ( obs.contiguous().view( -1, np.prod(obs.size()[1:]) ), act.contiguous().view( -1, np.prod(act.size()[1:]) ) ), dim=-1 ) ) )
-            h = torch.relu( self.value_dict['layer_2'][i](h) )
-            v = self.value_dict['value_head'][i](h)
-            values.append(v)
-        values = torch.stack(values, dim=1)
-        return values
-
     def sample_grandcoalitions(self, batch_size):
         grand_coalitions = cuda_wrapper( torch.multinomial(torch.ones(batch_size*self.sample_size, self.n_)/self.n_, self.n_, replacement=False), self.cuda_ )
         grand_coalitions = grand_coalitions.contiguous().view(batch_size, self.sample_size, self.n_) # shape = (b, n_s, n)
         grand_coalitions = grand_coalitions.unsqueeze(2).expand(batch_size, self.sample_size, self.n_, self.n_) # shape = (b, n_s, n) -> (b, n_s, 1, n) -> (b, n_s, n, n)
-        return grand_coalitions
+        subcoalition_map = cuda_wrapper( torch.ones_like(grand_coalitions), self.cuda_ ) # shape = (b, n_s, n, n)
+        for b in range(batch_size):
+            for s in range(self.sample_size):
+                for i in range(self.n_):
+                    agent_index = (grand_coalitions[b, s, i, :] == i).nonzero()
+                    subcoalition_map[b, s, i, agent_index+1:] = 0
+        return subcoalition_map, grand_coalitions
 
-    def grandcoalition_value(self, obs, act):
+    def marginal_contribution(self, obs, act):
         batch_size = obs.size(0)
-        grand_coalitions = self.sample_grandcoalitions(batch_size) # shape = (b, n_s, n, n)
-        coalition_map = 1 - (cuda_wrapper( torch.arange(self.n_), self.cuda_ ).unsqueeze(0).unsqueeze(0).unsqueeze(-1).expand_as(grand_coalitions) == grand_coalitions).float()
+        subcoalition_map, grand_coalitions = self.sample_grandcoalitions(batch_size) # shape = (b, n_s, n, n)
         grand_coalitions = grand_coalitions.unsqueeze(-1).expand(batch_size, self.sample_size, self.n_, self.n_, self.act_dim) # shape = (b, n_s, n, n, a)
         act = act.unsqueeze(1).unsqueeze(2).expand(batch_size, self.sample_size, self.n_, self.n_, self.act_dim).gather(3, grand_coalitions) # shape = (b, n, a) -> (b, 1, 1, n, a) -> (b, n_s, n, n, a)
-        act_map = coalition_map.unsqueeze(-1).float() # shape = (b, n_s, n, n, 1)
+        act_map = subcoalition_map.unsqueeze(-1).float() # shape = (b, n_s, n, n, 1)
         act = act * act_map
         act = act.contiguous().view(batch_size, self.sample_size, self.n_, -1) # shape = (b, n_s, n, n*a)
         obs = obs.unsqueeze(1).unsqueeze(2).expand(batch_size, self.sample_size, self.n_, self.n_, self.obs_dim) # shape = (b, n, o) -> (b, 1, n, o) -> (b, 1, 1, n, o) -> (b, n_s, n, n, o)
@@ -103,24 +98,24 @@ class SQDDPG(Model):
         # do the argmax action on the action loss
         action_out = self.policy(state)
         actions_ = select_action(self.args, action_out, status='train', exploration=False)
-        values_ = self.grandcoalition_value(state, actions_).mean(dim=1).contiguous().view(-1, n)
+        shapley_values = self.marginal_contribution(state, actions_).mean(dim=1).contiguous().view(-1, n)
         # do the exploration action on the value loss
-        values = self.grandcoalition_value(state, actions).mean(dim=1).contiguous().view(-1, n).sum(dim=-1, keepdim=True).expand(batch_size, self.n_)
+        shapley_values_sum = self.marginal_contribution(state, actions).mean(dim=1).contiguous().view(-1, n).sum(dim=-1, keepdim=True).expand(batch_size, self.n_)
         # do the argmax action on the next value loss
         next_action_out = self.target_net.policy(next_state)
         next_actions_ = select_action(self.args, next_action_out, status='train', exploration=False)
-        next_values_ = self.target_net.grandcoalition_value(next_state, next_actions_.detach()).mean(dim=1).contiguous().view(-1, n).sum(dim=-1, keepdim=True).expand(batch_size, self.n_)
+        next_shapley_values_sum = self.target_net.marginal_contribution(next_state, next_actions_.detach()).mean(dim=1).contiguous().view(-1, n).sum(dim=-1, keepdim=True).expand(batch_size, self.n_)
         returns = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda_)
-        assert values_.size() == next_values_.size()
-        assert returns.size() == values.size()
+        assert shapley_values_sum.size() == next_shapley_values_sum.size()
+        assert returns.size() == shapley_values_sum.size()
         for i in reversed(range(rewards.size(0))):
             if last_step[i]:
-                next_return = 0 if done[i] else next_values_[i].detach()
+                next_return = 0 if done[i] else next_shapley_values_sum[i].detach()
             else:
-                next_return = next_values_[i].detach()
+                next_return = next_shapley_values_sum[i].detach()
             returns[i] = rewards[i] + self.args.gamma * next_return
-        deltas = returns - values
-        advantages = values_
+        deltas = returns - shapley_values_sum
+        advantages = shapley_values
         advantages = advantages.contiguous().view(-1, 1)
         if self.args.normalize_advantages:
             advantages = batchnorm(advantages)

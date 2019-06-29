@@ -59,12 +59,12 @@ Strategy=dict(commnet='pg',
 # model_name = 'ic3net'
 # model_name = 'independent_commnet'
 # model_name = 'maddpg'
-model_name = 'sqpg'
+# model_name = 'sqpg'
 # model_name = 'coma'
 # model_name = 'schednet'
 # model_name = 'gcddpg'
 # model_name = 'sqddpg'
-# model_name = 'independent'
+model_name = 'independent'
 
 '''define the scenario name'''
 scenario_name = 'simple_spread'
@@ -80,8 +80,8 @@ scenario_name = 'simple_spread'
 # gcddpgArgs = namedtuple( 'gcddpgArgs', ['sample_size'] )
 # independentArgs = namedtuple( 'independentArgs', [] )
 
-aux_args = AuxArgs[model_name](1)
-alias = '_6_agents'
+aux_args = AuxArgs[model_name]()
+alias = '_6_agents_1'
 
 '''load scenario from script'''
 scenario = scenario.load(scenario_name+".py").Scenario()
@@ -134,13 +134,13 @@ MergeArgs = namedtuple('MergeArgs', Args._fields+AuxArgs[model_name]._fields)
 # under offline trainer if set batch_size=replay_buffer_size=update_freq -> epoch update
 args = Args(model_name=model_name,
             agent_num=env.get_num_of_agents(),
-            hid_size=32,
+            hid_size=64,
             obs_size=np.max(env.get_shape_of_obs()),
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
             init_std=0.1,
-            policy_lrate=1e-3,
-            value_lrate=1e-2,
+            policy_lrate=1e-4,
+            value_lrate=1e-3,
             max_steps=200,
             batch_size=32,
             gamma=0.9,
