@@ -38,7 +38,7 @@ class NetworkCongestionEnv(gym.Env):
             # Action for each agent will be naction 
             self.action_space.append(spaces.Discrete(self.naction))
             # Observation for each agent will be self.n size
-            self.observation_space.append(spaces.Box(low=0, high=1, shape=(self.obs_dim,), dtype=int))
+            self.observation_space.append(spaces.Box(low=0, high=1, shape=(self.obs_dim,), dtype=float))
 
         return
 
@@ -66,7 +66,7 @@ class NetworkCongestionEnv(gym.Env):
 
     def _get_reward(self):
         costs = [self.roads[i][0] * self.cars_on_roads[i]**2 + self.roads[i][1] * self.cars_on_roads[i] + self.roads[i][2] for i in range(self.nroads)]
-        reward = -np.mean(np.array(costs) * np.array(self.cars_on_roads))
+        reward = -np.sum(np.array(costs) * np.array(self.cars_on_roads))
         return [reward/self.n]*self.n
 
     def _take_actions(self, actions):
