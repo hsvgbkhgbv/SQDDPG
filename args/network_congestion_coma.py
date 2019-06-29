@@ -6,7 +6,6 @@ import numpy as np
 from models.commnet import *
 from models.ic3net import *
 from models.maddpg import *
-from models.masddpg import *
 from models.coma import *
 from models.schednet import *
 from aux import *
@@ -20,7 +19,6 @@ Model = dict(commnet=CommNet,
              ic3net=IC3Net,
              independent_commnet=IndependentCommNet,
              maddpg=MADDPG,
-             masddpg=MASDDPG,
              coma=COMA,
              schednet=SchedNet
             )
@@ -29,7 +27,6 @@ AuxArgs = dict(commnet=commnetArgs,
                independent_commnet=commnetArgs,
                ic3net=ic3netArgs,
                maddpg=maddpgArgs,
-               masddpg=maddpgArgs,
                coma=comaArgs,
                schednet=schednetArgs
               )
@@ -38,7 +35,6 @@ Strategy=dict(commnet='pg',
               independent_commnet='pg',
               ic3net='pg',
               maddpg='pg',
-              masddpg='pg',
               coma='pg',
               schednet='pg'
              )
@@ -47,7 +43,7 @@ Strategy=dict(commnet='pg',
 model_name = 'coma'
 
 '''define the special property'''
-aux_args = AuxArgs[model_name](0.5,0.02,5,0.8) # coma
+aux_args = AuxArgs[model_name](0.5,0.02,1,0) # coma
 alias = ''
 
 '''define the scenario name'''
@@ -98,31 +94,31 @@ MergeArgs = namedtuple('MergeArgs', Args._fields+AuxArgs[model_name]._fields)
 # under offline trainer if set batch_size=replay_buffer_size=update_freq -> epoch update
 args = Args(model_name=model_name,
             agent_num=env.get_num_of_agents(),
-            hid_size=128,
+            hid_size=32,
             obs_size=np.max(env.get_shape_of_obs()),
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
             init_std=0.1,
             policy_lrate=5e-4,
             value_lrate=5e-4,
-            max_steps=20,
-            batch_size=2,
+            max_steps=50,
+            batch_size=1,
             gamma=0.99,
             normalize_advantages=False,
             entr=1e-2,
             entr_inc=0.0,
             action_num=np.max(env.get_input_shape_of_act()),
             q_func=True,
-            train_episodes_num=int(2e3),
+            train_episodes_num=int(1e4),
             replay=True,
             replay_buffer_size=2,
             replay_warmup=0,
             cuda=True,
             grad_clip=False,
-            save_model_freq=100,
+            save_model_freq=10,
             target=True,
             target_lr=1.0,
-            behaviour_update_freq=2,
+            behaviour_update_freq=1,
             critic_update_times=5,
             target_update_freq=2,
             gumbel_softmax=False,

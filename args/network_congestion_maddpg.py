@@ -8,7 +8,6 @@ from models.ic3net import *
 from models.maddpg import *
 from models.coma import *
 from models.schednet import *
-from models.independent import *
 from aux import *
 from environments.traffic_junction_env import TrafficJunctionEnv
 from environments.predator_prey_env import PredatorPreyEnv
@@ -21,8 +20,7 @@ Model = dict(commnet=CommNet,
              independent_commnet=IndependentCommNet,
              maddpg=MADDPG,
              coma=COMA,
-             schednet=SchedNet,
-             independent=Independent
+             schednet=SchedNet
             )
 
 AuxArgs = dict(commnet=commnetArgs,
@@ -30,8 +28,7 @@ AuxArgs = dict(commnet=commnetArgs,
                ic3net=ic3netArgs,
                maddpg=maddpgArgs,
                coma=comaArgs,
-               schednet=schednetArgs,
-               independent=independentArgs
+               schednet=schednetArgs
               )
 
 Strategy=dict(commnet='pg',
@@ -39,15 +36,14 @@ Strategy=dict(commnet='pg',
               ic3net='pg',
               maddpg='pg',
               coma='pg',
-              schednet='pg',
-              independent='pg'
+              schednet='pg'
              )
 
 '''define the model name'''
-model_name = 'independent'
+model_name = 'maddpg'
 
 '''define the special property'''
-aux_args = AuxArgs[model_name]() 
+aux_args = AuxArgs[model_name]() # maddpg
 alias = ''
 
 '''define the scenario name'''
@@ -115,17 +111,17 @@ args = Args(model_name=model_name,
             q_func=True,
             train_episodes_num=int(1e4),
             replay=True,
-            replay_buffer_size=500,
+            replay_buffer_size=1e4,
             replay_warmup=0,
             cuda=True,
             grad_clip=False,
             save_model_freq=10,
             target=True,
-            target_lr=0.1,
+            target_lr=1.0,
             behaviour_update_freq=100,
             critic_update_times=1,
-            target_update_freq=200,
-            gumbel_softmax=False,
+            target_update_freq=1000,
+            gumbel_softmax=True,
             epsilon_softmax=False,
             online=True,
             reward_record_type='episode_mean_step'
