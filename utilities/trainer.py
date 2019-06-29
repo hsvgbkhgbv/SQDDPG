@@ -105,8 +105,8 @@ class PGTrainer(object):
         action_loss = stat.get('action_loss', 0)
         value_loss = stat.get('value_loss', 0)
         entropy = stat.get('entropy', 0)
-        print ('This is the episode: {}, the mean reward is {:2.4f}, the current action loss is {:2.4f} and the current value loss is: {:2.4f}\n'\
-        .format(self.episodes, stat['mean_reward'], action_loss+entropy, value_loss))
+        print ('Episode: {:4d}, Mean Reward: {:2.4f}, Action Loss: {:2.4f}, Value Loss is: {:2.4f}, Entropy: {:2.4f}\n'\
+        .format(self.episodes, stat['mean_reward'], action_loss+self.entr*entropy, value_loss, entropy))
 
 
 
