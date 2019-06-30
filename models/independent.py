@@ -29,18 +29,38 @@ class Independent(Model):
         return (rewards, last_step, done, actions, state, next_state)
 
     def construct_policy_net(self):
-        self.action_dict = nn.ModuleDict( {'layer_1': nn.ModuleList( [ nn.Linear(self.obs_dim, self.hid_dim) for _ in range(self.n_) ] ),\
-                                           'layer_2': nn.ModuleList( [ nn.Linear(self.hid_dim, self.hid_dim) for _ in range(self.n_) ] ),\
-                                           'action_head': nn.ModuleList( [ nn.Linear(self.hid_dim, self.act_dim) for _ in range(self.n_) ] )
-                                          }
-                                        )
+        if self.args.shared_parameters:
+            l1 = nn.Linear(self.obs_dim, self.hid_dim)
+            l2 = nn.Linear(self.hid_dim, self.hid_dim)
+            a = nn.Linear(self.hid_dim, self.act_dim)
+            self.action_dict = nn.ModuleDict( {'layer_1': nn.ModuleList( [ l1 for _ in range(self.n_) ] ),\
+                                               'layer_2': nn.ModuleList( [ l2 for _ in range(self.n_) ] ),\
+                                               'action_head': nn.ModuleList( [ a for _ in range(self.n_) ] )
+                                              }
+                                            )
+        else:
+            self.action_dict = nn.ModuleDict( {'layer_1': nn.ModuleList( [ nn.Linear(self.obs_dim, self.hid_dim) for _ in range(self.n_) ] ),\
+                                               'layer_2': nn.ModuleList( [ nn.Linear(self.hid_dim, self.hid_dim) for _ in range(self.n_) ] ),\
+                                               'action_head': nn.ModuleList( [ nn.Linear(self.hid_dim, self.act_dim) for _ in range(self.n_) ] )
+                                              }
+                                            )
 
     def construct_value_net(self):
-        self.value_dict = nn.ModuleDict( {'layer_1': nn.ModuleList( [ nn.Linear(self.obs_dim, self.hid_dim ) for _ in range(self.n_) ] ),\
-                                          'layer_2': nn.ModuleList( [ nn.Linear(self.hid_dim, self.hid_dim) for _ in range(self.n_) ] ),\
-                                          'value_head': nn.ModuleList( [ nn.Linear(self.hid_dim, self.act_dim) for _ in range(self.n_) ] )
-                                         }
-                                       )
+        if self.args.shared_parameters:
+            l1 = nn.Linear(self.obs_dim, self.hid_dim )
+            l2 = nn.Linear(self.hid_dim, self.hid_dim)
+            v = nn.Linear(self.hid_dim, self.act_dim)
+            self.value_dict = nn.ModuleDict( {'layer_1': nn.ModuleList( [ l1 for _ in range(self.n_) ] ),\
+                                              'layer_2': nn.ModuleList( [ l2 for _ in range(self.n_) ] ),\
+                                              'value_head': nn.ModuleList( [ v for _ in range(self.n_) ] )
+                                             }
+                                           )
+        else:
+            self.value_dict = nn.ModuleDict( {'layer_1': nn.ModuleList( [ nn.Linear(self.obs_dim, self.hid_dim ) for _ in range(self.n_) ] ),\
+                                              'layer_2': nn.ModuleList( [ nn.Linear(self.hid_dim, self.hid_dim) for _ in range(self.n_) ] ),\
+                                              'value_head': nn.ModuleList( [ nn.Linear(self.hid_dim, self.act_dim) for _ in range(self.n_) ] )
+                                             }
+                                           )
 
     def construct_model(self):
         self.construct_value_net()

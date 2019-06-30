@@ -38,18 +38,38 @@ class COMA(Model):
         return (rewards, last_step, done, actions, last_actions, hidden_states, last_hidden_states, state, next_state)
 
     def construct_policy_net(self):
-        self.action_dict = nn.ModuleDict( {'encoder': nn.ModuleList([nn.Linear(self.obs_dim+self.act_dim, self.hid_dim) for _ in range(self.n_)]),\
-                                           'gru_layer': nn.ModuleList([nn.GRUCell(self.hid_dim, self.hid_dim) for _ in range(self.n_)]),\
-                                           'action_head': nn.ModuleList([nn.Linear(self.hid_dim, self.act_dim) for _ in range(self.n_)])
-                                          }
-                                        )
+        e = nn.Linear(self.obs_dim+self.act_dim, self.hid_dim)
+        gru = nn.GRUCell(self.hid_dim, self.hid_dim)
+        a = nn.Linear(self.hid_dim, self.act_dim)
+        if self.args.shared_parameters:
+            self.action_dict = nn.ModuleDict( {'encoder': nn.ModuleList([ e for _ in range(self.n_)]),\
+                                               'gru_layer': nn.ModuleList([ gru for _ in range(self.n_)]),\
+                                               'action_head': nn.ModuleList([ a for _ in range(self.n_)])
+                                              }
+                                            )
+        else:
+            self.action_dict = nn.ModuleDict( {'encoder': nn.ModuleList([nn.Linear(self.obs_dim+self.act_dim, self.hid_dim) for _ in range(self.n_)]),\
+                                               'gru_layer': nn.ModuleList([nn.GRUCell(self.hid_dim, self.hid_dim) for _ in range(self.n_)]),\
+                                               'action_head': nn.ModuleList([nn.Linear(self.hid_dim, self.act_dim) for _ in range(self.n_)])
+                                              }
+                                            )
 
     def construct_value_net(self):
-        self.value_dict = nn.ModuleDict( {'layer_1': nn.ModuleList([nn.Linear( self.obs_dim*self.n_+self.act_dim*self.n_, self.hid_dim ) for _ in range(self.n_)]),\
-                                          'layer_2': nn.ModuleList([nn.Linear(self.hid_dim, self.hid_dim) for _ in range(self.n_)]),\
-                                          'value_head': nn.ModuleList([nn.Linear(self.hid_dim, self.act_dim) for _ in range(self.n_)])
-                                         }
-                                         )
+        if self.args.shared_parameters:
+            l1 = nn.Linear( self.obs_dim*self.n_+self.act_dim*self.n_, self.hid_dim )
+            l2 = nn.Linear(self.hid_dim, self.hid_dim)
+            v = nn.Linear(self.hid_dim, self.act_dim)
+            self.value_dict = nn.ModuleDict( {'layer_1': nn.ModuleList([ l1 for _ in range(self.n_)]),\
+                                              'layer_2': nn.ModuleList([ l2 for _ in range(self.n_)]),\
+                                              'value_head': nn.ModuleList([ v for _ in range(self.n_)])
+                                             }
+                                             )
+        else:
+            self.value_dict = nn.ModuleDict( {'layer_1': nn.ModuleList([nn.Linear( self.obs_dim*self.n_+self.act_dim*self.n_, self.hid_dim ) for _ in range(self.n_)]),\
+                                              'layer_2': nn.ModuleList([nn.Linear(self.hid_dim, self.hid_dim) for _ in range(self.n_)]),\
+                                              'value_head': nn.ModuleList([nn.Linear(self.hid_dim, self.act_dim) for _ in range(self.n_)])
+                                             }
+                                             )
 
     def construct_model(self):
         self.comm_mask = cuda_wrapper(torch.ones(self.n_, self.n_) - torch.eye(self.n_, self.n_), self.cuda_)
