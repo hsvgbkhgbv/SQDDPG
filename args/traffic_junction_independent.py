@@ -8,9 +8,11 @@ from models.ic3net import *
 from models.maddpg import *
 from models.coma import *
 from models.schednet import *
+from models.independent import *
 from aux import *
 from environments.traffic_junction_env import TrafficJunctionEnv
 from environments.predator_prey_env import PredatorPreyEnv
+from environments.network_congestion_env import NetworkCongestionEnv
 
 
 
@@ -19,7 +21,8 @@ Model = dict(commnet=CommNet,
              independent_commnet=IndependentCommNet,
              maddpg=MADDPG,
              coma=COMA,
-             schednet=SchedNet
+             schednet=SchedNet,
+             independent=Independent
             )
 
 AuxArgs = dict(commnet=commnetArgs,
@@ -27,7 +30,8 @@ AuxArgs = dict(commnet=commnetArgs,
                ic3net=ic3netArgs,
                maddpg=maddpgArgs,
                coma=comaArgs,
-               schednet=schednetArgs
+               schednet=schednetArgs,
+               independent=independentArgs
               )
 
 Strategy=dict(commnet='pg',
@@ -35,14 +39,15 @@ Strategy=dict(commnet='pg',
               ic3net='pg',
               maddpg='pg',
               coma='pg',
-              schednet='pg'
+              schednet='pg',
+              independent='pg'
              )
 
 '''define the model name'''
-model_name = 'coma'
+model_name = 'independent'
 
 '''define the special property'''
-aux_args = AuxArgs[model_name](0.5,0.02,1,0.0) # coma
+aux_args = AuxArgs[model_name]() 
 alias = ''
 
 '''define the scenario name'''
@@ -90,6 +95,7 @@ Args = namedtuple('Args', ['model_name',
 
 MergeArgs = namedtuple('MergeArgs', Args._fields+AuxArgs[model_name]._fields)
 
+
 # under offline trainer if set batch_size=replay_buffer_size=update_freq -> epoch update
 args = Args(model_name=model_name,
             agent_num=env.get_num_of_agents(),
@@ -101,7 +107,7 @@ args = Args(model_name=model_name,
             policy_lrate=5e-4,
             value_lrate=5e-4,
             max_steps=50,
-            batch_size=2,
+            batch_size=100,
             gamma=0.99,
             normalize_advantages=False,
             entr=1e-2,
@@ -110,19 +116,19 @@ args = Args(model_name=model_name,
             q_func=True,
             train_episodes_num=int(1e4),
             replay=True,
-            replay_buffer_size=2,
+            replay_buffer_size=1e4,
             replay_warmup=0,
             cuda=True,
             grad_clip=False,
             save_model_freq=100,
             target=True,
             target_lr=1.0,
-            behaviour_update_freq=2,
-            critic_update_times=5,
-            target_update_freq=2,
+            behaviour_update_freq=100,
+            critic_update_times=1,
+            target_update_freq=1000,
             gumbel_softmax=False,
-            epsilon_softmax=True,
-            online=False,
+            epsilon_softmax=False,
+            online=True,
             reward_record_type='episode_mean_step'
            )
 

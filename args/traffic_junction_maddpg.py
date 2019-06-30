@@ -6,7 +6,6 @@ import numpy as np
 from models.commnet import *
 from models.ic3net import *
 from models.maddpg import *
-from models.masddpg import *
 from models.coma import *
 from models.schednet import *
 from aux import *
@@ -19,7 +18,6 @@ Model = dict(commnet=CommNet,
              ic3net=IC3Net,
              independent_commnet=IndependentCommNet,
              maddpg=MADDPG,
-             masddpg=MASDDPG,
              coma=COMA,
              schednet=SchedNet
             )
@@ -28,7 +26,6 @@ AuxArgs = dict(commnet=commnetArgs,
                independent_commnet=commnetArgs,
                ic3net=ic3netArgs,
                maddpg=maddpgArgs,
-               masddpg=maddpgArgs,
                coma=comaArgs,
                schednet=schednetArgs
               )
@@ -37,7 +34,6 @@ Strategy=dict(commnet='pg',
               independent_commnet='pg',
               ic3net='pg',
               maddpg='pg',
-              masddpg='pg',
               coma='pg',
               schednet='pg'
              )
@@ -47,7 +43,7 @@ model_name = 'maddpg'
 
 '''define the special property'''
 aux_args = AuxArgs[model_name]() # maddpg
-alias = ''
+alias = '_128_s50'
 
 '''define the scenario name'''
 scenario_name = 'traffic_junction' 
@@ -87,7 +83,8 @@ Args = namedtuple('Args', ['model_name',
                            'target_update_freq', # steps<-online/episodes<-offline
                            'gumbel_softmax',
                            'epsilon_softmax',
-                           'online'
+                           'online',
+                           'reward_record_type'
                           ]
                  )
 
@@ -103,7 +100,7 @@ args = Args(model_name=model_name,
             init_std=0.1,
             policy_lrate=1e-3,
             value_lrate=1e-3,
-            max_steps=20,
+            max_steps=50,
             batch_size=100,
             gamma=0.99,
             normalize_advantages=False,
@@ -111,7 +108,7 @@ args = Args(model_name=model_name,
             entr_inc=0.0,
             action_num=np.max(env.get_input_shape_of_act()),
             q_func=True,
-            train_episodes_num=int(2e5),
+            train_episodes_num=int(1e4),
             replay=True,
             replay_buffer_size=1e4,
             replay_warmup=0,
@@ -125,7 +122,8 @@ args = Args(model_name=model_name,
             target_update_freq=1000,
             gumbel_softmax=True,
             epsilon_softmax=False,
-            online=True
+            online=True,
+            reward_record_type='episode_mean_step'
            )
 
 args = MergeArgs(*(args+aux_args))
