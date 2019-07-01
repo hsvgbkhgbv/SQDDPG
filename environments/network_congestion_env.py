@@ -31,7 +31,8 @@ class NetworkCongestionEnv(gym.Env):
 
         # gym env
         self.naction = self.nroads # each agent can choose one road
-        self.obs_dim = self.n * self.nroads # state is onehot*n
+        # self.obs_dim = self.n * self.nroads # state is onehot*n
+        self.obs_dim = self.nroads
         self.action_space = []
         self.observation_space = []
         for agent_id in range(self.n):
@@ -57,12 +58,14 @@ class NetworkCongestionEnv(gym.Env):
 
     def reset(self):
         self.episode_over = False
-        self.action_history = np.array([0.0]*self.obs_dim)
+        self.cars_on_roads = [0]*self.nroads
+        self.action_history = np.array([0.0]*(self.nroads*self.n))
         self.t = 0
         return self._get_obs()
 
     def _get_obs(self):
-        return [self.action_history]*self.n
+        # return [self.action_history]*self.n
+        return [np.array(self.cars_on_roads)] * self.n
 
     def _get_reward(self):
         costs = [self.roads[i][0] * self.cars_on_roads[i]**2 + self.roads[i][1] * self.cars_on_roads[i] + self.roads[i][2] for i in range(self.nroads)]
