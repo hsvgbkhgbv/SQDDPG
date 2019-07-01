@@ -85,7 +85,8 @@ Args = namedtuple('Args', ['model_name',
                            'gumbel_softmax',
                            'epsilon_softmax',
                            'online',
-                           'reward_record_type'
+                           'reward_record_type',
+                           'shared_parameters' # boolean
                           ]
                  )
 
@@ -124,7 +125,8 @@ args = Args(model_name=model_name,
             gumbel_softmax=False,
             epsilon_softmax=True,
             online=False,
-            reward_record_type='episode_mean_step'
+            reward_record_type='episode_mean_step',
+            shared_parameters=False
            )
 
 args = MergeArgs(*(args+aux_args))
