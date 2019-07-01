@@ -10,7 +10,7 @@ Design Decisions:
     - Using Vocab for class of box:
     - Action Space & Observation Space are according to an agent
     - Rewards
-         -0.05 at each time step till the time
+         -0.01 at each time step till the time
          -10 for each crash
     - Episode ends when all cars reach destination / max steps
     - Obs. State:
@@ -49,17 +49,17 @@ class TrafficJunctionEnv(gym.Env):
         self.has_failed = 0
 
         # init_args
-        self.dim = 6 # Dimension of box (i.e length of road)
+        self.dim = 14 # Dimension of box (i.e length of road) # easy:6 | medium:14
         self.vision = 1 # Vision of car ### 0
-        self.add_rate_min = 0.1 # min rate at which to add car (till curr. start)
-        self.add_rate_max = 0.3 # max rate at which to add car (till curr. start)
+        self.add_rate_min = 0.02 # min rate at which to add car (till curr. start) # easy:0.1 | medium:0.02
+        self.add_rate_max = 0.05 # max rate at which to add car (till curr. start) # easy:0.3 | medium:0.05
         self.curr_start = np.inf # start making harder after this many epochs [0] #
         self.curr_end = np.inf # when to make the game hardest [0] #
-        self.difficulty = 'easy' # Difficulty level, easy|medium|hard
+        self.difficulty = 'medium' # Difficulty level, easy|medium|hard
         self.vocab_type = 'bool' # Type of location vector to use, bool|scalar
 
 
-        self.ncar = self.n = 5 # Number of cars
+        self.ncar = self.n = 10 # Number of cars  easy:5 | medium:10
         self.dims = dims = (self.dim, self.dim)
         difficulty = self.difficulty
         vision = self.vision
@@ -318,10 +318,12 @@ class TrafficJunctionEnv(gym.Env):
         obs = []
         for i, p in enumerate(self.car_loc):
             # most recent action
-            act = self.car_last_act[i] / (self.naction - 1)
+            # act = self.car_last_act[i] / (self.naction - 1)
+            act = self.car_last_act[i] 
 
             # route id
-            r_i = self.route_id[i] / (self.npath - 1)
+            # r_i = self.route_id[i] / (self.npath - 1)
+            r_i = self.route_id[i] 
 
             # loc
             p_norm = p / (h-1, w-1)
