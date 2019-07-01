@@ -25,7 +25,8 @@ class NetworkCongestionEnv(gym.Env):
         self.nroads = 10
 
         np.random.seed(2019)
-        self.roads = np.random.rand(self.nroads,3)
+        # self.roads = np.random.rand(self.nroads,3)
+        self.roads = np.array([np.random.rand(3)]*self.nroads)
         np.random.seed()
         print("Road weights",self.roads)
 
