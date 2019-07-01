@@ -8,42 +8,44 @@ from models.ic3net import *
 from models.maddpg import *
 from models.coma import *
 from models.schednet import *
+from models.independent_ddpg import *
 from aux import *
 from environments.traffic_junction_env import TrafficJunctionEnv
 from environments.predator_prey_env import PredatorPreyEnv
+from environments.network_congestion_env import NetworkCongestionEnv
 
 
 
 Model = dict(commnet=CommNet,
              ic3net=IC3Net,
-             independent_commnet=IndependentCommNet,
              maddpg=MADDPG,
              coma=COMA,
-             schednet=SchedNet
+             schednet=SchedNet,
+             independent_ddpg=IndependentDDPG
             )
 
 AuxArgs = dict(commnet=commnetArgs,
-               independent_commnet=commnetArgs,
                ic3net=ic3netArgs,
                maddpg=maddpgArgs,
                coma=comaArgs,
-               schednet=schednetArgs
+               schednet=schednetArgs,
+               independent_ddpg=maddpgArgs
               )
 
 Strategy=dict(commnet='pg',
-              independent_commnet='pg',
               ic3net='pg',
               maddpg='pg',
               coma='pg',
-              schednet='pg'
+              schednet='pg',
+              independent_ddpg='pg'
              )
 
 '''define the model name'''
-model_name = 'maddpg'
+model_name = 'independent_ddpg'
 
 '''define the special property'''
-aux_args = AuxArgs[model_name]() # maddpg
-alias = '_128_s50'
+aux_args = AuxArgs[model_name]() 
+alias = ''
 
 '''define the scenario name'''
 scenario_name = 'traffic_junction' 

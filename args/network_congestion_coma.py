@@ -44,7 +44,7 @@ model_name = 'coma'
 
 '''define the special property'''
 aux_args = AuxArgs[model_name](0.5,0.02,1,0) # coma
-alias = ''
+alias = '_newstate'
 
 '''define the scenario name'''
 scenario_name = 'network_congestion' 
@@ -85,7 +85,8 @@ Args = namedtuple('Args', ['model_name',
                            'gumbel_softmax',
                            'epsilon_softmax',
                            'online',
-                           'reward_record_type'
+                           'reward_record_type',
+                           'shared_parameters' # boolean
                           ]
                  )
 
@@ -101,7 +102,7 @@ args = Args(model_name=model_name,
             init_std=0.1,
             policy_lrate=5e-4,
             value_lrate=5e-4,
-            max_steps=50,
+            max_steps=20,
             batch_size=1,
             gamma=0.99,
             normalize_advantages=False,
@@ -124,7 +125,8 @@ args = Args(model_name=model_name,
             gumbel_softmax=False,
             epsilon_softmax=True,
             online=False,
-            reward_record_type='episode_mean_step'
+            reward_record_type='episode_mean_step',
+            shared_parameters=False
            )
 
 args = MergeArgs(*(args+aux_args))

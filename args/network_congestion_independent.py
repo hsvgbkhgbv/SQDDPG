@@ -48,7 +48,7 @@ model_name = 'independent'
 
 '''define the special property'''
 aux_args = AuxArgs[model_name]() 
-alias = ''
+alias = '_newstate'
 
 '''define the scenario name'''
 scenario_name = 'network_congestion' 
@@ -89,7 +89,8 @@ Args = namedtuple('Args', ['model_name',
                            'gumbel_softmax',
                            'epsilon_softmax',
                            'online',
-                           'reward_record_type'
+                           'reward_record_type',
+                           'shared_parameters' # boolean
                           ]
                  )
 
@@ -103,10 +104,10 @@ args = Args(model_name=model_name,
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
             init_std=0.1,
-            policy_lrate=1e-4,
+            policy_lrate=1e-3,
             value_lrate=1e-3,
             max_steps=20,
-            batch_size=100,
+            batch_size=50,
             gamma=0.99,
             normalize_advantages=False,
             entr=0.0,
@@ -115,20 +116,21 @@ args = Args(model_name=model_name,
             q_func=True,
             train_episodes_num=int(1e4),
             replay=True,
-            replay_buffer_size=500,
+            replay_buffer_size=100,
             replay_warmup=0,
             cuda=True,
-            grad_clip=False,
+            grad_clip=True,
             save_model_freq=10,
             target=True,
             target_lr=0.1,
-            behaviour_update_freq=100,
-            critic_update_times=1,
-            target_update_freq=200,
+            behaviour_update_freq=50,
+            critic_update_times=5,
+            target_update_freq=100,
             gumbel_softmax=False,
             epsilon_softmax=False,
             online=True,
-            reward_record_type='episode_mean_step'
+            reward_record_type='episode_mean_step',
+            shared_parameters=True
            )
 
 args = MergeArgs(*(args+aux_args))

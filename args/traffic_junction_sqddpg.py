@@ -8,10 +8,10 @@ from models.ic3net import *
 from models.maddpg import *
 from models.coma import *
 from models.schednet import *
+from models.sqddpg import *
 from aux import *
 from environments.traffic_junction_env import TrafficJunctionEnv
 from environments.predator_prey_env import PredatorPreyEnv
-
 
 
 Model = dict(commnet=CommNet,
@@ -19,7 +19,8 @@ Model = dict(commnet=CommNet,
              independent_commnet=IndependentCommNet,
              maddpg=MADDPG,
              coma=COMA,
-             schednet=SchedNet
+             schednet=SchedNet,
+             sqddpg=SQDDPG
             )
 
 AuxArgs = dict(commnet=commnetArgs,
@@ -27,7 +28,8 @@ AuxArgs = dict(commnet=commnetArgs,
                ic3net=ic3netArgs,
                maddpg=maddpgArgs,
                coma=comaArgs,
-               schednet=schednetArgs
+               schednet=schednetArgs,
+               sqddpg=sqddpgArgs
               )
 
 Strategy=dict(commnet='pg',
@@ -35,15 +37,16 @@ Strategy=dict(commnet='pg',
               ic3net='pg',
               maddpg='pg',
               coma='pg',
-              schednet='pg'
+              schednet='pg',
+              sqddpg='pg'
              )
 
 '''define the model name'''
-model_name = 'maddpg'
+model_name = 'sqddpg'
 
 '''define the special property'''
-aux_args = AuxArgs[model_name]() # maddpg
-alias = '_128_s50'
+aux_args = AuxArgs[model_name](1) # sqddpg
+alias = ''
 
 '''define the scenario name'''
 scenario_name = 'traffic_junction' 
@@ -99,10 +102,10 @@ args = Args(model_name=model_name,
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
             init_std=0.1,
-            policy_lrate=1e-3,
+            policy_lrate=1e-4,
             value_lrate=1e-3,
             max_steps=50,
-            batch_size=100,
+            batch_size=50,
             gamma=0.99,
             normalize_advantages=False,
             entr=1e-2,
@@ -114,13 +117,13 @@ args = Args(model_name=model_name,
             replay_buffer_size=1e4,
             replay_warmup=0,
             cuda=True,
-            grad_clip=False,
+            grad_clip=True,
             save_model_freq=100,
             target=True,
-            target_lr=1.0,
+            target_lr=0.1,
             behaviour_update_freq=100,
-            critic_update_times=1,
-            target_update_freq=1000,
+            critic_update_times=5,
+            target_update_freq=200,
             gumbel_softmax=True,
             epsilon_softmax=False,
             online=True,

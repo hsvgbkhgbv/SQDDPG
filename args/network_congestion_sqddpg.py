@@ -8,18 +8,19 @@ from models.ic3net import *
 from models.maddpg import *
 from models.coma import *
 from models.schednet import *
+from models.sqddpg import *
 from aux import *
 from environments.traffic_junction_env import TrafficJunctionEnv
 from environments.predator_prey_env import PredatorPreyEnv
-
-
+from environments.network_congestion_env import NetworkCongestionEnv
 
 Model = dict(commnet=CommNet,
              ic3net=IC3Net,
              independent_commnet=IndependentCommNet,
              maddpg=MADDPG,
              coma=COMA,
-             schednet=SchedNet
+             schednet=SchedNet,
+             sqddpg=SQDDPG
             )
 
 AuxArgs = dict(commnet=commnetArgs,
@@ -27,7 +28,8 @@ AuxArgs = dict(commnet=commnetArgs,
                ic3net=ic3netArgs,
                maddpg=maddpgArgs,
                coma=comaArgs,
-               schednet=schednetArgs
+               schednet=schednetArgs,
+               sqddpg=sqddpgArgs
               )
 
 Strategy=dict(commnet='pg',
@@ -35,21 +37,22 @@ Strategy=dict(commnet='pg',
               ic3net='pg',
               maddpg='pg',
               coma='pg',
-              schednet='pg'
+              schednet='pg',
+              sqddpg='pg'
              )
 
 '''define the model name'''
-model_name = 'maddpg'
+model_name = 'sqddpg'
 
 '''define the special property'''
-aux_args = AuxArgs[model_name]() # maddpg
-alias = '_128_s50'
+aux_args = AuxArgs[model_name](1) # sqddpg
+alias = ''
 
 '''define the scenario name'''
-scenario_name = 'traffic_junction' 
+scenario_name = 'network_congestion' 
 
 '''define the environment'''
-env = TrafficJunctionEnv()
+env = NetworkCongestionEnv()
 env = GymWrapper(env)
 
 Args = namedtuple('Args', ['model_name',
@@ -94,33 +97,33 @@ MergeArgs = namedtuple('MergeArgs', Args._fields+AuxArgs[model_name]._fields)
 # under offline trainer if set batch_size=replay_buffer_size=update_freq -> epoch update
 args = Args(model_name=model_name,
             agent_num=env.get_num_of_agents(),
-            hid_size=128,
+            hid_size=32,
             obs_size=np.max(env.get_shape_of_obs()),
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
             init_std=0.1,
-            policy_lrate=1e-3,
-            value_lrate=1e-3,
-            max_steps=50,
-            batch_size=100,
+            policy_lrate=1e-4,
+            value_lrate=1e-4,
+            max_steps=20,
+            batch_size=50,
             gamma=0.99,
             normalize_advantages=False,
-            entr=1e-2,
+            entr=0.0,
             entr_inc=0.0,
             action_num=np.max(env.get_input_shape_of_act()),
             q_func=True,
             train_episodes_num=int(1e4),
             replay=True,
-            replay_buffer_size=1e4,
+            replay_buffer_size=1e2,
             replay_warmup=0,
             cuda=True,
-            grad_clip=False,
-            save_model_freq=100,
+            grad_clip=True,
+            save_model_freq=10,
             target=True,
-            target_lr=1.0,
-            behaviour_update_freq=100,
-            critic_update_times=1,
-            target_update_freq=1000,
+            target_lr=0.1,
+            behaviour_update_freq=50,
+            critic_update_times=5,
+            target_update_freq=100,
             gumbel_softmax=True,
             epsilon_softmax=False,
             online=True,
