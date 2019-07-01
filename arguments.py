@@ -12,6 +12,7 @@ from models.sqpg import *
 from models.gcddpg import *
 from models.sqddpg import *
 from models.independent import *
+from models.independent_ddpg import *
 from aux import *
 from environments.traffic_junction_env import TrafficJunctionEnv
 from environments.predator_prey_env import PredatorPreyEnv
@@ -27,7 +28,8 @@ Model = dict(commnet=CommNet,
              schednet=SchedNet,
              gcddpg=GCDDPG,
              sqddpg=SQDDPG,
-             independent=Independent
+             independent=Independent,
+             independent_ddpg=IndependentDDPG
             )
 
 AuxArgs = dict(commnet=commnetArgs,
@@ -39,7 +41,8 @@ AuxArgs = dict(commnet=commnetArgs,
                schednet=schednetArgs,
                gcddpg=gcddpgArgs,
                sqddpg=sqddpgArgs,
-               independent=independentArgs
+               independent=independentArgs,
+               independent_ddpg=independentArgs
               )
 
 Strategy=dict(commnet='pg',
@@ -51,7 +54,8 @@ Strategy=dict(commnet='pg',
               schednet='pg',
               gcddpg='pg',
               sqddpg='pg',
-              independent='pg'
+              independent='pg',
+              independent_ddpg='pg'
              )
 
 '''define the model name'''
@@ -63,8 +67,9 @@ Strategy=dict(commnet='pg',
 # model_name = 'coma'
 # model_name = 'schednet'
 # model_name = 'gcddpg'
-# model_name = 'sqddpg'
-model_name = 'independent'
+model_name = 'sqddpg'
+# model_name = 'independent'
+# model_name = 'independent_ddpg'
 
 '''define the scenario name'''
 scenario_name = 'simple_spread'
@@ -80,8 +85,8 @@ scenario_name = 'simple_spread'
 # gcddpgArgs = namedtuple( 'gcddpgArgs', ['sample_size'] )
 # independentArgs = namedtuple( 'independentArgs', [] )
 
-aux_args = AuxArgs[model_name]()
-alias = '_6_agents_1'
+aux_args = AuxArgs[model_name](1)
+alias = '_6_agents_8'
 
 '''load scenario from script'''
 scenario = scenario.load(scenario_name+".py").Scenario()
@@ -125,7 +130,8 @@ Args = namedtuple('Args', ['model_name',
                            'gumbel_softmax',
                            'epsilon_softmax',
                            'online',
-                           'reward_record_type' # 'mean_step', 'episode_mean_step'
+                           'reward_record_type', # 'mean_step', 'episode_mean_step'
+                           'shared_parameters' # boolean
                           ]
                  )
 
@@ -139,8 +145,8 @@ args = Args(model_name=model_name,
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
             init_std=0.1,
-            policy_lrate=1e-4,
-            value_lrate=1e-3,
+            policy_lrate=1e-5,
+            value_lrate=1e-4,
             max_steps=200,
             batch_size=32,
             gamma=0.9,
@@ -164,7 +170,8 @@ args = Args(model_name=model_name,
             gumbel_softmax=True,
             epsilon_softmax=False,
             online=True,
-            reward_record_type='episode_mean_step'
+            reward_record_type='episode_mean_step',
+            shared_parameters=True
            )
 
 args = MergeArgs(*(args+aux_args))
