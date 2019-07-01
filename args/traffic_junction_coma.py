@@ -43,7 +43,7 @@ model_name = 'coma'
 
 '''define the special property'''
 aux_args = AuxArgs[model_name](0.5,0.02,1,0.0) # coma
-alias = ''
+alias = '_medium'
 
 '''define the scenario name'''
 scenario_name = 'traffic_junction' 
@@ -114,7 +114,7 @@ args = Args(model_name=model_name,
             replay_buffer_size=2,
             replay_warmup=0,
             cuda=True,
-            grad_clip=False,
+            grad_clip=True,
             save_model_freq=100,
             target=True,
             target_lr=1.0,
@@ -125,7 +125,7 @@ args = Args(model_name=model_name,
             epsilon_softmax=True,
             online=False,
             reward_record_type='episode_mean_step',
-            shared_parameters=True
+            shared_parameters=False
            )
 
 args = MergeArgs(*(args+aux_args))
