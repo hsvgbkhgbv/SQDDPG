@@ -141,7 +141,7 @@ class SQDDPG(Model):
             advantages = batchnorm(advantages)
         action_loss = -advantages
         action_loss = action_loss.sum() / batch_size
-        value_loss = deltas.pow(2).view(-1).sum() / batch_size
+        value_loss = deltas.pow(2).view(-1).sum() / batch_size / self.n_
         return action_loss, value_loss, action_out
 
     def train_process(self, stat, trainer):
