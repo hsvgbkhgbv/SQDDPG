@@ -51,8 +51,8 @@ class TrafficJunctionEnv(gym.Env):
         # init_args
         self.dim = 14 # Dimension of box (i.e length of road) # easy:6 | medium:14
         self.vision = 1 # Vision of car ### 0
-        self.add_rate_min = 0.02 # min rate at which to add car (till curr. start) # easy:0.1 | medium:0.02
-        self.add_rate_max = 0.05 # max rate at which to add car (till curr. start) # easy:0.3 | medium:0.05
+        self.add_rate_min = 0.05 # min rate at which to add car (till curr. start) # easy:0.1 | medium:0.05
+        self.add_rate_max = 0.2 # max rate at which to add car (till curr. start) # easy:0.3 | medium:0.2
         self.curr_start = np.inf # start making harder after this many epochs [0] #
         self.curr_end = np.inf # when to make the game hardest [0] #
         self.difficulty = 'medium' # Difficulty level, easy|medium|hard

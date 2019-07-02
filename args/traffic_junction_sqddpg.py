@@ -46,7 +46,7 @@ model_name = 'sqddpg'
 
 '''define the special property'''
 aux_args = AuxArgs[model_name](1) # sqddpg
-alias = ''
+alias = '_medium'
 
 '''define the scenario name'''
 scenario_name = 'traffic_junction' 
