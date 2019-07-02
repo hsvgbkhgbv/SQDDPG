@@ -2,7 +2,8 @@ import numpy as np
 import torch
 from utilities.util import *
 import time
-
+import signal
+import sys
 
 class PGTester(object):
 
@@ -33,6 +34,10 @@ class PGTester(object):
     def run_game(self, episodes, render):
         action = cuda_wrapper(torch.zeros((1, self.args.agent_num, self.args.action_dim)), cuda=self.cuda_)
         info = {}
+        if render and self.env.name in ['traffic_junction','predator_prey']:
+            signal.signal(signal.SIGINT, self.signal_handler)
+            self.env.init_curses()
+
         if self.args.model_name in ['coma', 'ic3net']:
             self.behaviour_net.init_hidden(batch_size=1)
             last_hidden = self.behaviour_net.get_hidden()
@@ -57,6 +62,10 @@ class PGTester(object):
                     print ('The episode {} is finished!'.format(ep))
                     break
 
+    def signal_handler(self, signal, frame):
+        print('You pressed Ctrl+C! Exiting gracefully.')
+        self.env.exit_render()
+        sys.exit(0)
 
 
 class QTester(PGTester):
