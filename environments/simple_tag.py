@@ -1,8 +1,6 @@
 '''
 COPY this file into multiagent(openai) repr to replace the old one and install again
 '''
-
-
 import numpy as np
 from multiagent.core import World, Agent, Landmark, Action
 from multiagent.scenario import BaseScenario
@@ -12,12 +10,18 @@ def random_action(agent,world):
     action = Action()
     action.u = np.zeros(world.dim_p)
     action.c = np.zeros(world.dim_c)
-    random_action = np.random.choice(4)+1
+    random_action = np.random.choice(5)
     # process discrete action
     if random_action == 1: action.u[0] = -1.0
     if random_action == 2: action.u[0] = +1.0
     if random_action == 3: action.u[1] = -1.0
     if random_action == 4: action.u[1] = +1.0
+
+    # accel of prey
+    sensitivity = 5.0
+    if agent.accel is not None:
+        sensitivity = agent.accel
+    action.u *= sensitivity
     return action
 
 class Scenario(BaseScenario):
@@ -51,7 +55,7 @@ class Scenario(BaseScenario):
             landmark.name = 'landmark %d' % i
             landmark.collide = True
             landmark.movable = False
-            landmark.size = 0.2
+            landmark.size = 0.05 # 0.2
             landmark.boundary = False
         # make initial conditions
         self.reset_world(world)
@@ -139,7 +143,7 @@ class Scenario(BaseScenario):
     def adversary_reward(self, agent, world):
         # Adversaries are rewarded for collisions with agents
         rew = 0
-        shape = False
+        shape = True # False
         agents = self.good_agents(world)
         adversaries = self.adversaries(world)
         if shape:  # reward can optionally be shaped (decreased reward for increased distance from agents)
