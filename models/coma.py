@@ -194,6 +194,7 @@ class COMA(Model):
             if done_:
                 break
             state = next_state
+        stat['turn'] = t+1
         stat['mean_reward'] = trainer.mean_reward
         trainer.episodes += 1
         if self.args.epsilon_softmax:

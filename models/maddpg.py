@@ -126,4 +126,5 @@ class MADDPG(Model):
             if done_:
                 break
             state = next_state
+        stat['turn'] = t + 1
         trainer.episodes += 1
