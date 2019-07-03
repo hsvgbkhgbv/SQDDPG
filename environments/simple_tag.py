@@ -43,9 +43,9 @@ class Scenario(BaseScenario):
             agent.silent = True
             agent.adversary = True if i < num_adversaries else False
             agent.size = 0.075 if agent.adversary else 0.05
-            agent.accel = 3.0 if agent.adversary else 4.0
+            agent.accel = 1.5 if agent.adversary else 2.0 # 3.0 4.0
             #agent.accel = 20.0 if agent.adversary else 25.0
-            agent.max_speed = 1.0 if agent.adversary else 1.3
+            agent.max_speed = 0.5 if agent.adversary else 0.65 # 1.0 1.3
             # By Yuan Zhang:
             agent.action_callback = random_action if not agent.adversary else None
 
@@ -55,7 +55,7 @@ class Scenario(BaseScenario):
             landmark.name = 'landmark %d' % i
             landmark.collide = True
             landmark.movable = False
-            landmark.size = 0.05 # 0.2
+            landmark.size = 0.2 # 0.2
             landmark.boundary = False
         # make initial conditions
         self.reset_world(world)
