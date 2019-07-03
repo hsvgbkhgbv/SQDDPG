@@ -591,8 +591,8 @@ class TrafficJunctionEnv(gym.Env):
                reward[i] += self.CRASH_PENALTY
                self.has_failed = 1
 
-        reward = self.alive_mask * reward
-        return reward
+        mean_reward = np.mean(self.alive_mask * reward)
+        return [mean_reward]*self.n
 
     def _onehot_initialization(self, a):
         if self.vocab_type == 'bool':
