@@ -161,6 +161,8 @@ class COMA(Model):
         last_hidden_state = self.get_hidden()
         if self.args.reward_record_type is 'episode_mean_step':
             trainer.mean_reward = 0
+            trainer.mean_success = 0
+
         for t in range(self.args.max_steps):
             start_step = True if t == 0 else False
             state_ = cuda_wrapper(prep_obs(state).contiguous().view(1, self.n_, self.obs_dim), self.cuda_)
@@ -168,7 +170,7 @@ class COMA(Model):
             action_out = self.policy(state_, last_act=action_, last_hid=last_hidden_state, info=info, stat=stat)
             action = select_action(self.args, torch.log_softmax(action_out, dim=-1), status='train', info=info)
             _, actual = translate_action(self.args, action, trainer.env)
-            next_state, reward, done, _ = trainer.env.step(actual)
+            next_state, reward, done, debug = trainer.env.step(actual)
             if isinstance(done, list): done = np.sum(done)
             done_ = done or t==self.args.max_steps-1
             hidden_state = self.get_hidden()
@@ -184,11 +186,14 @@ class COMA(Model):
                                    )
             last_hidden_state = hidden_state
             episode.append(trans)
+            success = debug['success'] if 'success' in debug else 0.0
             trainer.steps += 1
             if self.args.reward_record_type is 'mean_step':
                 trainer.mean_reward = trainer.mean_reward + 1/trainer.steps*(np.mean(reward) - trainer.mean_reward)
+                trainer.mean_success = trainer.mean_success + 1/trainer.steps*(success - trainer.mean_success)
             elif self.args.reward_record_type is 'episode_mean_step':
                 trainer.mean_reward = trainer.mean_reward + 1/(t+1)*(np.mean(reward) - trainer.mean_reward)
+                trainer.mean_success = trainer.mean_success + 1/(t+1)*(success - trainer.mean_success)
             else:
                 raise RuntimeError('Please enter a correct reward record type, e.g. mean_step or episode_mean_step.')
             if done_:
@@ -196,6 +201,7 @@ class COMA(Model):
             state = next_state
         stat['turn'] = t+1
         stat['mean_reward'] = trainer.mean_reward
+        stat['mean_success'] = trainer.mean_success 
         trainer.episodes += 1
         if self.args.epsilon_softmax:
             self.update_eps()

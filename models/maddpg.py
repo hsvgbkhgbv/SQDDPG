@@ -97,6 +97,8 @@ class MADDPG(Model):
         state = trainer.env.reset()
         if self.args.reward_record_type is 'episode_mean_step':
             trainer.mean_reward = 0
+            trainer.mean_success = 0
+
         for t in range(self.args.max_steps):
             state_ = cuda_wrapper(prep_obs(state).contiguous().view(1, self.n_, self.obs_dim), self.cuda_)
             start_step = True if t == 0 else False
@@ -104,7 +106,7 @@ class MADDPG(Model):
             action_out = self.policy(state_, info=info, stat=stat)
             action = select_action(self.args, action_out, status='train', info=info)
             _, actual = translate_action(self.args, action, trainer.env)
-            next_state, reward, done, _ = trainer.env.step(actual)
+            next_state, reward, done, debug = trainer.env.step(actual)
             if isinstance(done, list): done = np.sum(done)
             done_ = done or t==self.args.max_steps-1
             trans = self.Transition(state,
@@ -115,14 +117,18 @@ class MADDPG(Model):
                                     done_
                                    )
             self.transition_update(trainer, trans, stat)
+            success = debug['success'] if 'success' in debug else 0.0
             trainer.steps += 1
             if self.args.reward_record_type is 'mean_step':
                 trainer.mean_reward = trainer.mean_reward + 1/trainer.steps*(np.mean(reward) - trainer.mean_reward)
+                trainer.mean_success = trainer.mean_success + 1/trainer.steps*(success - trainer.mean_success)
             elif self.args.reward_record_type is 'episode_mean_step':
                 trainer.mean_reward = trainer.mean_reward + 1/(t+1)*(np.mean(reward) - trainer.mean_reward)
+                trainer.mean_success = trainer.mean_success + 1/(t+1)*(success - trainer.mean_success)
             else:
                 raise RuntimeError('Please enter a correct reward record type, e.g. mean_step or episode_mean_step.')
             stat['mean_reward'] = trainer.mean_reward
+            stat['mean_success'] = trainer.mean_success 
             if done_:
                 break
             state = next_state

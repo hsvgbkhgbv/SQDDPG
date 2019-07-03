@@ -49,7 +49,7 @@ class TrafficJunctionEnv(gym.Env):
         self.episode_over = False
         self.has_failed = 0
 
-        self.difficulty = 'medium' # Difficulty level, easy|medium|hard
+        self.difficulty = 'hard' # Difficulty level, easy|medium|hard
         # init_args
         self.vision = 1 # Vision of car ### 0
         if self.difficulty == 'easy':
@@ -62,6 +62,13 @@ class TrafficJunctionEnv(gym.Env):
             self.add_rate_min = 0.05 # min rate at which to add car (till curr. start) # easy:0.1 | medium:0.05
             self.add_rate_max = 0.2 # max rate at which to add car (till curr. start) # easy:0.3 | medium:0.2
             self.ncar = self.n = 10 # Number of cars  easy:5 | medium:10
+        elif self.difficulty=='hard':
+            self.dim = 18 # Dimension of box (i.e length of road) # easy:6 | medium:14
+            self.add_rate_min = 0.02 # min rate at which to add car (till curr. start) # easy:0.1 | medium:0.05
+            self.add_rate_max = 0.05 # max rate at which to add car (till curr. start) # easy:0.3 | medium:0.2
+            self.ncar = self.n = 20 # Number of cars  easy:5 | medium:10
+        else:
+            raise NotImplementedError
 
         self.curr_start = np.inf # start making harder after this many epochs [0] #
         self.curr_end = np.inf # when to make the game hardest [0] #
@@ -230,14 +237,16 @@ class TrafficJunctionEnv(gym.Env):
         obs = self._get_obs()
         reward = self._get_reward()
 
+        self.stat['success'] = 1.0 - self.has_failed
+        self.stat['add_rate'] = self.add_rate
+
         debug = {'car_loc':self.car_loc,
                 'alive_mask': np.copy(self.alive_mask),
                 'wait': self.wait,
                 'cars_in_sys': self.cars_in_sys,
-                'is_completed': np.copy(self.is_completed)}
-
-        self.stat['success'] = 1 - self.has_failed
-        self.stat['add_rate'] = self.add_rate
+                'is_completed': np.copy(self.is_completed),
+                'success': self.stat['success']
+                }
 
         return self._flatten_obs(obs), reward, self.episode_over, debug
 

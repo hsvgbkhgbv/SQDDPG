@@ -36,6 +36,7 @@ class PGTrainer(object):
         self.steps = 0
         self.episodes = 0
         self.mean_reward = 0
+        self.mean_success = 0
         self.entr = self.args.entr
         self.entr_inc = self.args.entr_inc
 
@@ -105,9 +106,8 @@ class PGTrainer(object):
         action_loss = stat.get('action_loss', 0)
         value_loss = stat.get('value_loss', 0)
         entropy = stat.get('entropy', 0)
-        turn = stat.get('turn', 0)
-        print ('Episode: {:4d}, Mean Reward: {:2.4f}, Action Loss: {:2.4f}, Value Loss is: {:2.4f}, Entropy: {:2.4f}, Turn:{:d}\n'\
-        .format(self.episodes, stat['mean_reward'], action_loss+self.entr*entropy, value_loss, entropy,turn))
+        print ('Episode: {:4d}, Mean Reward: {:2.4f}, Action Loss: {:2.4f}, Value Loss is: {:2.4f}, Entropy: {:2.4f}\n'\
+        .format(self.episodes, stat['mean_reward'], action_loss+self.entr*entropy, value_loss, entropy))
 
 
 
