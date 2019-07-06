@@ -68,7 +68,8 @@ class PGTester(object):
                     last_hidden = self.behaviour_net.get_hidden()
                 episode_reward.append(np.mean(reward))
                 episode_success.append(success)
-                time.sleep(0.01)
+                if render:
+                    time.sleep(0.01)
                 if np.all(done) or t==self.args.max_steps-1:
 
                     print ('The episode {} is finished!'.format(ep))
