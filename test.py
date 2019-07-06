@@ -38,5 +38,6 @@ elif strategy == 'q':
 else:
     raise RuntimeError('Please input the correct strategy, e.g. pg or q.')
 
+print(args)
 test.run_game(argv.episodes, render=argv.render)
 test.print_info()
