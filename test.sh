@@ -1,6 +1,6 @@
 # !/bin/bash
 
-EXP_NAME="predator_prey_commnet"
+EXP_NAME="spread_sqddpg"
 
 cp ./args/$EXP_NAME.py arguments.py
 python -u test.py
