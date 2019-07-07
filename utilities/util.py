@@ -150,13 +150,13 @@ def n_step(rewards, last_step, done, next_values, n_step, args):
     while i >= 0:
         if last_step[i]:
             next_return = 0 if done[i] else next_values[i].detach()
-            for j in reversed(range(i-n_step, i)):
+            for j in reversed(range(i-n_step+1, i+1)):
                 returns[j] = rewards[j] + args.gamma * next_return
                 next_return = returns[j]
-            i -= n_step+1
+            i -= n_step
             continue
         else:
-            next_return = next_values[i+n_step].detach()
+            next_return = next_values[i+n_step-1].detach()
         for j in reversed(range(n_step)):
             g = rewards[i+j] + args.gamma * next_return
             next_return = g
