@@ -46,7 +46,7 @@ model_name = 'sqddpg'
 
 '''define the special property'''
 aux_args = AuxArgs[model_name](1) # sqddpg
-alias = ''
+alias = '_medium'
 
 '''define the scenario name'''
 scenario_name = 'traffic_junction' 
@@ -105,10 +105,10 @@ args = Args(model_name=model_name,
             policy_lrate=1e-4,
             value_lrate=1e-3,
             max_steps=50,
-            batch_size=50,
+            batch_size=32,
             gamma=0.99,
             normalize_advantages=False,
-            entr=1e-2,
+            entr=1e-4,
             entr_inc=0.0,
             action_num=np.max(env.get_input_shape_of_act()),
             q_func=True,
@@ -121,14 +121,14 @@ args = Args(model_name=model_name,
             save_model_freq=100,
             target=True,
             target_lr=0.1,
-            behaviour_update_freq=100,
-            critic_update_times=5,
-            target_update_freq=200,
+            behaviour_update_freq=25,
+            critic_update_times=10,
+            target_update_freq=50,
             gumbel_softmax=True,
             epsilon_softmax=False,
             online=True,
             reward_record_type='episode_mean_step',
-            shared_parameters=True
+            shared_parameters=False
            )
 
 args = MergeArgs(*(args+aux_args))

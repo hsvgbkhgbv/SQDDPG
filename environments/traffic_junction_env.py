@@ -10,7 +10,7 @@ Design Decisions:
     - Using Vocab for class of box:
     - Action Space & Observation Space are according to an agent
     - Rewards
-         -0.05 at each time step till the time
+         -0.01 at each time step till the time
          -10 for each crash
     - Episode ends when all cars reach destination / max steps
     - Obs. State:
@@ -36,6 +36,7 @@ class TrafficJunctionEnv(gym.Env):
     # metadata = {'render.modes': ['human']}
 
     def __init__(self,):
+        self.name = "traffic_junction"
         self.__version__ = "0.0.1"
 
         # TODO: better config handling
@@ -48,18 +49,31 @@ class TrafficJunctionEnv(gym.Env):
         self.episode_over = False
         self.has_failed = 0
 
+        self.difficulty = 'hard' # Difficulty level, easy|medium|hard
         # init_args
-        self.dim = 6 # Dimension of box (i.e length of road)
         self.vision = 1 # Vision of car ### 0
-        self.add_rate_min = 0.1 # min rate at which to add car (till curr. start)
-        self.add_rate_max = 0.3 # max rate at which to add car (till curr. start)
+        if self.difficulty == 'easy':
+            self.dim = 6 # Dimension of box (i.e length of road) # easy:6 | medium:14
+            self.add_rate_min = 0.1 # min rate at which to add car (till curr. start) # easy:0.1 | medium:0.05
+            self.add_rate_max = 0.3 # max rate at which to add car (till curr. start) # easy:0.3 | medium:0.2
+            self.ncar = self.n = 5 # Number of cars  easy:5 | medium:10
+        elif self.difficulty=='medium':
+            self.dim = 14 # Dimension of box (i.e length of road) # easy:6 | medium:14
+            self.add_rate_min = 0.05 # min rate at which to add car (till curr. start) # easy:0.1 | medium:0.05
+            self.add_rate_max = 0.2 # max rate at which to add car (till curr. start) # easy:0.3 | medium:0.2
+            self.ncar = self.n = 10 # Number of cars  easy:5 | medium:10
+        elif self.difficulty=='hard':
+            self.dim = 18 # Dimension of box (i.e length of road) # easy:6 | medium:14
+            self.add_rate_min = 0.02 # min rate at which to add car (till curr. start) # easy:0.1 | medium:0.05
+            self.add_rate_max = 0.05 # max rate at which to add car (till curr. start) # easy:0.3 | medium:0.2
+            self.ncar = self.n = 20 # Number of cars  easy:5 | medium:10
+        else:
+            raise NotImplementedError
+
         self.curr_start = np.inf # start making harder after this many epochs [0] #
         self.curr_end = np.inf # when to make the game hardest [0] #
-        self.difficulty = 'easy' # Difficulty level, easy|medium|hard
         self.vocab_type = 'bool' # Type of location vector to use, bool|scalar
 
-
-        self.ncar = self.n = 5 # Number of cars
         self.dims = dims = (self.dim, self.dim)
         difficulty = self.difficulty
         vision = self.vision
@@ -223,14 +237,16 @@ class TrafficJunctionEnv(gym.Env):
         obs = self._get_obs()
         reward = self._get_reward()
 
+        self.stat['success'] = 1.0 - self.has_failed
+        self.stat['add_rate'] = self.add_rate
+
         debug = {'car_loc':self.car_loc,
                 'alive_mask': np.copy(self.alive_mask),
                 'wait': self.wait,
                 'cars_in_sys': self.cars_in_sys,
-                'is_completed': np.copy(self.is_completed)}
-
-        self.stat['success'] = 1 - self.has_failed
-        self.stat['add_rate'] = self.add_rate
+                'is_completed': np.copy(self.is_completed),
+                'success': self.stat['success']
+                }
 
         return self._flatten_obs(obs), reward, self.episode_over, debug
 
@@ -318,10 +334,12 @@ class TrafficJunctionEnv(gym.Env):
         obs = []
         for i, p in enumerate(self.car_loc):
             # most recent action
-            act = self.car_last_act[i] / (self.naction - 1)
+            # act = self.car_last_act[i] / (self.naction - 1)
+            act = self.car_last_act[i] 
 
             # route id
-            r_i = self.route_id[i] / (self.npath - 1)
+            # r_i = self.route_id[i] / (self.npath - 1)
+            r_i = self.route_id[i] 
 
             # loc
             p_norm = p / (h-1, w-1)
@@ -573,8 +591,8 @@ class TrafficJunctionEnv(gym.Env):
                reward[i] += self.CRASH_PENALTY
                self.has_failed = 1
 
-        reward = self.alive_mask * reward
-        return reward
+        mean_reward = np.mean(self.alive_mask * reward)
+        return [mean_reward]*self.n
 
     def _onehot_initialization(self, a):
         if self.vocab_type == 'bool':

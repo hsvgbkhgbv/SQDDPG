@@ -36,6 +36,7 @@ class PGTrainer(object):
         self.steps = 0
         self.episodes = 0
         self.mean_reward = 0
+        self.mean_success = 0
         self.entr = self.args.entr
         self.entr_inc = self.args.entr_inc
 
