@@ -11,8 +11,6 @@ import argparse
 
 parser = argparse.ArgumentParser(description='Test rl agent.')
 parser.add_argument('--save-path', type=str, nargs='?', default='./', help='Please input the directory of saving model.')
-# parser.add_argument('--strategy', type=str, nargs='?', default='pg', help='Please input the strategy of learning, such as pg or q.')
-# parser.add_argument('--online', action='store_true', help='Please indicate whether the training is online (True) or offline (False).')
 argv = parser.parse_args()
 
 

@@ -163,11 +163,3 @@ def n_step(rewards, last_step, done, next_values, n_step, args):
         returns[i] = g.detach()
         i -= 1
     return returns
-
-def td_lambda(rewards, last_step, done, next_values, args):
-    G_n = []
-    for n_step_ in range(1, args.n_step+1):
-        G_n.append((1-args.td_lambda)*args.td_lambda**(n_step_-1)*n_step(rewards, last_step, done, next_values, n_step_, args))
-    G_n = torch.stack(G_n, dim=0)
-    td_lambda_G_n = G_n.sum(dim=0)
-    return td_lambda_G_n

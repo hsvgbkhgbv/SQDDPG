@@ -109,6 +109,14 @@ class COMA(Model):
         values = torch.stack(values, dim=1)
         return values
 
+    def td_lambda(rewards, last_step, done, next_values):
+        G_n = []
+        for n_step_ in range(1, args.n_step+1):
+            G_n.append((1-args.td_lambda)*args.td_lambda**(n_step_-1)*n_step(rewards, last_step, done, next_values, n_step_, self.args))
+        G_n = torch.stack(G_n, dim=0)
+        td_lambda_G_n = G_n.sum(dim=0)
+        return td_lambda_G_n
+
     def get_loss(self, batch):
         info = {}
         batch_size = len(batch.state)
@@ -127,7 +135,7 @@ class COMA(Model):
             next_values = torch.sum(next_values*next_actions, dim=-1)
         next_values = next_values.contiguous().view(-1, self.n_)
         assert values.size() == next_values.size()
-        returns = td_lambda(rewards, last_step, done, next_values, self.args)
+        returns = self.td_lambda(rewards, last_step, done, next_values)
         assert returns.size() == rewards.size()
         deltas = returns - values
         advantages = ( values - torch.sum(values_*torch.softmax(action_out, dim=-1), dim=-1) ).detach()

@@ -68,7 +68,7 @@ scenario_name = 'simple_spread'
 '''define the special property'''
 # sqddpgArgs = namedtuple('sqddpgArgs', ['sample_size'])
 aux_args = AuxArgs[model_name](1)
-alias = '_9_agents_2'
+alias = '_6_agents_5'
 
 '''load scenario from script'''
 scenario = scenario.load(scenario_name+".py").Scenario()
@@ -127,8 +127,8 @@ args = Args(model_name=model_name,
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
             init_std=0.1,
-            policy_lrate=1e-5,
-            value_lrate=1e-4,
+            policy_lrate=1e-4,
+            value_lrate=1e-3,
             max_steps=200,
             batch_size=32,
             gamma=0.9,
@@ -137,9 +137,9 @@ args = Args(model_name=model_name,
             entr_inc=0.0,
             action_num=np.max(env.get_input_shape_of_act()),
             q_func=True,
-            train_episodes_num=int(1e4),
+            train_episodes_num=int(2e4),
             replay=True,
-            replay_buffer_size=1e4,
+            replay_buffer_size=1e6,
             replay_warmup=0,
             cuda=True,
             grad_clip=True,
@@ -153,7 +153,7 @@ args = Args(model_name=model_name,
             epsilon_softmax=False,
             online=True,
             reward_record_type='episode_mean_step',
-            shared_parameters=True
+            shared_parameters=False
            )
 
 args = MergeArgs(*(args+aux_args))

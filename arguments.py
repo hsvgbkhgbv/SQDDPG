@@ -59,34 +59,16 @@ Strategy=dict(commnet='pg',
              )
 
 '''define the model name'''
-# model_name = 'commnet'
-# model_name = 'ic3net'
-# model_name = 'independent_commnet'
-# model_name = 'maddpg'
-# model_name = 'sqpg'
-# model_name = 'coma'
-# model_name = 'schednet'
-# model_name = 'gcddpg'
 model_name = 'sqddpg'
-# model_name = 'independent'
-# model_name = 'independent_ddpg'
+
 
 '''define the scenario name'''
 scenario_name = 'simple_spread'
-# scenario_name = 'simple'
 
 '''define the special property'''
-# commnetArgs = namedtuple( 'commnetArgs', ['skip_connection', 'comm_iters'] )
-# ic3netArgs = namedtuple( 'ic3netArgs', [] )
-# maddpgArgs = namedtuple( 'maddpgArgs', [] )
-# comaArgs = namedtuple( 'comaArgs', ['softmax_eps_init', 'softmax_eps_end', 'n_step', 'td_lambda'] )
-# schednetArgs = namedtuple( 'schednetArgs', ['schedule', 'k', 'l'] )
-# sqpgArgs = namedtuple('sqpgArgs', ['sample_size'])
-# gcddpgArgs = namedtuple( 'gcddpgArgs', ['sample_size'] )
-# independentArgs = namedtuple( 'independentArgs', [] )
-
+# sqddpgArgs = namedtuple('sqddpgArgs', ['sample_size'])
 aux_args = AuxArgs[model_name](1)
-alias = '_6_agents_8'
+alias = '_6_agents_5'
 
 '''load scenario from script'''
 scenario = scenario.load(scenario_name+".py").Scenario()
@@ -145,19 +127,19 @@ args = Args(model_name=model_name,
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
             init_std=0.1,
-            policy_lrate=1e-5,
-            value_lrate=1e-4,
+            policy_lrate=1e-4,
+            value_lrate=1e-3,
             max_steps=200,
             batch_size=32,
             gamma=0.9,
             normalize_advantages=False,
-            entr=1e-2,
+            entr=1e-3,
             entr_inc=0.0,
             action_num=np.max(env.get_input_shape_of_act()),
             q_func=True,
-            train_episodes_num=int(1e4),
+            train_episodes_num=int(2e4),
             replay=True,
-            replay_buffer_size=1e4,
+            replay_buffer_size=1e6,
             replay_warmup=0,
             cuda=True,
             grad_clip=True,
@@ -171,7 +153,7 @@ args = Args(model_name=model_name,
             epsilon_softmax=False,
             online=True,
             reward_record_type='episode_mean_step',
-            shared_parameters=True
+            shared_parameters=False
            )
 
 args = MergeArgs(*(args+aux_args))

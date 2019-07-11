@@ -69,7 +69,7 @@ scenario_name = 'simple_spread'
 # comaArgs = namedtuple( 'comaArgs', ['softmax_eps_init', 'softmax_eps_end', 'n_step', 'td_lambda'] )
 
 aux_args = AuxArgs[model_name](0.8, 0.2, 1, 0)
-alias = '_9_agents_1'
+alias = '_6_agents_1'
 
 '''load scenario from script'''
 scenario = scenario.load(scenario_name+".py").Scenario()
@@ -123,7 +123,7 @@ MergeArgs = namedtuple('MergeArgs', Args._fields+AuxArgs[model_name]._fields)
 # under offline trainer if set batch_size=replay_buffer_size=update_freq -> epoch update
 args = Args(model_name=model_name,
             agent_num=env.get_num_of_agents(),
-            hid_size=64,
+            hid_size=32,
             obs_size=np.max(env.get_shape_of_obs()),
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
@@ -140,7 +140,7 @@ args = Args(model_name=model_name,
             q_func=True,
             train_episodes_num=int(1e4),
             replay=True,
-            replay_buffer_size=1e4,
+            replay_buffer_size=1e6,
             replay_warmup=0,
             cuda=True,
             grad_clip=True,
@@ -154,7 +154,7 @@ args = Args(model_name=model_name,
             epsilon_softmax=True,
             online=False,
             reward_record_type='episode_mean_step',
-            shared_parameters=True
+            shared_parameters=False
            )
 
 args = MergeArgs(*(args+aux_args))
