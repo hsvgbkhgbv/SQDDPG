@@ -121,8 +121,14 @@ class SchedNet(Model):
         weight_action_out = self.weight_generator(state)
         q, v = self.value(state, weights.unsqueeze(-1))
         q_, _ = self.value(state, weight_action_out.unsqueeze(-1))
-        next_weight_action_out = self.target_net.weight_generator(next_state)
-        next_q, next_v = self.target_net.value(next_state, next_weight_action_out.unsqueeze(-1).detach())
+        if self.args.target:
+            next_weight_action_out = self.target_net.weight_generator(next_state)
+        else:
+            next_weight_action_out = self.weight_generator(next_state)
+        if self.args.target:
+            next_q, next_v = self.target_net.value(next_state, next_weight_action_out.unsqueeze(-1).detach())
+        else:
+            next_q, next_v = self.value(next_state, next_weight_action_out.unsqueeze(-1).detach())
         returns_q = cuda_wrapper(torch.zeros((batch_size, self.n_), dtype=torch.float), self.cuda_)
         returns_v = cuda_wrapper(torch.zeros((batch_size, self.n_), dtype=torch.float), self.cuda_)
         assert returns_v.size() == rewards.size()

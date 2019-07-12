@@ -8,14 +8,14 @@ from aux import *
 
 
 '''define the model name'''
-model_name = 'sqddpg'
+model_name = 'independent_ac'
 
 '''define the scenario name'''
 scenario_name = 'simple_tag'
 
 '''define the special property'''
-# sqddpgArgs = namedtuple( 'sqddpgArgs', ['sample_size'] )
-aux_args = AuxArgs[model_name](1)
+# independentArgs = namedtuple( 'independentArgs', [] )
+aux_args = AuxArgs[model_name]()
 alias = ''
 
 '''load scenario from script'''

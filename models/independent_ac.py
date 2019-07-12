@@ -6,10 +6,12 @@ from models.model import Model
 from collections import namedtuple
 from learning_algorithms.actor_critic import *
 
-class Independent(Model):
+
+
+class IndependentAC(Model):
 
     def __init__(self, args, target_net=None):
-        super(Independent, self).__init__(args)
+        super(IndependentAC, self).__init__(args)
         self.rl = ActorCritic(self.args)
         self.construct_model()
         self.apply(self.init_weights)
@@ -125,7 +127,7 @@ class Independent(Model):
             else:
                 raise RuntimeError('Please enter a correct reward record type, e.g. mean_step or episode_mean_step.')
             stat['mean_reward'] = trainer.mean_reward
-            stat['mean_success'] = trainer.mean_success 
+            stat['mean_success'] = trainer.mean_success
             if done_:
                 break
             state = next_state

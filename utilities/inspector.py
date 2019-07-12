@@ -12,7 +12,6 @@ def inspector(args):
         assert args.online is True
     elif args.model_name is 'commnet':
         assert args.replay is True
-        assert hasattr(args, 'comm_iters')
         assert args.comm_iters > 1
         assert args.q_func is False
         assert args.target is False
@@ -21,10 +20,10 @@ def inspector(args):
         assert args.epsilon_softmax is False
         assert args.behaviour_update_freq is args.replay_buffer_size
         assert args.replay_buffer_size is args.batch_size
+        assert hasattr(args, 'comm_iters')
         assert hasattr(args, 'skip_connection')
     elif args.model_name is 'independent_commnet':
         assert args.replay is True
-        assert hasattr(args, 'comm_iters')
         assert args.comm_iters == 1
         assert args.q_func is False
         assert args.target is False
@@ -33,6 +32,7 @@ def inspector(args):
         assert args.epsilon_softmax is False
         assert args.behaviour_update_freq is args.replay_buffer_size
         assert args.replay_buffer_size is args.batch_size
+        assert hasattr(args, 'comm_iters')
         assert hasattr(args, 'skip_connection')
     elif args.model_name is 'ic3net':
         assert args.replay is True
@@ -65,3 +65,27 @@ def inspector(args):
         assert hasattr(args, 'schedule')
         assert hasattr(args, 'k')
         assert hasattr(args, 'l')
+    elif args.model_name is 'independent_ac':
+        assert args.replay is True
+        assert args.q_func is True
+        assert args.target is True
+        assert args.online is True
+        assert args.gumbel_softmax is False
+        assert args.epsilon_softmax is False
+    elif args.model_name is 'independent_ddpg':
+        assert args.replay is True
+        assert args.q_func is True
+        assert args.target is True
+        assert args.online is True
+        assert args.gumbel_softmax is True
+        assert args.epsilon_softmax is False
+    elif args.model_name is 'sqddpg':
+        assert args.replay is True
+        assert args.q_func is True
+        assert args.target is True
+        assert args.gumbel_softmax is True
+        assert args.epsilon_softmax is False
+        assert args.online is True
+        assert hasattr(args, 'sample_size')
+    else:
+        raise NotImplementedError('The model is not added!')

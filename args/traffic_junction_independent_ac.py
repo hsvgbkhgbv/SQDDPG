@@ -1,31 +1,24 @@
 from collections import namedtuple
-from multiagent.environment import MultiAgentEnv
-import multiagent.scenarios as scenario
 from utilities.gym_wrapper import *
 import numpy as np
 from aux import *
+from environments.traffic_junction_env import TrafficJunctionEnv
 
 
 
 '''define the model name'''
-model_name = 'sqddpg'
-
-'''define the scenario name'''
-scenario_name = 'simple_tag'
+model_name = 'independent_ac'
 
 '''define the special property'''
-# sqddpgArgs = namedtuple( 'sqddpgArgs', ['sample_size'] )
-aux_args = AuxArgs[model_name](1)
-alias = ''
+# independentArgs = namedtuple( 'independentArgs', [] )
+aux_args = AuxArgs[model_name]()
+alias = '_medium'
 
-'''load scenario from script'''
-scenario = scenario.load(scenario_name+".py").Scenario()
+'''define the scenario name'''
+scenario_name = 'traffic_junction'
 
-'''create world'''
-world = scenario.make_world()
-
-'''create multiagent environment'''
-env = MultiAgentEnv(world, scenario.reset_world, scenario.reward, scenario.observation, info_callback=None, shared_viewer=True,done_callback=scenario.episode_over)
+'''define the environment'''
+env = TrafficJunctionEnv()
 env = GymWrapper(env)
 
 MergeArgs = namedtuple('MergeArgs', Args._fields+AuxArgs[model_name]._fields)
@@ -40,27 +33,27 @@ args = Args(model_name=model_name,
             init_std=0.1,
             policy_lrate=1e-4,
             value_lrate=1e-3,
-            max_steps=200,
-            batch_size=128,
+            max_steps=50,
+            batch_size=64,
             gamma=0.99,
             normalize_advantages=False,
-            entr=1e-3,
+            entr=1e-4,
             entr_inc=0.0,
             action_num=np.max(env.get_input_shape_of_act()),
             q_func=True,
-            train_episodes_num=int(4e3),
+            train_episodes_num=int(5e3),
             replay=True,
-            replay_buffer_size=1e4,
+            replay_buffer_size=100,
             replay_warmup=0,
             cuda=True,
             grad_clip=True,
-            save_model_freq=10,
+            save_model_freq=100,
             target=True,
-            target_lr=1e-1,
-            behaviour_update_freq=100,
+            target_lr=1.0,
+            behaviour_update_freq=25,
             critic_update_times=10,
-            target_update_freq=200,
-            gumbel_softmax=True,
+            target_update_freq=50,
+            gumbel_softmax=False,
             epsilon_softmax=False,
             online=True,
             reward_record_type='episode_mean_step',

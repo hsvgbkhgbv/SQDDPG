@@ -8,7 +8,7 @@ parser = argparse.ArgumentParser(description='Test rl agent.')
 parser.add_argument('--save-model-dir', type=str, nargs='?', default='./model_save/', help='Please input the directory of saving model.')
 parser.add_argument('--render', action='store_true', help='Please input the flag to control the render.')
 parser.add_argument('--episodes', type=int, default=10, help='Please input the number of test episodes')
-# parser.add_argument('--strategy', type=str, nargs='?', default='pg', help='Please input the strategy of learning, such as pg or q.')
+
 argv = parser.parse_args()
 
 model = Model[model_name]
@@ -20,7 +20,7 @@ if argv.save_model_dir[-1] is '/':
 else:
     save_path = argv.save_model_dir+'/'
 
-PATH=save_path + log_name + '/model.pt'
+PATH = save_path + log_name + '/model.pt'
 
 if args.target:
     target_net = model(args)
@@ -39,5 +39,5 @@ else:
     raise RuntimeError('Please input the correct strategy, e.g. pg or q.')
 
 print(args)
-test.run_game(argv.episodes, render=argv.render)
+test.run_game(episodes=argv.episodes, render=argv.render)
 test.print_info()

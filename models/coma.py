@@ -109,10 +109,14 @@ class COMA(Model):
         values = torch.stack(values, dim=1)
         return values
 
-    def td_lambda(rewards, last_step, done, next_values):
+    def td_lambda(self, rewards, last_step, done, next_values):
+        '''
+        This td_lambda is implemented according to the paper:
+        https://www.cs.ox.ac.uk/people/shimon.whiteson/pubs/foersteraaai18.pdf
+        '''
         G_n = []
-        for n_step_ in range(1, args.n_step+1):
-            G_n.append((1-args.td_lambda)*args.td_lambda**(n_step_-1)*n_step(rewards, last_step, done, next_values, n_step_, self.args))
+        for n_step_ in range(1, self.args.n_step+1):
+            G_n.append((1-self.args.td_lambda)*self.args.td_lambda**(n_step_-1)*n_step(rewards, last_step, done, next_values, n_step_, self.args))
         G_n = torch.stack(G_n, dim=0)
         td_lambda_G_n = G_n.sum(dim=0)
         return td_lambda_G_n
@@ -126,11 +130,15 @@ class COMA(Model):
         if self.args.q_func:
             values = torch.sum(values_*actions, dim=-1)
         values = values.contiguous().view(-1, self.n_)
-        # next_action_out = self.target_net.policy(next_state, last_act=actions, last_hid=hidden_state, info=info)
-        next_action_out = self.policy(next_state, last_act=actions, last_hid=hidden_state, info=info)
+        if self.args.target:
+            next_action_out = self.target_net.policy(next_state, last_act=actions, last_hid=hidden_state, info=info)
+        else:
+            next_action_out = self.policy(next_state, last_act=actions, last_hid=hidden_state, info=info)
         next_actions = select_action(self.args, next_action_out, status='train', info=info, exploration=False)
-        # next_values = self.target_net.value(next_state, next_actions)
-        next_values = self.value(next_state, next_actions)
+        if self.args.target:
+            next_values = self.target_net.value(next_state, next_actions)
+        else:
+            next_values = self.value(next_state, next_actions)
         if self.args.q_func:
             next_values = torch.sum(next_values*next_actions, dim=-1)
         next_values = next_values.contiguous().view(-1, self.n_)
@@ -209,7 +217,7 @@ class COMA(Model):
             state = next_state
         stat['turn'] = t+1
         stat['mean_reward'] = trainer.mean_reward
-        stat['mean_success'] = trainer.mean_success 
+        stat['mean_success'] = trainer.mean_success
         trainer.episodes += 1
         if self.args.epsilon_softmax:
             self.update_eps()

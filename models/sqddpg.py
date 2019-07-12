@@ -122,9 +122,15 @@ class SQDDPG(Model):
         # do the exploration action on the value loss
         shapley_values_sum = self.marginal_contribution(state, actions).mean(dim=1).contiguous().view(-1, n).sum(dim=-1, keepdim=True).expand(batch_size, self.n_)
         # do the argmax action on the next value loss
-        next_action_out = self.target_net.policy(next_state)
+        if self.args.target:
+            next_action_out = self.target_net.policy(next_state)
+        else:
+            next_action_out = self.policy(next_state)
         next_actions_ = select_action(self.args, next_action_out, status='train', exploration=False)
-        next_shapley_values_sum = self.target_net.marginal_contribution(next_state, next_actions_.detach()).mean(dim=1).contiguous().view(-1, n).sum(dim=-1, keepdim=True).expand(batch_size, self.n_)
+        if self.args.target:
+            next_shapley_values_sum = self.target_net.marginal_contribution(next_state, next_actions_.detach()).mean(dim=1).contiguous().view(-1, n).sum(dim=-1, keepdim=True).expand(batch_size, self.n_)
+        else:
+            next_shapley_values_sum = self.marginal_contribution(next_state, next_actions_.detach()).mean(dim=1).contiguous().view(-1, n).sum(dim=-1, keepdim=True).expand(batch_size, self.n_)
         returns = cuda_wrapper(torch.zeros((batch_size, n), dtype=torch.float), self.cuda_)
         assert shapley_values_sum.size() == next_shapley_values_sum.size()
         assert returns.size() == shapley_values_sum.size()
@@ -179,9 +185,9 @@ class SQDDPG(Model):
             else:
                 raise RuntimeError('Please enter a correct reward record type, e.g. mean_step or episode_mean_step.')
             stat['mean_reward'] = trainer.mean_reward
-            stat['mean_success'] = trainer.mean_success 
+            stat['mean_success'] = trainer.mean_success
             if done_:
                 break
             state = next_state
-        stat['turn'] = t+1 
+        stat['turn'] = t+1
         trainer.episodes += 1
