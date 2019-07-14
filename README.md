@@ -51,7 +51,7 @@ About testing, we provide a Python function called `test.py` which includes seve
 ```
 
 ## Extension
-This framework is easily to be extended by adding extra environments implemented in OpenAI Gym or new multi-agent algorithms implemented in Pytroch. To add extra algorithms, it just needs to follow the template of the base class `models/model.py` and implement the functions such that
+This framework is easily to be extended by adding extra environments implemented in OpenAI Gym or new multi-agent algorithms implemented in Pytroch. To add extra algorithms, it just needs to inherit the base class `models/model.py` and implement the functions such that
 ```python
 construct_model(self)
 policy(self, obs, last_act=None, last_hid=None, gate=None, info={}, stat={})
