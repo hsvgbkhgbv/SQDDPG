@@ -51,7 +51,7 @@ About testing, we provide a Python function called `test.py` which includes seve
 ```
 
 ## Extension
-This framework is easily to be extended by adding extra environments implemented in OpenAI Gym or new multi-agent algorithms implemented in Pytroch. To add extra algorithms, it just needs to inherit the base class `models/model.py` and implement the functions such that
+This framework is easily to be extended by adding extra environments implemented in OpenAI Gym or new multi-agent algorithms implemented in Pytorch. To add extra algorithms, it just needs to inherit the base class `models/model.py` and implement the functions such that
 ```python
 construct_model(self)
 policy(self, obs, last_act=None, last_hid=None, gate=None, info={}, stat={})
@@ -60,4 +60,44 @@ construct_policy_net(self)
 construct_value_net(self)
 get_loss(self)
 ```
+
+After implementing the class of your own methods, it needs to register your algorithm by the file `aux.py`. For example, if the algorithm is called schednet and the corresponding class is called `SchedNet`, then the process of registeration is shown as below
+```python
+schednetArgs = namedtuple( 'schednetArgs', ['schedule', 'k', 'l'] ) # define the exclusive hyperparameters of this algorithm
+Model = dict(...,
+             ...,
+             ...,
+             ...,
+             schednet=SchedNet
+            ) # register the handle of the corresponding class of this algorithm
+AuxArgs = dict(...,
+               ...,
+               ...,
+               ...,
+               schednet=schednetArgs
+              ) # register the exclusive args of this algorithm
+Strategy=dict(...,
+              ...,
+              ...,
+              ...,
+              schednet='pg',
+             ) # register the training strategy of this algorithm, e.g., 'pg' or 'q'
+```
+
+Moreover, it is optional to define a restriction for your algorithm to avoid mis-defined hyperparameters in `utilities/inspector.py` such that
+```python
+if ...:
+  ... ...
+elif args.model_name is 'schednet':
+      assert args.replay is True
+      assert args.q_func is True
+      assert args.target is True
+      assert args.online is True
+      assert args.gumbel_softmax is False
+      assert args.epsilon_softmax is False
+      assert hasattr(args, 'schedule')
+      assert hasattr(args, 'k')
+      assert hasattr(args, 'l')
+```
+
 Temporarily, this framework only supports the policy based methods. The functionality of value based method is under test and will be available soon.
