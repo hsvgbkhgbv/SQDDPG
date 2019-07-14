@@ -36,11 +36,16 @@ CUDA_VISIBLE_DEVICES=0 python -u train.py > $EXP_NAME$ALIAS.out &
 echo $! > $EXP_NAME$ALIAS.pid
 ```
 
-If necessary, we can also edit the variable `ALIAS` to ease the experiments with different hyperparameters.
+If necessary, we can also edit the variable `ALIAS` to ease the experiments with different hyperparameters and ``.
 Now, we only need to run the code such that
 ```bash
 source train.sh
 ```
 
 ### Testing
-
+About testing, we provide a Python function called `test.py` which includes several arguments such that
+```bash
+--save-model-dir # the path to save the trained model
+--render # whether the visualization is needed
+--episodes # the number of episodes needed to run the test
+```
