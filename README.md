@@ -1,7 +1,7 @@
 # Rethink Global Reward Game and Credit Assignment in Multi-agent Reinforcement Learning
 
 ## Dependencies
-This project implements the algorithm of Shapley Q-value policy gradient (SQPG) and demonstrates the experiments in comparison with Independent DDPG, Independent Actor-critic, MADDPG and COMA mentioned in the paper:  
+This project implements the algorithm of Shapley Q-value policy gradient (SQPG) mentioned in the paper: and demonstrates the experiments in comparison with Independent DDPG, Independent Actor-critic, MADDPG and COMA.  
 
 The code is running on Ubuntu 18.04 with Python (3.5.4) and Pytorch (1.0).
 
