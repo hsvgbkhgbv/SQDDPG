@@ -88,8 +88,8 @@ Strategy=dict(...,
 
 Moreover, it is optional to define a restriction for your algorithm to avoid mis-defined hyperparameters in `utilities/inspector.py` such that
 ```python
-if ...:
-  ... ...
+if ... ...:
+   ... ... ... ...
 elif args.model_name is 'schednet':
       assert args.replay is True
       assert args.q_func is True
