@@ -80,7 +80,7 @@ Strategy=dict(...,
               ...,
               ...,
               ...,
-              schednet='pg',
+              schednet='pg'
              ) # register the training strategy of this algorithm, e.g., 'pg' or 'q'
 ```
 
@@ -99,5 +99,7 @@ elif args.model_name is 'schednet':
       assert hasattr(args, 'k')
       assert hasattr(args, 'l')
 ```
+
+Finally, you can additionally add auxilliary functions in directory `utilities`.
 
 Temporarily, this framework only supports the policy based methods. The functionality of value based method is under test and will be available soon.
