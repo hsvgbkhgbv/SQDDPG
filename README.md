@@ -60,4 +60,4 @@ construct_policy_net(self)
 construct_value_net(self)
 get_loss(self)
 ```
-Temporarily, this framework only supports for the policy based methods. The functionality of value based method is under test and will be available soon.
+Temporarily, this framework only supports the policy based methods. The functionality of value based method is under test and will be available soon.
