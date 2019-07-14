@@ -49,3 +49,14 @@ About testing, we provide a Python function called `test.py` which includes seve
 --render # whether the visualization is needed
 --episodes # the number of episodes needed to run the test
 ```
+
+## Extension
+This framework is easily to be extended by adding extra environments implemented in OpenAI Gym or new multi-agent algorithms implemented in Pytroch. To add extra algorithms, it just needs to follow the template of the base class `models/model.py` and implement the functions such that
+```python
+construct_model(self)
+policy(self, obs, last_act=None, last_hid=None, gate=None, info={}, stat={})
+value(self, obs, act)
+construct_policy_net(self)
+construct_value_net(self)
+get_loss(self)
+```
