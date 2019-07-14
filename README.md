@@ -15,7 +15,7 @@ pip install -e .
 
 Now, the dependencies for running the code are installed.
 
-## Running Code
+## Running Code for Experiments
 The experiments on Cooperative Navigation and Prey-and-Predator mentioned in the paper are based on the environments from https://github.com/openai/multiagent-particle-envs, i.e., simple_spread and simple_tag. For convenience, we merge this repository to our framework with slight modifications on the scenario simple-tag.
 
 About the experiment on Traffic Junction, the environment is from https://github.com/IC3Net/IC3Net/tree/master/ic3net-envs/ic3net_envs. To ease the life, we also add it to our framework.
@@ -49,6 +49,8 @@ About testing, we provide a Python function called `test.py` which includes seve
 --render # whether the visualization is needed
 --episodes # the number of episodes needed to run the test
 ```
+
+### Experimental Results
 
 ## Extension
 This framework is easily to be extended by adding extra environments implemented in OpenAI Gym or new multi-agent algorithms implemented in Pytorch. To add extra algorithms, it just needs to inherit the base class `models/model.py` and implement the functions such that
