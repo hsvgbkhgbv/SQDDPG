@@ -20,7 +20,8 @@ The experiments on Cooperative Navigation and Prey-and-Predator mentioned in the
 
 About the experiment on Traffic Junction, the environment is from https://github.com/IC3Net/IC3Net/tree/master/ic3net-envs/ic3net_envs. To ease the life, we also add it to our framework.
 
-To easily run the code for training and testing, we provide argument files for each experiment with variant methods and bash script to execute the experiment with different arguments.
+### Training
+To easily run the code for training, we provide argument files for each experiment with variant methods under the directory `args` and bash script to execute the experiment with different arguments.
 
 For example, if we would like to run the experiment of simple_tag with the algorithm SQPG, we can edit the file `simple_tag_sqddpg.py` to change the hyperparameters. Then, we can edit `train.sh` to change the variable `EXP_NAME` to `"simple_tag_sqddpg"` such that
 ```bash
@@ -36,3 +37,10 @@ echo $! > $EXP_NAME$ALIAS.pid
 ```
 
 If necessary, we can also edit the variable `ALIAS` to ease the experiments with different hyperparameters.
+Now, we only need to run the code such that
+```bash
+source train.sh
+```
+
+### Testing
+
