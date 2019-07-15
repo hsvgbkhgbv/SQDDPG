@@ -36,8 +36,8 @@ CUDA_VISIBLE_DEVICES=0 python -u train.py > $EXP_NAME$ALIAS.out &
 echo $! > $EXP_NAME$ALIAS.pid
 ```
 
-If necessary, we can also edit the variable `ALIAS` to ease the experiments with different hyperparameters and ``.
-Now, we only need to run the code such that
+If necessary, we can also edit the variable `ALIAS` to ease the experiments with different hyperparameters.
+Now, we only need to run the experiment by the bash script such that
 ```bash
 source train.sh
 ```
