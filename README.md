@@ -106,3 +106,23 @@ elif args.model_name is 'schednet':
 Finally, you can additionally add auxilliary functions in directory `utilities`.
 
 Temporarily, this framework only supports the policy gradient methods. The functionality of value based method is under test and will be available soon.
+
+## Citation
+If you use the framework or part of the work in the paper, please cite:
+```
+@ARTICLE{2019arXiv190705707W,
+       author = {{Wang}, Jianhong and {Zhang}, Yuan and {Kim}, Tae-Kyun and {Gu}, Yunjie},
+        title = "{Rethink Global Reward Game and Credit Assignment in Multi-agent Reinforcement Learning}",
+      journal = {arXiv e-prints},
+     keywords = {Computer Science - Machine Learning, Computer Science - Artificial Intelligence, Computer Science - Multiagent Systems},
+         year = "2019",
+        month = "Jul",
+          eid = {arXiv:1907.05707},
+        pages = {arXiv:1907.05707},
+archivePrefix = {arXiv},
+       eprint = {1907.05707},
+ primaryClass = {cs.LG},
+       adsurl = {https://ui.adsabs.harvard.edu/abs/2019arXiv190705707W},
+      adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
+```
