@@ -7,7 +7,7 @@ The code is running on Ubuntu 18.04 with Python (3.5.4) and Pytorch (1.0).
 
 The suggestion is installing Anaconda 3 with Python (3.5.4): https://www.anaconda.com/download/.
 To enable the experimantal environments, please install OpenAI Gym (0.10.5) and Numpy (1.14.5).
-To use Tensorboard to monitor the training process, please install Tensorflow (1.14).  
+To use Tensorboard to monitor the training process, please install Tensorflow (r1.14).  
 After installing the related dependencies mentioned above, open the terminal and execute the following bash script:
 ```bash
 cd multi-agent-rl/environments/multiagent_particle_envs/
