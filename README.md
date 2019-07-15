@@ -51,7 +51,7 @@ About testing, we provide a Python function called `test.py` which includes seve
 ```
 
 ### Experimental Results
-See the paper: https://arxiv.org/abs/1907.05707
+See the paper: https://arxiv.org/abs/1907.05707.
 
 ## Extension
 This framework is easily to be extended by adding extra environments implemented in OpenAI Gym or new multi-agent algorithms implemented in Pytorch. To add extra algorithms, it just needs to inherit the base class `models/model.py` and implement the functions such that
