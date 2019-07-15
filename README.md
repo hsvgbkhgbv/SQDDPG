@@ -23,7 +23,7 @@ About the experiment on Traffic Junction, the environment is from https://github
 ### Training
 To easily run the code for training, we provide argument files for each experiment with variant methods under the directory `args` and bash script to execute the experiment with different arguments.
 
-For example, if we would like to run the experiment of simple_tag with the algorithm SQPG, we can edit the file `simple_tag_sqddpg.py` to change the hyperparameters. Then, we can edit `train.sh` to change the variable `EXP_NAME` to `"simple_tag_sqddpg"` and the variable `CUDA_VISIBLE_DEVICES` to the alias of GPU you'd like to use, e.g. 0 here such that
+For example, if we would like to run the experiment of simple_tag with the algorithm SQPG, we can edit the file `simple_tag_sqddpg.py` to change the hyperparameters. Then, we can edit `train.sh` to change the variable `EXP_NAME` to `"simple_tag_sqddpg"` and the variable `CUDA_VISIBLE_DEVICES` to the alias of the GPU you'd like to use, e.g. 0 here such that
 ```bash
 # !/bin/bash
 # sh train.sh
