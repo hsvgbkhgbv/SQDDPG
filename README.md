@@ -105,4 +105,4 @@ elif args.model_name is 'schednet':
 
 Finally, you can additionally add auxilliary functions in directory `utilities`.
 
-Temporarily, this framework only supports the policy based methods. The functionality of value based method is under test and will be available soon.
+Temporarily, this framework only supports the policy gradient methods. The functionality of value based method is under test and will be available soon.
