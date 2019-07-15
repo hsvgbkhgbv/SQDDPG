@@ -108,7 +108,7 @@ Finally, you can additionally add auxilliary functions in directory `utilities`.
 Temporarily, this framework only supports the policy gradient methods. The functionality of value based method is under test and will be available soon.
 
 ## Citation
-If you use the framework or part of the work in the paper, please cite:
+If you use the framework or part of the work mentioned in the paper, please cite:
 ```
 @ARTICLE{2019arXiv190705707W,
        author = {{Wang}, Jianhong and {Zhang}, Yuan and {Kim}, Tae-Kyun and {Gu}, Yunjie},
