@@ -27,14 +27,15 @@ class CityFlowEnv(gym.Env):
         self.coef = 0.1
         
         # easy version
-        config_path = '/home/CityFlow/conf/.json'
-        roadnet_path = ''
+        config_path = '/home/multi-agent-rl/environments/cityflow/CityFlow/exp/config_1x3.json'
+        roadnet_path = '/home/multi-agent-rl/environments/cityflow/CityFlow/exp/roadnet_1x3.json'
         
-        self.engine = cityflow.Engine(config_path)
+        self.eng = cityflow.Engine(config_path)
         self.lane_phase_info_dict = parse_roadnet(roadnet_path)
 
-        self.intersection_list = self.lane_phase_info_dict.keys()
+        self.intersection_list = list(self.lane_phase_info_dict.keys())
         self.n = len(self.intersection_list) # number of intersections
+
         self.naction = len(self.lane_phase_info_dict[self.intersection_list[0]]["phase"])
         self.obs_dim = len(self.lane_phase_info_dict[self.intersection_list[0]]['start_lane']) + 1
         
@@ -46,7 +47,7 @@ class CityFlowEnv(gym.Env):
         self.observation_space = []
         for agent_id in range(self.n):
             self.action_space.append(spaces.Discrete(self.naction))
-            self.observation_space.append(spaces.Box)
+            self.observation_space.append(spaces.Box(low=0, high=100, shape=(self.obs_dim,),dtype=int))
         return
 
 
@@ -56,7 +57,7 @@ class CityFlowEnv(gym.Env):
             intersection_id = self.intersection_list[i]
             phase_id = np.argmax(action)
             # take action 
-            self.eng.set_tl_phase(ntersection_id, phase_id)
+            self.eng.set_tl_phase(intersection_id, phase_id)
             self.current_phase[intersection_id] = phase_id
 
         self.eng.next_step()
@@ -90,7 +91,7 @@ class CityFlowEnv(gym.Env):
 
 
     def _get_reward(self):
-        mean_speed = np.mean(self.eng.get_vehicle_speed().values())                                        
+        mean_speed = np.mean(list(self.eng.get_vehicle_speed().values()))                                        
         mean_reward = mean_speed * self.coef                                                                          
         return [mean_reward] * self.n                                          
 
