@@ -5,19 +5,18 @@ from aux import *
 from environments.cityflow.cityflow_env import CityFlowEnv
 
 
-
 '''define the model name'''
-model_name = 'sqddpg'
+model_name = 'coma'
 
 '''define the scenario name'''
 scenario_name = 'cityflow'
 
 '''define the special property'''
-# sqddpgArgs = namedtuple( 'sqddpgArgs', ['sample_size'] )
-aux_args = AuxArgs[model_name](1)
+# comaArgs = namedtuple( 'comaArgs', ['softmax_eps_init', 'softmax_eps_end', 'n_step', 'td_lambda'] ) # (bool, float, float, int, float)
+aux_args = AuxArgs[model_name](0.5,0.02,1,0.0) # coma
 alias = ''
 
-
+'''create multiagent environment'''
 env = CityFlowEnv()
 env = GymWrapper(env)
 
@@ -34,16 +33,16 @@ args = Args(model_name=model_name,
             policy_lrate=1e-4,
             value_lrate=1e-3,
             max_steps=1000,
-            batch_size=128,
+            batch_size=1,
             gamma=0.99,
             normalize_advantages=False,
-            entr=1e-2, # 1e-2
+            entr=1e-3,
             entr_inc=0.0,
             action_num=np.max(env.get_input_shape_of_act()),
             q_func=True,
             train_episodes_num=int(5e3),
             replay=True,
-            replay_buffer_size=1e4,
+            replay_buffer_size=1e3,
             replay_warmup=0,
             cuda=False,
             grad_clip=True,
@@ -53,9 +52,9 @@ args = Args(model_name=model_name,
             behaviour_update_freq=100,
             critic_update_times=10,
             target_update_freq=200,
-            gumbel_softmax=True,
-            epsilon_softmax=False,
-            online=True,
+            gumbel_softmax=False,
+            epsilon_softmax=True,
+            online=False,
             reward_record_type='episode_mean_step',
             shared_parameters=False
            )

@@ -7,16 +7,15 @@ from environments.cityflow.cityflow_env import CityFlowEnv
 
 
 '''define the model name'''
-model_name = 'sqddpg'
+model_name = 'maddpg'
 
 '''define the scenario name'''
 scenario_name = 'cityflow'
 
 '''define the special property'''
-# sqddpgArgs = namedtuple( 'sqddpgArgs', ['sample_size'] )
-aux_args = AuxArgs[model_name](1)
+# maddpgArgs = namedtuple( 'maddpgArgs', [] )
+aux_args = AuxArgs[model_name]()
 alias = ''
-
 
 env = CityFlowEnv()
 env = GymWrapper(env)
@@ -37,7 +36,7 @@ args = Args(model_name=model_name,
             batch_size=128,
             gamma=0.99,
             normalize_advantages=False,
-            entr=1e-2, # 1e-2
+            entr=1e-3,
             entr_inc=0.0,
             action_num=np.max(env.get_input_shape_of_act()),
             q_func=True,

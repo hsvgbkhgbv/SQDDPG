@@ -38,6 +38,7 @@ class CityFlowEnv(gym.Env):
 
         self.naction = len(self.lane_phase_info_dict[self.intersection_list[0]]["phase"])
         self.obs_dim = len(self.lane_phase_info_dict[self.intersection_list[0]]['start_lane']) + 1
+        # self.obs_dim = len(2 * self.lane_phase_info_dict[self.intersection_list[0]]['start_lane']) + 1
         
         # initialize previous action
         self.current_phase = {intersection_id:0  for intersection_id in self.intersection_list}
@@ -55,7 +56,9 @@ class CityFlowEnv(gym.Env):
 
         for i, action in enumerate(actions):
             intersection_id = self.intersection_list[i]
-            phase_id = np.argmax(action)
+            phase_id = self.lane_phase_info_dict[intersection_id]["phase"][np.argmax(action)]
+            # print(intersection_id, phase_id)
+            
             # take action 
             self.eng.set_tl_phase(intersection_id, phase_id)
             self.current_phase[intersection_id] = phase_id
@@ -78,21 +81,28 @@ class CityFlowEnv(gym.Env):
 #         state['lane_vehicles'] = self.eng.get_lane_vehicles()  # {lane_id: [vehicle1_id, vehicle2_id, ...], ...}
 #         state['vehicle_speed'] = self.eng.get_vehicle_speed()  # {vehicle_id: vehicle_speed, ...}
 #         state['vehicle_distance'] = self.eng.get_vehicle_distance() # {vehicle_id: distance, ...}
+
+        lane_vehicle_count = self.eng.get_lane_vehicle_count()
         
         observations = []
         for intersection_id in self.intersection_list:     
             start_lane = self.lane_phase_info_dict[intersection_id]['start_lane']
+            end_lane = self.lane_phase_info_dict[intersection_id]['end_lane']
             state = {}
             state['current_phase'] = self.current_phase[intersection_id]
-            state['start_lane_vehicle_count'] = {lane: self.eng.get_lane_vehicle_count()[lane] for lane in start_lane}
+            state['start_lane_vehicle_count'] = {lane:lane_vehicle_count[lane] for lane in start_lane}
+            state['end_lane_vehicle_count'] = {lane:lane_vehicle_count[lane] for lane in end_lane}
             observations.append(np.array(list(state['start_lane_vehicle_count'].values()) + [state['current_phase']]))
+            # observations.append(np.array(list(state['start_lane_vehicle_count'].values()) + list(state['end_lane_vehicle_count'].values())+ [state['current_phase']]))
+        # print(observations)
                             
         return observations
 
 
     def _get_reward(self):
-        mean_speed = np.mean(list(self.eng.get_vehicle_speed().values()))                                        
-        mean_reward = mean_speed * self.coef                                                                          
+        # reward 1: total number of waiting vehicles
+        lane_waiting_vehicle_count = self.eng.get_lane_waiting_vehicle_count()
+        mean_reward = -1 * np.sum(list(lane_waiting_vehicle_count.values()))
         return [mean_reward] * self.n                                          
 
                                                         
@@ -130,7 +140,7 @@ def parse_roadnet(roadnetFile):
         lane_phase_info_dict[intersection['id']]["start_lane"] = sorted(list(set(start_lane)))
         lane_phase_info_dict[intersection['id']]["end_lane"] = sorted(list(set(end_lane)))
 
-        for phase_i in range(len(intersection["trafficLight"]["lightphases"])):
+        for phase_i in range(1, len(intersection["trafficLight"]["lightphases"])):
             p = intersection["trafficLight"]["lightphases"][phase_i]
             lane_pair = []
             start_lane = []
@@ -141,4 +151,5 @@ def parse_roadnet(roadnetFile):
             lane_phase_info_dict[intersection['id']]["phase"].append(phase_i)
             lane_phase_info_dict[intersection['id']]["phase_startLane_mapping"][phase_i] = start_lane
             lane_phase_info_dict[intersection['id']]["phase_roadLink_mapping"][phase_i] = lane_pair
+
     return lane_phase_info_dict
