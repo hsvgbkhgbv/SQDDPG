@@ -18,13 +18,14 @@ import os
 import json
 
 
+PHASE_DURATION = 5 # least time(s) for a phase to hold
+
 class CityFlowEnv(gym.Env):
     # metadata = {'render.modes': ['human']}
 
     def __init__(self,):
 
         self.episode_over = False
-        self.coef = 0.1
         
         # easy version
         config_path = '/home/multi-agent-rl/environments/cityflow/CityFlow/exp/config_1x3.json'
@@ -37,11 +38,9 @@ class CityFlowEnv(gym.Env):
         self.n = len(self.intersection_list) # number of intersections
 
         self.naction = len(self.lane_phase_info_dict[self.intersection_list[0]]["phase"])
-        self.obs_dim = len(self.lane_phase_info_dict[self.intersection_list[0]]['start_lane']) + 1
-        # self.obs_dim = len(2 * self.lane_phase_info_dict[self.intersection_list[0]]['start_lane']) + 1
+        # self.obs_dim = len(self.lane_phase_info_dict[self.intersection_list[0]]['start_lane']) + 1
+        self.obs_dim = len(2 * self.lane_phase_info_dict[self.intersection_list[0]]['start_lane']) + 1
         
-        # initialize previous action
-        self.current_phase = {intersection_id:0  for intersection_id in self.intersection_list}
         
         # gym like environment
         self.action_space = []
@@ -60,16 +59,26 @@ class CityFlowEnv(gym.Env):
             # print(intersection_id, phase_id)
             
             # take action 
-            self.eng.set_tl_phase(intersection_id, phase_id)
-            self.current_phase[intersection_id] = phase_id
-
-        self.eng.next_step()
+            if self.current_phase[intersection_id] == 0:
+                self.eng.set_tl_phase(intersection_id, phase_id)
+                self.current_phase[intersection_id] = phase_id
+            elif self.current_phase[intersection_id] == phase_id:
+                pass
+            else: # force yellow when switching
+                self.eng.set_tl_phase(intersection_id, 0)
+                self.current_phase[intersection_id] = 0 
+        
+        for  _ in range(PHASE_DURATION):
+            self.eng.next_step()
         
         debug = {}
         return self._get_obs(),  self._get_reward(), self.episode_over, debug
         
         
     def reset(self):
+        # initialize previous action
+        self.current_phase = {intersection_id:0  for intersection_id in self.intersection_list}
+        # initialize environment
         self.eng.reset()
         return self._get_obs()
         
@@ -92,8 +101,8 @@ class CityFlowEnv(gym.Env):
             state['current_phase'] = self.current_phase[intersection_id]
             state['start_lane_vehicle_count'] = {lane:lane_vehicle_count[lane] for lane in start_lane}
             state['end_lane_vehicle_count'] = {lane:lane_vehicle_count[lane] for lane in end_lane}
-            observations.append(np.array(list(state['start_lane_vehicle_count'].values()) + [state['current_phase']]))
-            # observations.append(np.array(list(state['start_lane_vehicle_count'].values()) + list(state['end_lane_vehicle_count'].values())+ [state['current_phase']]))
+            # observations.append(np.array(list(state['start_lane_vehicle_count'].values()) + [state['current_phase']]))
+            observations.append(np.array(list(state['start_lane_vehicle_count'].values()) + list(state['end_lane_vehicle_count'].values())+ [state['current_phase']]))
         # print(observations)
                             
         return observations
@@ -103,6 +112,7 @@ class CityFlowEnv(gym.Env):
         # reward 1: total number of waiting vehicles
         lane_waiting_vehicle_count = self.eng.get_lane_waiting_vehicle_count()
         mean_reward = -1 * np.sum(list(lane_waiting_vehicle_count.values()))
+        # reward 2: end lane vehicles  - start lane vehicles
         return [mean_reward] * self.n                                          
 
                                                         

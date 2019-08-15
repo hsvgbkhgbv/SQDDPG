@@ -33,11 +33,11 @@ args = Args(model_name=model_name,
             init_std=0.1,
             policy_lrate=1e-4,
             value_lrate=1e-3,
-            max_steps=1000,
+            max_steps=200,
             batch_size=128,
             gamma=0.99,
             normalize_advantages=False,
-            entr=1e-2, # 1e-2
+            entr=1e-1, # 1e-2
             entr_inc=0.0,
             action_num=np.max(env.get_input_shape_of_act()),
             q_func=True,
