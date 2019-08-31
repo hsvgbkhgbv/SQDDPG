@@ -5,15 +5,14 @@ import time
 import signal
 import sys
 
-
-
 class PGTester(object):
 
-    def __init__(self, env, behaviour_net, args):
+    def __init__(self, env, behaviour_net, info_collector, args):
         self.env = env
         self.behaviour_net = behaviour_net.cuda().eval() if args.cuda else behaviour_net.eval()
         self.args = args
         self.cuda_ = self.args.cuda and torch.cuda.is_available()
+        self.info_collector = info_collector # TODO: this should be an external class instance
 
     def action_logits(self, state, schedule, last_action, last_hidden, info):
         return self.behaviour_net.policy(state, schedule=schedule, last_act=last_action, last_hid=last_hidden, info=info)
