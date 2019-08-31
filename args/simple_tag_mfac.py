@@ -6,16 +6,14 @@ import numpy as np
 from aux import *
 
 
-
 '''define the model name'''
-model_name = 'coma'
+model_name = 'mfac'
 
 '''define the scenario name'''
 scenario_name = 'simple_tag'
 
 '''define the special property'''
-# comaArgs = namedtuple( 'comaArgs', ['softmax_eps_init', 'softmax_eps_end', 'n_step', 'td_lambda'] ) # (bool, float, float, int, float)
-aux_args = AuxArgs[model_name](0.5,0.02,1,0.0) # coma
+aux_args = AuxArgs[model_name]() # mfac
 alias = ''
 
 '''load scenario from script'''
@@ -47,8 +45,8 @@ args = Args(model_name=model_name,
             entr=1e-3,
             entr_inc=0.0,
             action_num=np.max(env.get_input_shape_of_act()),
-            q_func=True,
-            train_episodes_num=int(4e3),
+            q_func=False,
+            train_episodes_num=int(5e3),
             replay=True,
             replay_buffer_size=5,
             replay_warmup=0,
@@ -61,7 +59,7 @@ args = Args(model_name=model_name,
             critic_update_times=10,
             target_update_freq=2,
             gumbel_softmax=False,
-            epsilon_softmax=True,
+            epsilon_softmax=False,
             online=False,
             reward_record_type='episode_mean_step',
             shared_parameters=False
