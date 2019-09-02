@@ -107,3 +107,11 @@ class Model(nn.Module):
 
     def get_loss(self):
         raise NotImplementedError()
+
+    def credit_assignment_demo(self, obs, act):
+        assert isinstance(obs, np.ndarray)
+        assert isinstance(act, np.ndarray)
+        obs = cuda_wrapper(torch.tensor(obs).float(), self.cuda_)
+        act = cuda_wrapper(torch.tensor(act).float(), self.cuda_)
+        values = self.value(obs, act)
+        return values
