@@ -7,6 +7,7 @@ from models.schednet import *
 from models.sqddpg import *
 from models.independent_ac import *
 from models.independent_ddpg import *
+from models.mfac import *
 
 
 
@@ -26,6 +27,7 @@ sqddpgArgs = namedtuple( 'sqddpgArgs', ['sample_size'] )
 
 independentArgs = namedtuple( 'independentArgs', [] )
 
+mfacArgs = namedtuple( 'mfacArgs', [] )
 
 
 Model = dict(commnet=CommNet,
@@ -36,7 +38,8 @@ Model = dict(commnet=CommNet,
              schednet=SchedNet,
              sqddpg=SQDDPG,
              independent_ac=IndependentAC,
-             independent_ddpg=IndependentDDPG
+             independent_ddpg=IndependentDDPG,
+             mfac=MFAC
             )
 
 AuxArgs = dict(commnet=commnetArgs,
@@ -47,7 +50,8 @@ AuxArgs = dict(commnet=commnetArgs,
                schednet=schednetArgs,
                sqddpg=sqddpgArgs,
                independent_ac=independentArgs,
-               independent_ddpg=independentArgs
+               independent_ddpg=independentArgs,
+               mfac=mfacArgs
               )
 
 Strategy=dict(commnet='pg',
@@ -58,7 +62,8 @@ Strategy=dict(commnet='pg',
               schednet='pg',
               sqddpg='pg',
               independent_ac='pg',
-              independent_ddpg='pg'
+              independent_ddpg='pg',
+              mfac='pg'
              )
 
 
