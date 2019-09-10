@@ -1,7 +1,7 @@
 # Shapley Q-value: A Local Reward Approach to Solve Global Reward Games
 
 ## Dependencies
-This project implements the algorithm of Shapley Q-value policy gradient (SQPG) mentioned in the paper:  and demonstrates the experiments in comparison with Independent DDPG, Independent Actor-critic, MADDPG and COMA.  
+This project implements the algorithm of Shapley Q-value policy gradient (SQPG) mentioned in the paper:https://arxiv.org/abs/1907.05707 and demonstrates the experiments in comparison with Independent DDPG, Independent Actor-critic, MADDPG and COMA.  
 
 The code is running on Ubuntu 18.04 with Python (3.5.4) and Pytorch (1.0).
 
