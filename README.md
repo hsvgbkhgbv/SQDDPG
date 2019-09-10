@@ -113,7 +113,7 @@ If you use the framework or part of the work mentioned in the paper, please cite
 ```
 @ARTICLE{2019arXiv190705707W,
        author = {{Wang}, Jianhong and {Zhang}, Yuan and {Kim}, Tae-Kyun and {Gu}, Yunjie},
-        title = "{Rethink Global Reward Game and Credit Assignment in Multi-agent Reinforcement Learning}",
+        title = "{Shapley Q-value: A Local Reward Approach to Solve Global Reward Games}",
       journal = {arXiv e-prints},
      keywords = {Computer Science - Machine Learning, Computer Science - Artificial Intelligence, Computer Science - Multiagent Systems},
          year = "2019",
