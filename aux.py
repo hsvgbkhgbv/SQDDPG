@@ -8,6 +8,7 @@ from models.sqddpg import *
 from models.independent_ac import *
 from models.independent_ddpg import *
 from models.mfac import *
+from models.coma_fc import*
 
 
 
@@ -29,6 +30,7 @@ independentArgs = namedtuple( 'independentArgs', [] )
 
 mfacArgs = namedtuple( 'mfacArgs', [] )
 
+comafcArgs = namedtuple( 'comafcArgs', ['softmax_eps_init', 'softmax_eps_end', 'n_step', 'td_lambda'] ) # (bool, float, float, int, float)
 
 Model = dict(commnet=CommNet,
              ic3net=IC3Net,
@@ -39,7 +41,8 @@ Model = dict(commnet=CommNet,
              sqddpg=SQDDPG,
              independent_ac=IndependentAC,
              independent_ddpg=IndependentDDPG,
-             mfac=MFAC
+             mfac=MFAC,
+             coma_fc=COMAFC
             )
 
 AuxArgs = dict(commnet=commnetArgs,
@@ -51,7 +54,8 @@ AuxArgs = dict(commnet=commnetArgs,
                sqddpg=sqddpgArgs,
                independent_ac=independentArgs,
                independent_ddpg=independentArgs,
-               mfac=mfacArgs
+               mfac=mfacArgs,
+               coma_fc=comafcArgs
               )
 
 Strategy=dict(commnet='pg',
@@ -63,7 +67,8 @@ Strategy=dict(commnet='pg',
               sqddpg='pg',
               independent_ac='pg',
               independent_ddpg='pg',
-              mfac='pg'
+              mfac='pg',
+              coma_fc='pg'
              )
 
 
