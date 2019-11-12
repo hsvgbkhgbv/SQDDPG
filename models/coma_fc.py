@@ -16,13 +16,7 @@ class COMAFC(Model):
         if target_net != None:
             self.target_net = target_net
             self.reload_params_to_target()
-        if self.args.epsilon_softmax:
-            self.eps_delta = (args.softmax_eps_init - args.softmax_eps_end) / args.train_episodes_num
-            self.eps = args.softmax_eps_init
         self.Transition = namedtuple('Transition', ('state', 'action', 'last_action', 'reward', 'next_state', 'done', 'last_step'))
-
-    def update_eps(self):
-        self.eps -= self.eps_delta
 
     def unpack_data(self, batch):
         batch_size = len(batch.state)
@@ -104,18 +98,6 @@ class COMAFC(Model):
         values = torch.stack(values, dim=1)
         return values
 
-    def td_lambda(self, rewards, last_step, done, next_values):
-        '''
-        This td_lambda is implemented according to the paper:
-        https://www.cs.ox.ac.uk/people/shimon.whiteson/pubs/foersteraaai18.pdf
-        '''
-        G_n = []
-        for n_step_ in range(1, self.args.n_step+1):
-            G_n.append((1-self.args.td_lambda)*self.args.td_lambda**(n_step_-1)*n_step(rewards, last_step, done, next_values, n_step_, self.args))
-        G_n = torch.stack(G_n, dim=0)
-        td_lambda_G_n = G_n.sum(dim=0)
-        return td_lambda_G_n
-
     def get_loss(self, batch):
         info = {}
         batch_size = len(batch.state)
@@ -138,7 +120,8 @@ class COMAFC(Model):
             next_values = torch.sum(next_values*next_actions, dim=-1)
         next_values = next_values.contiguous().view(-1, self.n_)
         assert values.size() == next_values.size()
-        returns = self.td_lambda(rewards, last_step, done, next_values)
+#         returns = self.td_lambda(rewards, last_step, done, next_values)
+        returns = rewards + next_values * self.args.gamma
         assert returns.size() == rewards.size()
         deltas = returns - values
         advantages = ( values - torch.sum(values_*torch.softmax(action_out, dim=-1), dim=-1) ).detach()
@@ -153,13 +136,10 @@ class COMAFC(Model):
         return action_loss, value_loss, action_out
 
 
-    def get_episode(self, stat, trainer):
-        episode = []
+    def train_process(self, stat, trainer):
         info = {}
         state = trainer.env.reset()
         action = trainer.init_action
-        if self.args.epsilon_softmax:
-            info['softmax_eps'] = self.eps
             
         if self.args.reward_record_type is 'episode_mean_step':
             trainer.mean_reward = 0
@@ -183,7 +163,7 @@ class COMAFC(Model):
                                     done,
                                     done_
                                    )
-            episode.append(trans)
+            self.transition_update(trainer, trans, stat)
             success = debug['success'] if 'success' in debug else 0.0
             trainer.steps += 1
             if self.args.reward_record_type is 'mean_step':
@@ -201,10 +181,5 @@ class COMAFC(Model):
         stat['mean_reward'] = trainer.mean_reward
         stat['mean_success'] = trainer.mean_success
         trainer.episodes += 1
-        if self.args.epsilon_softmax:
-            self.update_eps()
-        return episode
 
-    def train_process(self, stat, trainer):
-        episode = self.get_episode(stat, trainer)
-        self.episode_update(trainer, episode, stat)
+        return

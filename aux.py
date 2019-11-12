@@ -30,7 +30,7 @@ independentArgs = namedtuple( 'independentArgs', [] )
 
 mfacArgs = namedtuple( 'mfacArgs', [] )
 
-comafcArgs = namedtuple( 'comafcArgs', ['softmax_eps_init', 'softmax_eps_end', 'n_step', 'td_lambda'] ) # (bool, float, float, int, float)
+comafcArgs = namedtuple( 'comafcArgs', [] )
 
 Model = dict(commnet=CommNet,
              ic3net=IC3Net,

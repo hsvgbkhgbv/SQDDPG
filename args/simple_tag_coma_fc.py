@@ -14,8 +14,8 @@ model_name = 'coma_fc'
 scenario_name = 'simple_tag'
 
 '''define the special property'''
-# comaArgs = namedtuple( 'comafcArgs', ['softmax_eps_init', 'softmax_eps_end', 'n_step', 'td_lambda'] ) # (bool, float, float, int, float)
-aux_args = AuxArgs[model_name](0.5,0.02,1,0.0) # coma
+
+aux_args = AuxArgs[model_name]()
 alias = ''
 
 '''load scenario from script'''
@@ -41,7 +41,7 @@ args = Args(model_name=model_name,
             policy_lrate=1e-4,
             value_lrate=1e-3,
             max_steps=200,
-            batch_size=1,
+            batch_size=128,
             gamma=0.99,
             normalize_advantages=False,
             entr=1e-3,
@@ -50,19 +50,19 @@ args = Args(model_name=model_name,
             q_func=True,
             train_episodes_num=int(4e3),
             replay=True,
-            replay_buffer_size=5,
+            replay_buffer_size=128,
             replay_warmup=0,
             cuda=True,
             grad_clip=True,
             save_model_freq=10,
             target=True,
-            target_lr=1,
-            behaviour_update_freq=1,
+            target_lr=1e-1,
+            behaviour_update_freq=128,
             critic_update_times=10,
-            target_update_freq=2,
+            target_update_freq=256,
             gumbel_softmax=False,
-            epsilon_softmax=True,
-            online=False,
+            epsilon_softmax=False,
+            online=True,
             reward_record_type='episode_mean_step',
             shared_parameters=False
            )

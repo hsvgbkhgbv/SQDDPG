@@ -59,14 +59,10 @@ def inspector(args):
         assert args.replay is True
         assert args.q_func is True
         assert args.target is True
-        assert args.online is False
+        # assert args.online is False
         assert args.continuous is False
         assert args.gumbel_softmax is False
-        assert args.epsilon_softmax is True
-        assert hasattr(args, 'softmax_eps_init')
-        assert hasattr(args, 'softmax_eps_end')
-        assert hasattr(args, 'n_step')
-        assert hasattr(args, 'td_lambda')
+        # assert args.epsilon_softmax is True
     elif args.model_name is 'schednet':
         assert args.replay is True
         assert args.q_func is True

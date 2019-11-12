@@ -12,11 +12,12 @@ class TransReplayBuffer(object):
 
     def offset(self):
         self.buffer.pop(0)
-        # self.buffer = []
+#         self.buffer = []
 
     def get_batch(self, batch_size):
         length = len(self.buffer)
-        indices = np.random.choice(length, batch_size, replace=False)
+        # indices = np.random.choice(length, batch_size, replace=False)
+        indices = np.random.choice(length, batch_size, replace=True)
         batch_buffer = [self.buffer[i] for i in indices]
         return batch_buffer
 
@@ -25,6 +26,9 @@ class TransReplayBuffer(object):
         if est_len > self.size:
             self.offset()
         self.buffer.append(trans)
+
+    def clear(self):
+        self.buffer = []
 
 
 
