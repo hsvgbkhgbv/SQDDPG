@@ -49,18 +49,16 @@ class PGTrainer(object):
         action_loss, value_loss, log_p_a = self.behaviour_net.get_loss(batch)
         return action_loss, value_loss, log_p_a
 
-    def action_compute_grad(self, stat, loss, vars, retain_graph):
+    def action_compute_grad(self, stat, loss, retain_graph):
         action_loss, log_p_a = loss
         if not self.args.continuous:
             if self.entr > 0:
                 entropy = multinomial_entropy(log_p_a)
                 action_loss -= self.entr * entropy
                 stat['entropy'] = entropy.item()
-        # torch.autograd.backward(action_loss, grad_tensors=vars)
         action_loss.backward(retain_graph=retain_graph)
 
-    def value_compute_grad(self, value_loss, vars, retain_graph):
-        # torch.autograd.backward(value_loss, grad_tensors=vars)
+    def value_compute_grad(self, value_loss, retain_graph):
         value_loss.backward(retain_graph=retain_graph)
 
     def grad_clip(self, params):
@@ -81,15 +79,24 @@ class PGTrainer(object):
     def action_transition_process(self, stat, trans):
         action_loss, value_loss, log_p_a = self.get_loss(trans)
         # TODO: fix poilicy params update
-        policy_grad_norms = []
+        policy_params = []
         for i in range(self.args.agent_num):
             retain_graph = False if i == self.args.agent_num-1 else True
             action_optimizer = self.action_optimizers[i]
             action_optimizer.zero_grad()
-            self.action_compute_grad(stat, (action_loss[i], log_p_a[:, i, :]), action_optimizer.param_groups[0]['params'], retain_graph)
+            self.action_compute_grad(stat, (action_loss[i], log_p_a[:, i, :]), retain_graph)
+            p = action_optimizer.param_groups[0]['params'].copy()
+            policy_params.append(p)
+        policy_params.reverse()
+        policy_grad_norms = []
+        for action_optimizer in self.action_optimizers:
+            param = action_optimizer.param_groups[0]['params']
+            param_ = policy_params.pop()
+            for i in range(len(param)):
+                param[i].grad = param_[i].grad
             if self.args.grad_clip:
-                self.grad_clip(action_optimizer.param_groups[0]['params'])
-            policy_grad_norms.append(get_grad_norm(action_optimizer.param_groups[0]['params']))
+                self.grad_clip(param)
+            policy_grad_norms.append(get_grad_norm(param))
             action_optimizer.step()
         stat['policy_grad_norm'] = np.array(policy_grad_norms).mean()
         stat['action_loss'] = action_loss.mean().item()
@@ -97,15 +104,24 @@ class PGTrainer(object):
     def value_transition_process(self, stat, trans):
         action_loss, value_loss, log_p_a = self.get_loss(trans)
         # TODO: fix poilicy params update
-        value_grad_norms = []
+        value_params = []
         for i in range(self.args.agent_num):
             retain_graph = False if i == self.args.agent_num-1 else True
             value_optimizer = self.value_optimizers[i]
             value_optimizer.zero_grad()
-            self.value_compute_grad(value_loss[i], value_optimizer.param_groups[0]['params'], retain_graph)
+            self.value_compute_grad(value_loss[i], retain_graph)
+            p = value_optimizer.param_groups[0]['params'].copy()
+            value_params.append(p)
+        value_params.reverse()
+        value_grad_norms = []
+        for value_optimizer in self.value_optimizers:
+            param = value_optimizer.param_groups[0]['params']
+            param_ = value_params.pop()
+            for i in range(len(param)):
+                param[i].grad = param_[i].grad
             if self.args.grad_clip:
-                self.grad_clip(value_optimizer.param_groups[0]['params'])
-            value_grad_norms.append(get_grad_norm(value_optimizer.param_groups[0]['params']))
+                self.grad_clip(param)
+            value_grad_norms.append(get_grad_norm(param))
             value_optimizer.step()
         stat['value_grad_norm'] = np.array(value_grad_norms).mean()
         stat['value_loss'] = value_loss.mean().item()
