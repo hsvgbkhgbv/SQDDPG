@@ -117,9 +117,15 @@ def batchnorm(batch):
     else:
         raise RuntimeError('Please enter a pytorch tensor, now a {} is received.'.format(type(batch)))
 
-def get_grad_norm(module):
+def value_get_grad_norm(module):
     grad_norms = []
     for name, param in module.named_parameters():
+        grad_norms.append(torch.norm(param.grad).item())
+    return np.mean(grad_norms)
+
+def action_get_grad_norm(params):
+    grad_norms = []
+    for param in params:
         grad_norms.append(torch.norm(param.grad).item())
     return np.mean(grad_norms)
 

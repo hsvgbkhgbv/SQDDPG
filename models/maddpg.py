@@ -31,21 +31,28 @@ class MADDPG(Model):
         return (rewards, last_step, done, actions, state, next_state)
 
     def construct_policy_net(self):
+        # TODO: fix policy params update
+        action_dicts = []
         if self.args.shared_parameters:
             l1 = nn.Linear(self.obs_dim, self.hid_dim)
             l2 = nn.Linear(self.hid_dim, self.hid_dim)
             a = nn.Linear(self.hid_dim, self.act_dim)
-            self.action_dict = nn.ModuleDict( {'layer_1': nn.ModuleList( [ l1 for _ in range(self.n_) ] ),\
-                                               'layer_2': nn.ModuleList( [ l2 for _ in range(self.n_) ] ),\
-                                               'action_head': nn.ModuleList( [ a for _ in range(self.n_) ] )
-                                              }
-                                            )
+            for i in range(self.n_):
+                action_dicts.append(nn.ModuleDict( {'layer_1': l1,\
+                                                    'layer_2': l2,\
+                                                    'action_head': a
+                                                    }
+                                                 )
+                                   )
         else:
-            self.action_dict = nn.ModuleDict( {'layer_1': nn.ModuleList( [ nn.Linear(self.obs_dim, self.hid_dim) for _ in range(self.n_) ] ),\
-                                               'layer_2': nn.ModuleList( [ nn.Linear(self.hid_dim, self.hid_dim) for _ in range(self.n_) ] ),\
-                                               'action_head': nn.ModuleList( [ nn.Linear(self.hid_dim, self.act_dim) for _ in range(self.n_) ] )
-                                              }
-                                            )
+            for i in range(self.n_):
+                action_dicts.append(nn.ModuleDict( {'layer_1': nn.Linear(self.obs_dim, self.hid_dim),\
+                                                    'layer_2': nn.Linear(self.hid_dim, self.hid_dim),\
+                                                    'action_head': nn.Linear(self.hid_dim, self.act_dim)
+                                                    }
+                                                  )
+                                   )
+        self.action_dicts = nn.ModuleList(action_dicts)
 
     def construct_value_net(self):
         if self.args.shared_parameters:
@@ -69,11 +76,12 @@ class MADDPG(Model):
         self.construct_policy_net()
 
     def policy(self, obs, schedule=None, last_act=None, last_hid=None, info={}, stat={}):
+        # TODO: policy params update
         actions = []
         for i in range(self.n_):
-            h = torch.relu( self.action_dict['layer_1'][i](obs[:, i, :]) )
-            h = torch.relu( self.action_dict['layer_2'][i](h) )
-            a = self.action_dict['action_head'][i](h)
+            h = torch.relu( self.action_dicts[i]['layer_1'](obs[:, i, :]) )
+            h = torch.relu( self.action_dicts[i]['layer_2'](h) )
+            a = self.action_dicts[i]['action_head'](h)
             actions.append(a)
         actions = torch.stack(actions, dim=1)
         return actions
@@ -128,7 +136,7 @@ class MADDPG(Model):
             else:
                 raise RuntimeError('Please enter a correct reward record type, e.g. mean_step or episode_mean_step.')
             stat['mean_reward'] = trainer.mean_reward
-            stat['mean_success'] = trainer.mean_success 
+            stat['mean_success'] = trainer.mean_success
             if done_:
                 break
             state = next_state
