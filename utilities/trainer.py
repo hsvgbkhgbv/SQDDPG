@@ -30,6 +30,7 @@ class PGTrainer(object):
             else:
                 self.replay_buffer = EpisodeReplayBuffer(int(self.args.replay_buffer_size))
         self.env = env
+        # TODO
         self.action_optimizer = optim.Adam(self.behaviour_net.action_dict.parameters(), lr=args.policy_lrate)
         self.value_optimizer = optim.Adam(self.behaviour_net.value_dict.parameters(), lr=args.value_lrate)
         self.init_action = cuda_wrapper( torch.zeros(1, self.args.agent_num, self.args.action_dim), cuda=self.cuda_ )
