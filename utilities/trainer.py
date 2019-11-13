@@ -49,7 +49,7 @@ class PGTrainer(object):
         action_loss, value_loss, log_p_a = self.behaviour_net.get_loss(batch)
         return action_loss, value_loss, log_p_a
 
-    def action_compute_grad(self, stat, loss, vars):
+    def action_compute_grad(self, stat, loss, vars, retain_graph):
         action_loss, log_p_a = loss
         if not self.args.continuous:
             if self.entr > 0:
@@ -57,11 +57,11 @@ class PGTrainer(object):
                 action_loss -= self.entr * entropy
                 stat['entropy'] = entropy.item()
         # torch.autograd.backward(action_loss, grad_tensors=vars)
-        action_loss.backward()
+        action_loss.backward(retain_graph=retain_graph)
 
-    def value_compute_grad(self, value_loss, vars):
+    def value_compute_grad(self, value_loss, vars, retain_graph):
         # torch.autograd.backward(value_loss, grad_tensors=vars)
-        value_loss.backward()
+        value_loss.backward(retain_graph=retain_graph)
 
     def grad_clip(self, params):
         # TODO: fix policy params update
@@ -83,11 +83,12 @@ class PGTrainer(object):
         # TODO: fix poilicy params update
         policy_grad_norms = []
         for i in range(self.args.agent_num):
+            retain_graph = False if i == self.args.agent_num-1 else True
             action_optimizer = self.action_optimizers[i]
             action_optimizer.zero_grad()
-            self.action_compute_grad(stat, (action_loss[i], log_p_a[:, i, :]), action_optimizer.param_groups[0]['params'])
+            self.action_compute_grad(stat, (action_loss[i], log_p_a[:, i, :]), action_optimizer.param_groups[0]['params'], retain_graph)
             if self.args.grad_clip:
-                self.action_grad_clip(action_optimizer.param_groups[0]['params'])
+                self.grad_clip(action_optimizer.param_groups[0]['params'])
             policy_grad_norms.append(get_grad_norm(action_optimizer.param_groups[0]['params']))
             action_optimizer.step()
         stat['policy_grad_norm'] = np.array(policy_grad_norms).mean()
@@ -98,9 +99,10 @@ class PGTrainer(object):
         # TODO: fix poilicy params update
         value_grad_norms = []
         for i in range(self.args.agent_num):
+            retain_graph = False if i == self.args.agent_num-1 else True
             value_optimizer = self.value_optimizers[i]
             value_optimizer.zero_grad()
-            self.value_compute_grad(value_loss[i], value_optimizer.param_groups[0]['params'])
+            self.value_compute_grad(value_loss[i], value_optimizer.param_groups[0]['params'], retain_graph)
             if self.args.grad_clip:
                 self.grad_clip(value_optimizer.param_groups[0]['params'])
             value_grad_norms.append(get_grad_norm(value_optimizer.param_groups[0]['params']))
