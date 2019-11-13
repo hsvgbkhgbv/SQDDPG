@@ -3,7 +3,6 @@ import torch.nn as nn
 import numpy as np
 from utilities.util import *
 from models.model import Model
-from learning_algorithms.ddpg import *
 from collections import namedtuple
 
 
@@ -31,38 +30,52 @@ class SQDDPG(Model):
         return (rewards, last_step, done, actions, state, next_state)
 
     def construct_policy_net(self):
+        # TODO: fix policy params update
+        action_dicts = []
         if self.args.shared_parameters:
             l1 = nn.Linear(self.obs_dim, self.hid_dim)
             l2 = nn.Linear(self.hid_dim, self.hid_dim)
             a = nn.Linear(self.hid_dim, self.act_dim)
-            self.action_dict = nn.ModuleDict( {'layer_1': nn.ModuleList( [ l1 for _ in range(self.n_) ] ),\
-                                               'layer_2': nn.ModuleList( [ l2 for _ in range(self.n_) ] ),\
-                                               'action_head': nn.ModuleList( [ a for _ in range(self.n_) ] )
-                                              }
-                                            )
+            for i in range(self.n_):
+                action_dicts.append(nn.ModuleDict( {'layer_1': l1,\
+                                                    'layer_2': l2,\
+                                                    'action_head': a
+                                                    }
+                                                 )
+                                   )
         else:
-            self.action_dict = nn.ModuleDict( {'layer_1': nn.ModuleList( [ nn.Linear(self.obs_dim, self.hid_dim) for _ in range(self.n_) ] ),\
-                                               'layer_2': nn.ModuleList( [ nn.Linear(self.hid_dim, self.hid_dim) for _ in range(self.n_) ] ),\
-                                               'action_head': nn.ModuleList( [ nn.Linear(self.hid_dim, self.act_dim) for _ in range(self.n_) ] )
-                                              }
-                                            )
+            for i in range(self.n_):
+                action_dicts.append(nn.ModuleDict( {'layer_1': nn.Linear(self.obs_dim, self.hid_dim),\
+                                                    'layer_2': nn.Linear(self.hid_dim, self.hid_dim),\
+                                                    'action_head': nn.Linear(self.hid_dim, self.act_dim)
+                                                    }
+                                                  )
+                                   )
+        self.action_dicts = nn.ModuleList(action_dicts)
 
     def construct_value_net(self):
+        # TODO: policy params update
+        value_dicts = []
         if self.args.shared_parameters:
             l1 = nn.Linear( (self.obs_dim+self.act_dim)*self.n_, self.hid_dim )
             l2 = nn.Linear(self.hid_dim, self.hid_dim)
             v = nn.Linear(self.hid_dim, 1)
-            self.value_dict = nn.ModuleDict( {'layer_1': nn.ModuleList( [ l1 for _ in range(self.n_) ] ),\
-                                              'layer_2': nn.ModuleList( [ l2 for _ in range(self.n_) ] ),\
-                                              'value_head': nn.ModuleList( [ v for _ in range(self.n_) ] )
-                                             }
-                                           )
+            for i in range(self.n_):
+                value_dicts.append(nn.ModuleDict( {'layer_1': l1,\
+                                                   'layer_2': l2,\
+                                                   'value_head': v
+                                                  }
+                                                )
+                                  )
         else:
-            self.value_dict = nn.ModuleDict( {'layer_1': nn.ModuleList( [ nn.Linear( (self.obs_dim+self.act_dim)*self.n_, self.hid_dim ) for _ in range(self.n_) ] ),\
-                                              'layer_2': nn.ModuleList( [ nn.Linear(self.hid_dim, self.hid_dim) for _ in range(self.n_) ] ),\
-                                              'value_head': nn.ModuleList( [ nn.Linear(self.hid_dim, 1) for _ in range(self.n_) ] )
-                                             }
-                                           )
+            for i in range(self.n_):
+                value_dicts.append(nn.ModuleDict( {'layer_1': nn.Linear( (self.obs_dim+self.act_dim)*self.n_, self.hid_dim ),\
+                                                   'layer_2': nn.Linear(self.hid_dim, self.hid_dim),\
+                                                   'value_head': nn.Linear(self.hid_dim, 1)
+                                                  }
+                                                )
+                                  )
+        self.value_dicts = nn.ModuleList(value_dicts)
 
     def construct_model(self):
         self.construct_value_net()
@@ -71,23 +84,23 @@ class SQDDPG(Model):
     def policy(self, obs, schedule=None, last_act=None, last_hid=None, info={}, stat={}):
         actions = []
         for i in range(self.n_):
-            h = torch.relu( self.action_dict['layer_1'][i](obs[:, i, :]) )
-            h = torch.relu( self.action_dict['layer_2'][i](h) )
-            a = self.action_dict['action_head'][i](h)
+            h = torch.relu( self.action_dicts[i]['layer_1'](obs[:, i, :]) )
+            h = torch.relu( self.action_dicts[i]['layer_2'](h) )
+            a = self.action_dicts[i]['action_head'](h)
             actions.append(a)
         actions = torch.stack(actions, dim=1)
         return actions
 
     def sample_grandcoalitions(self, batch_size):
-        grand_coalitions = cuda_wrapper( torch.multinomial(torch.ones(batch_size*self.sample_size, self.n_)/self.n_, self.n_, replacement=False), self.cuda_ )
-        grand_coalitions = grand_coalitions.contiguous().view(batch_size, self.sample_size, self.n_) # shape = (b, n_s, n)
-        grand_coalitions = grand_coalitions.unsqueeze(2).expand(batch_size, self.sample_size, self.n_, self.n_) # shape = (b, n_s, n) -> (b, n_s, 1, n) -> (b, n_s, n, n)
-        subcoalition_map = cuda_wrapper( torch.ones_like(grand_coalitions), self.cuda_ ) # shape = (b, n_s, n, n)
-        for b in range(batch_size):
-            for s in range(self.sample_size):
-                for i in range(self.n_):
-                    agent_index = (grand_coalitions[b, s, i, :] == i).nonzero()
-                    subcoalition_map[b, s, i, agent_index+1:] = 0
+        grand_coalitions = cuda_wrapper( torch.multinomial(torch.ones(batch_size*self.sample_size, self.n_)/self.n_, self.n_, replacement=False), self.cuda_ ) # shape = (b*n_s, n)
+        grand_coalitions = grand_coalitions.unsqueeze(1).expand(batch_size*self.sample_size, self.n_, self.n_) # shape = (b*n_s, n) -> (b*n_s, 1, n) -> (b*n_s, n, n)
+        subcoalition_map = cuda_wrapper( torch.ones_like(grand_coalitions), self.cuda_ ) # shape = (b*n_s, n, n)
+        for bs in range(batch_size*self.sample_size):
+            for i in range(self.n_):
+                agent_index = (grand_coalitions[bs, i, :] == i).nonzero()
+                subcoalition_map[bs, i, agent_index+1:] = 0
+        grand_coalitions = grand_coalitions.contiguous().view(batch_size, self.sample_size, self.n_, self.n_) # shape = (b, n_s, n, n)
+        subcoalition_map = subcoalition_map.contiguous().view(batch_size, self.sample_size, self.n_, self.n_) # shape = (b, n_s, n, n)
         return subcoalition_map, grand_coalitions
 
     def marginal_contribution(self, obs, act):
@@ -103,9 +116,9 @@ class SQDDPG(Model):
         inp = torch.cat((obs, act), dim=-1)
         values = []
         for i in range(self.n_):
-            h = torch.relu( self.value_dict['layer_1'][i](inp[:, :, i, :]) )
-            h = torch.relu( self.value_dict['layer_2'][i](h) )
-            v = self.value_dict['value_head'][i](h)
+            h = torch.relu( self.value_dicts[i]['layer_1'](inp[:, :, i, :]) )
+            h = torch.relu( self.value_dicts[i]['layer_2'](h) )
+            v = self.value_dicts[i]['value_head'](h)
             values.append(v)
         values = torch.stack(values, dim=2)
         return values
@@ -142,12 +155,12 @@ class SQDDPG(Model):
             returns[i] = rewards[i] + self.args.gamma * next_return
         deltas = returns - shapley_values_sum
         advantages = shapley_values
-        advantages = advantages.contiguous().view(-1, 1)
+        # advantages = advantages.contiguous().view(-1, 1)
         if self.args.normalize_advantages:
             advantages = batchnorm(advantages)
         action_loss = -advantages
-        action_loss = action_loss.sum() / batch_size
-        value_loss = deltas.pow(2).view(-1).sum() / batch_size / self.n_
+        action_loss = action_loss.mean(dim=0)
+        value_loss = deltas.pow(2).mean(dim=0)
         return action_loss, value_loss, action_out
 
     def train_process(self, stat, trainer):
