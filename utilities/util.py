@@ -123,7 +123,7 @@ def value_get_grad_norm(module):
         grad_norms.append(torch.norm(param.grad).item())
     return np.mean(grad_norms)
 
-def action_get_grad_norm(params):
+def get_grad_norm(params):
     grad_norms = []
     for param in params:
         grad_norms.append(torch.norm(param.grad).item())

@@ -12,7 +12,6 @@ class MADDPG(Model):
 
     def __init__(self, args, target_net=None):
         super(MADDPG, self).__init__(args)
-        self.rl = DDPG(self.args)
         self.construct_model()
         self.apply(self.init_weights)
         if target_net != None:
@@ -55,21 +54,28 @@ class MADDPG(Model):
         self.action_dicts = nn.ModuleList(action_dicts)
 
     def construct_value_net(self):
+        # TODO: policy params update
+        value_dicts = []
         if self.args.shared_parameters:
             l1 = nn.Linear( (self.obs_dim+self.act_dim)*self.n_, self.hid_dim )
             l2 = nn.Linear(self.hid_dim, self.hid_dim)
             v = nn.Linear(self.hid_dim, 1)
-            self.value_dict = nn.ModuleDict( {'layer_1': nn.ModuleList( [ l1 for _ in range(self.n_) ] ),\
-                                              'layer_2': nn.ModuleList( [ l2 for _ in range(self.n_) ] ),\
-                                              'value_head': nn.ModuleList( [ v for _ in range(self.n_) ] )
-                                             }
-                                           )
+            for i in range(self.n_):
+                value_dicts.append(nn.ModuleDict( {'layer_1': l1,\
+                                                   'layer_2': l2,\
+                                                   'value_head': v
+                                                  }
+                                                )
+                                  )
         else:
-            self.value_dict = nn.ModuleDict( {'layer_1': nn.ModuleList( [ nn.Linear( (self.obs_dim+self.act_dim)*self.n_, self.hid_dim ) for _ in range(self.n_) ] ),\
-                                              'layer_2': nn.ModuleList( [ nn.Linear(self.hid_dim, self.hid_dim) for _ in range(self.n_) ] ),\
-                                              'value_head': nn.ModuleList( [ nn.Linear(self.hid_dim, 1) for _ in range(self.n_) ] )
-                                             }
-                                           )
+            for i in range(self.n_):
+                value_dicts.append(nn.ModuleDict( {'layer_1': nn.Linear( (self.obs_dim+self.act_dim)*self.n_, self.hid_dim ),\
+                                                   'layer_2': nn.Linear(self.hid_dim, self.hid_dim),\
+                                                   'value_head': nn.Linear(self.hid_dim, 1)
+                                                  }
+                                                )
+                                  )
+        self.value_dicts = nn.ModuleList(value_dicts)
 
     def construct_model(self):
         self.construct_value_net()
@@ -87,18 +93,50 @@ class MADDPG(Model):
         return actions
 
     def value(self, obs, act):
+        # TODO: policy params update
         values = []
         for i in range(self.n_):
-            h = torch.relu( self.value_dict['layer_1'][i]( torch.cat( ( obs.contiguous().view( -1, np.prod(obs.size()[1:]) ), act.contiguous().view( -1, np.prod(act.size()[1:]) ) ), dim=-1 ) ) )
-            h = torch.relu( self.value_dict['layer_2'][i](h) )
-            v = self.value_dict['value_head'][i](h)
+            h = torch.relu( self.value_dicts[i]['layer_1']( torch.cat( ( obs.contiguous().view( -1, np.prod(obs.size()[1:]) ), act.contiguous().view( -1, np.prod(act.size()[1:]) ) ), dim=-1 ) ) )
+            h = torch.relu( self.value_dicts[i]['layer_2'](h) )
+            v = self.value_dicts[i]['value_head'](h)
             values.append(v)
         values = torch.stack(values, dim=1)
         return values
 
     def get_loss(self, batch):
-        action_loss, value_loss, log_p_a = self.rl.get_loss(batch, self, self.target_net)
-        return action_loss, value_loss, log_p_a
+        # TODO: fix policy params update
+        batch_size = len(batch.state)
+        # collect the transition data
+        rewards, last_step, done, actions, state, next_state = self.unpack_data(batch)
+        # construct the computational graph
+        # do the argmax action on the action loss
+        action_out = self.policy(state)
+        actions_ = select_action(self.args, action_out, status='train', exploration=False)
+        values_ = self.value(state, actions_).contiguous().view(-1, self.n_)
+        # do the exploration action on the value loss
+        values = self.value(state, actions).contiguous().view(-1, self.n_)
+        # do the argmax action on the next value loss
+        next_action_out = self.target_net.policy(next_state)
+        next_actions_ = select_action(self.args, next_action_out, status='train', exploration=False)
+        next_values_ = self.target_net.value(next_state, next_actions_.detach()).contiguous().view(-1, self.n_)
+        returns = cuda_wrapper(torch.zeros((batch_size, self.n_), dtype=torch.float), self.cuda_)
+        assert values_.size() == next_values_.size()
+        assert returns.size() == values.size()
+        for i in reversed(range(rewards.size(0))):
+            if last_step[i]:
+                next_return = 0 if done[i] else next_values_[i].detach()
+            else:
+                next_return = next_values_[i].detach()
+            returns[i] = rewards[i] + self.args.gamma * next_return
+        deltas = returns - values
+        advantages = values_
+        # advantages = advantages.contiguous().view(-1, 1)
+        if self.args.normalize_advantages:
+            advantages = batchnorm(advantages)
+        action_loss = -advantages
+        action_loss = action_loss.mean(dim=0)
+        value_loss = deltas.pow(2).mean(dim=0)
+        return action_loss, value_loss, action_out
 
     def train_process(self, stat, trainer):
         info = {}

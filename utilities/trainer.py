@@ -34,7 +34,9 @@ class PGTrainer(object):
         self.action_optimizers = []
         for action_dict in self.behaviour_net.action_dicts:
             self.action_optimizers.append(optim.Adam(action_dict.parameters(), lr=args.policy_lrate))
-        self.value_optimizer = optim.Adam(self.behaviour_net.value_dict.parameters(), lr=args.value_lrate)
+        self.value_optimizers = []
+        for value_dict in self.behaviour_net.value_dicts:
+            self.value_optimizers.append(optim.Adam(value_dict.parameters(), lr=args.value_lrate))
         self.init_action = cuda_wrapper( torch.zeros(1, self.args.agent_num, self.args.action_dim), cuda=self.cuda_ )
         self.steps = 0
         self.episodes = 0
@@ -47,26 +49,23 @@ class PGTrainer(object):
         action_loss, value_loss, log_p_a = self.behaviour_net.get_loss(batch)
         return action_loss, value_loss, log_p_a
 
-    def action_compute_grad(self, stat, loss, vars, retain_graph):
+    def action_compute_grad(self, stat, loss, vars):
         action_loss, log_p_a = loss
         if not self.args.continuous:
             if self.entr > 0:
                 entropy = multinomial_entropy(log_p_a)
                 action_loss -= self.entr * entropy
                 stat['entropy'] = entropy.item()
-        torch.autograd.backward(action_loss, grad_tensors=vars, retain_graph=retain_graph)
+        # torch.autograd.backward(action_loss, grad_tensors=vars)
+        action_loss.backward()
 
-    def value_compute_grad(self, batch_loss):
-        value_loss = batch_loss
+    def value_compute_grad(self, value_loss, vars):
+        # torch.autograd.backward(value_loss, grad_tensors=vars)
         value_loss.backward()
 
-    def action_grad_clip(self, params):
+    def grad_clip(self, params):
         # TODO: fix policy params update
         for param in params:
-            param.grad.data.clamp_(-1, 1)
-
-    def value_grad_clip(self, module):
-        for name, param in module.named_parameters():
             param.grad.data.clamp_(-1, 1)
 
     def action_replay_process(self, stat):
@@ -83,31 +82,31 @@ class PGTrainer(object):
         action_loss, value_loss, log_p_a = self.get_loss(trans)
         # TODO: fix poilicy params update
         policy_grad_norms = []
-        i = 0
-        for action_optimizer in self.action_optimizers:
+        for i in range(self.args.agent_num):
+            action_optimizer = self.action_optimizers[i]
             action_optimizer.zero_grad()
-            if i == self.args.agent_num-1:
-                retain_graph = False
-            else:
-                retain_graph = True
-            self.action_compute_grad(stat, (action_loss, log_p_a), action_optimizer.param_groups[0]['params'], retain_graph=retain_graph)
+            self.action_compute_grad(stat, (action_loss[i], log_p_a[:, i, :]), action_optimizer.param_groups[0]['params'])
             if self.args.grad_clip:
                 self.action_grad_clip(action_optimizer.param_groups[0]['params'])
-            policy_grad_norms.append(action_get_grad_norm(action_optimizer.param_groups[0]['params']))
+            policy_grad_norms.append(get_grad_norm(action_optimizer.param_groups[0]['params']))
             action_optimizer.step()
-            i += 1
         stat['policy_grad_norm'] = np.array(policy_grad_norms).mean()
-        stat['action_loss'] = action_loss.item()
+        stat['action_loss'] = action_loss.mean().item()
 
     def value_transition_process(self, stat, trans):
         action_loss, value_loss, log_p_a = self.get_loss(trans)
-        self.value_optimizer.zero_grad()
-        self.value_compute_grad(value_loss)
-        if self.args.grad_clip:
-            self.value_grad_clip(self.behaviour_net.value_dict)
-        stat['value_grad_norm'] = value_get_grad_norm(self.behaviour_net.value_dict)
-        self.value_optimizer.step()
-        stat['value_loss'] = value_loss.item()
+        # TODO: fix poilicy params update
+        value_grad_norms = []
+        for i in range(self.args.agent_num):
+            value_optimizer = self.value_optimizers[i]
+            value_optimizer.zero_grad()
+            self.value_compute_grad(value_loss[i], value_optimizer.param_groups[0]['params'])
+            if self.args.grad_clip:
+                self.grad_clip(value_optimizer.param_groups[0]['params'])
+            value_grad_norms.append(get_grad_norm(value_optimizer.param_groups[0]['params']))
+            value_optimizer.step()
+        stat['value_grad_norm'] = np.array(value_grad_norms).mean()
+        stat['value_loss'] = value_loss.mean().item()
 
     def run(self, stat):
         self.behaviour_net.train_process(stat, self)
