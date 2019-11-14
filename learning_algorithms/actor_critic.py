@@ -13,9 +13,9 @@ class ActorCritic(ReinforcementLearning):
         return self.get_loss(batch, behaviour_net)
 
     def get_loss(self, batch, behaviour_net, target_net=None):
+        # TODO: fix policy params update
         batch_size = len(batch.state)
         n = self.args.agent_num
-        action_dim = self.args.action_dim
         # collect the transition data
         rewards, last_step, done, actions, state, next_state = behaviour_net.unpack_data(batch)
         # construct the computational graph
@@ -45,18 +45,14 @@ class ActorCritic(ReinforcementLearning):
             returns[i] = rewards[i] + self.args.gamma * next_return
         deltas = returns - values
         advantages = values.detach()
-        # construct the action loss and the value loss
-        if self.args.continuous:
-            action_means = actions.contiguous().view(-1, self.args.action_dim)
-            action_stds = cuda_wrapper(torch.ones_like(action_means), self.cuda_)
-            log_prob_a = normal_log_density(actions.detach(), action_means, action_stds)
-        else:
-            log_prob_a = multinomials_log_density(actions, action_out).contiguous().view(-1, 1)
-        advantages = advantages.contiguous().view(-1, 1)
+        # advantages = advantages.contiguous().view(-1, 1)
         if self.args.normalize_advantages:
             advantages = batchnorm(advantages)
+
+        # construct the action loss and the value loss
+        log_prob_a = multinomials_log_density(actions, action_out).contiguous().view(-1,n)
         assert log_prob_a.size() == advantages.size()
         action_loss = -advantages * log_prob_a
-        action_loss = action_loss.sum() / batch_size
-        value_loss = deltas.pow(2).view(-1).sum() / batch_size
+        action_loss = action_loss.mean(dim=0)
+        value_loss = deltas.pow(2).mean(dim=0)
         return action_loss, value_loss, action_out

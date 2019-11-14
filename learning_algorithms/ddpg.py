@@ -12,9 +12,9 @@ class DDPG(ReinforcementLearning):
         return self.get_loss(batch, behaviour_net, target_net)
 
     def get_loss(self, batch, behaviour_net, target_net):
+        # TODO: fix policy params update
         batch_size = len(batch.state)
         n = self.args.agent_num
-        action_dim = self.args.action_dim
         # collect the transition data
         rewards, last_step, done, actions, state, next_state = behaviour_net.unpack_data(batch)
         # construct the computational graph
@@ -39,16 +39,10 @@ class DDPG(ReinforcementLearning):
             returns[i] = rewards[i] + self.args.gamma * next_return
         deltas = returns - values
         advantages = values_
-        advantages = advantages.contiguous().view(-1, 1)
+        # advantages = advantages.contiguous().view(-1, 1)
         if self.args.normalize_advantages:
             advantages = batchnorm(advantages)
-        # if self.args.continuous:
-        #     action_means = actions.contiguous().view(-1, self.args.action_dim)
-        #     action_stds = cuda_wrapper(torch.ones_like(action_means), self.cuda_)
-        #     log_prob_a = normal_log_density(actions.detach(), action_means, action_stds)
-        # else:
-        #     log_prob_a = multinomials_log_density(actions.detach(), action_out).contiguous().view(-1, 1)
         action_loss = -advantages
-        action_loss = action_loss.sum() / batch_size
-        value_loss = deltas.pow(2).view(-1).sum() / batch_size
+        action_loss = action_loss.mean(dim=0)
+        value_loss = deltas.pow(2).mean(dim=0)
         return action_loss, value_loss, action_out
