@@ -16,7 +16,7 @@ scenario_name = 'simple_tag'
 '''define the special property'''
 # maddpgArgs = namedtuple( 'maddpgArgs', [] )
 aux_args = AuxArgs[model_name]()
-alias = ''
+alias = '_fix'
 
 '''load scenario from script'''
 scenario = scenario.load(scenario_name+".py").Scenario()

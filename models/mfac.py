@@ -47,7 +47,7 @@ class MFAC(Model):
         # TODO: policy params update
         value_dicts = []
         if self.args.shared_parameters:
-            l1 = nn.Linear(self.obs_dim*self.n_+self.act_dim*2, self.hid_dim)
+            l1 = nn.Linear(self.obs_dim*self.n_+ self.act_dim, self.hid_dim)
             l2 = nn.Linear(self.hid_dim, self.hid_dim)
             v = nn.Linear(self.hid_dim, 1)
             for i in range(self.n_):
@@ -59,7 +59,7 @@ class MFAC(Model):
                                   )
         else:
             for i in range(self.n_):
-                value_dicts.append(nn.ModuleDict( {'layer_1': nn.Linear(self.obs_dim*self.n_+self.act_dim*2, self.hid_dim),\
+                value_dicts.append(nn.ModuleDict( {'layer_1': nn.Linear(self.obs_dim*self.n_+self.act_dim, self.hid_dim),\
                                                    'layer_2': nn.Linear(self.hid_dim, self.hid_dim),\
                                                    'value_head': nn.Linear(self.hid_dim, self.act_dim)
                                                   }
@@ -90,7 +90,7 @@ class MFAC(Model):
         obs = obs.unsqueeze(1).expand(batch_size, self.n_, self.n_, self.obs_dim).contiguous().view(batch_size, self.n_, -1) # shape = (b, n, o) -> (b, 1, n, o) -> (b, n, n, o) -> (b, n, n*o)
         # calculate mean_act: MF neighbours include itself
         mean_act = torch.mean(act, dim=1, keepdim=True).repeat(1, self.n_,  1) # shape = (b, n, a) -> (b, 1, a) -> (b, n, a)
-        inp = torch.cat((obs, act, mean_act),dim=-1) # shape = (b, n, o*n+a*2) 
+        inp = torch.cat((obs, mean_act),dim=-1) # shape = (b, n, o*n+a) 
         values = []
         for i in range(self.n_):
             h = torch.relu( self.value_dicts[i]['layer_1'](inp[:, i, :]) )

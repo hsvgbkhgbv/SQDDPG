@@ -88,7 +88,7 @@ class IndependentDDPG(Model):
         # TODO: policy params update
         values = []
         for i in range(self.n_):
-            h = torch.relu( self.value_dicts[i]['layer_1']( torch.cat((obs[:,i,:],act[:,i,:]),dim=-1)) 
+            h = torch.relu( self.value_dicts[i]['layer_1']( torch.cat((obs[:,i,:],act[:,i,:]),dim=-1))) 
             h = torch.relu( self.value_dicts[i]['layer_2'](h) )
             v = self.value_dicts[i]['value_head'](h)
             values.append(v)

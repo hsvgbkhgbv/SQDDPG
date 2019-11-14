@@ -6,7 +6,6 @@ import numpy as np
 from aux import *
 
 
-
 '''define the model name'''
 model_name = 'independent_ac'
 
@@ -16,7 +15,7 @@ scenario_name = 'simple_tag'
 '''define the special property'''
 # independentArgs = namedtuple( 'independentArgs', [] )
 aux_args = AuxArgs[model_name]()
-alias = ''
+alias = '_fix'
 
 '''load scenario from script'''
 scenario = scenario.load(scenario_name+".py").Scenario()
@@ -60,7 +59,7 @@ args = Args(model_name=model_name,
             behaviour_update_freq=100,
             critic_update_times=10,
             target_update_freq=200,
-            gumbel_softmax=True,
+            gumbel_softmax=False,
             epsilon_softmax=False,
             online=True,
             reward_record_type='episode_mean_step',

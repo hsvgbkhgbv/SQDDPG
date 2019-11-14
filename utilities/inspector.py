@@ -74,7 +74,7 @@ def inspector(args):
         assert args.epsilon_softmax is False
     elif args.model_name is 'independent_ddpg':
         assert args.replay is True
-        assert args.q_func is True
+        assert args.q_func is False
         assert args.target is True
         assert args.online is True
         assert args.gumbel_softmax is True
@@ -89,7 +89,7 @@ def inspector(args):
         assert hasattr(args, 'sample_size')
     elif args.model_name is 'mfac':
         assert args.replay is True
-        assert args.q_func is False
+        assert args.q_func is True 
         assert args.target is True
         assert args.online is False
         assert args.continuous is False

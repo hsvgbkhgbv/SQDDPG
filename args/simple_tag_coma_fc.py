@@ -7,14 +7,14 @@ from aux import *
 
 
 '''define the model name'''
-model_name = 'mfac'
+model_name = 'coma_fc'
 
 '''define the scenario name'''
 scenario_name = 'simple_tag'
 
 '''define the special property'''
-# mfacArgs = namedtuple( 'mfacArgs', [] )
-aux_args = AuxArgs[model_name]() # mfac
+# independentArgs = namedtuple( 'independentArgs', [] )
+aux_args = AuxArgs[model_name]()
 alias = '_fix'
 
 '''load scenario from script'''
