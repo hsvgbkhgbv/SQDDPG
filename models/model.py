@@ -40,6 +40,10 @@ class Model(nn.Module):
                 for _ in range(self.args.critic_update_times):
                     trainer.value_replay_process(stat)
                 trainer.action_replay_process(stat)
+                # TODO: hard code
+                # clear replay buffer for on policy algorithm
+                if self.__class__.__name__ in ["COMAFC","MFAC","IndependentAC"] :
+                    trainer.replay_buffer.clear()
         else:
             trans_cond = trainer.steps%self.args.behaviour_update_freq==0
             if trans_cond:

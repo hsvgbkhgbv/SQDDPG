@@ -26,6 +26,9 @@ class TransReplayBuffer(object):
             self.offset()
         self.buffer.append(trans)
 
+    def clear(self):
+        self.buffer = []
+
 
 
 class EpisodeReplayBuffer(object):
