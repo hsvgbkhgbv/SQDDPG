@@ -79,46 +79,50 @@ class PGTrainer(object):
     def action_transition_process(self, stat, trans):
         action_loss, value_loss, log_p_a = self.get_loss(trans)
         # TODO: fix poilicy params update
-        policy_params = []
+        policy_grads = []
         for i in range(self.args.agent_num):
             retain_graph = False if i == self.args.agent_num-1 else True
             action_optimizer = self.action_optimizers[i]
             action_optimizer.zero_grad()
             self.action_compute_grad(stat, (action_loss[i], log_p_a[:, i, :]), retain_graph)
-            p = action_optimizer.param_groups[0]['params'].copy()
-            policy_params.append(p)
-        policy_params.reverse()
+            grad = []
+            for pp in action_optimizer.param_groups[0]['params']:
+                grad.append(pp.grad.clone())
+            policy_grads.append(grad)
+
         policy_grad_norms = []
-        for action_optimizer in self.action_optimizers:
+        for action_optimizer, grad in zip(self.action_optimizers, policy_grads):
             param = action_optimizer.param_groups[0]['params']
-            param_ = policy_params.pop()
             for i in range(len(param)):
-                param[i].grad = param_[i].grad
+                param[i].grad = grad[i]
             if self.args.grad_clip:
                 self.grad_clip(param)
             policy_grad_norms.append(get_grad_norm(param))
             action_optimizer.step()
+
+
         stat['policy_grad_norm'] = np.array(policy_grad_norms).mean()
         stat['action_loss'] = action_loss.mean().item()
 
     def value_transition_process(self, stat, trans):
         action_loss, value_loss, log_p_a = self.get_loss(trans)
         # TODO: fix poilicy params update
-        value_params = []
+        value_grads = []
         for i in range(self.args.agent_num):
             retain_graph = False if i == self.args.agent_num-1 else True
             value_optimizer = self.value_optimizers[i]
             value_optimizer.zero_grad()
             self.value_compute_grad(value_loss[i], retain_graph)
-            p = value_optimizer.param_groups[0]['params'].copy()
-            value_params.append(p)
-        value_params.reverse()
+            grad = []
+            for pp in value_optimizer.param_groups[0]['params']:
+                grad.append(pp.grad.clone())
+            value_grads.append(grad)
+
         value_grad_norms = []
-        for value_optimizer in self.value_optimizers:
+        for value_optimizer, grad in zip(self.value_optimizers, value_grads):
             param = value_optimizer.param_groups[0]['params']
-            param_ = value_params.pop()
             for i in range(len(param)):
-                param[i].grad = param_[i].grad
+                param[i].grad = grad[i]
             if self.args.grad_clip:
                 self.grad_clip(param)
             value_grad_norms.append(get_grad_norm(param))
