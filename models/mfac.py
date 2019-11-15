@@ -49,7 +49,7 @@ class MFAC(Model):
         if self.args.shared_parameters:
             l1 = nn.Linear(self.obs_dim*self.n_+ self.act_dim, self.hid_dim)
             l2 = nn.Linear(self.hid_dim, self.hid_dim)
-            v = nn.Linear(self.hid_dim, 1)
+            v = nn.Linear(self.hid_dim, self.act_dim)
             for i in range(self.n_):
                 value_dicts.append(nn.ModuleDict( {'layer_1': l1,\
                                                    'layer_2': l2,\
@@ -90,6 +90,7 @@ class MFAC(Model):
         obs = obs.unsqueeze(1).expand(batch_size, self.n_, self.n_, self.obs_dim).contiguous().view(batch_size, self.n_, -1) # shape = (b, n, o) -> (b, 1, n, o) -> (b, n, n, o) -> (b, n, n*o)
         # calculate mean_act: MF neighbours include itself
         mean_act = torch.mean(act, dim=1, keepdim=True).repeat(1, self.n_,  1) # shape = (b, n, a) -> (b, 1, a) -> (b, n, a)
+        mean_act = ( mean_act * self.n_ - act ) / max(1, self.n_-1)
         inp = torch.cat((obs, mean_act),dim=-1) # shape = (b, n, o*n+a) 
         values = []
         for i in range(self.n_):
