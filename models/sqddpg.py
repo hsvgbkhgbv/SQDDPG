@@ -68,8 +68,16 @@ class SQDDPG(Model):
                                                 )
                                   )
         else:
+            # for i in range(self.n_):
+            #     value_dicts.append(nn.ModuleDict( {'layer_1': nn.Linear( (self.obs_dim+self.act_dim)*self.n_, self.hid_dim ),\
+            #                                        'layer_2': nn.Linear(self.hid_dim, self.hid_dim),\
+            #                                        'value_head': nn.Linear(self.hid_dim, 1)
+            #                                       }
+            #                                     )
+            #                       )
+            # TODO: MOD
             for i in range(self.n_):
-                value_dicts.append(nn.ModuleDict( {'layer_1': nn.Linear( (self.obs_dim+self.act_dim)*self.n_, self.hid_dim ),\
+                value_dicts.append(nn.ModuleDict( {'layer_1': nn.Linear( (self.obs_dim+self.act_dim)*self.n_+self.act_dim, self.hid_dim ),\
                                                    'layer_2': nn.Linear(self.hid_dim, self.hid_dim),\
                                                    'value_head': nn.Linear(self.hid_dim, 1)
                                                   }
@@ -92,25 +100,44 @@ class SQDDPG(Model):
         return actions
 
     def sample_grandcoalitions(self, batch_size):
-        grand_coalitions = cuda_wrapper( torch.multinomial(torch.ones(batch_size*self.sample_size, self.n_)/self.n_, self.n_, replacement=False), self.cuda_ ) # shape = (b*n_s, n)
-        grand_coalitions = grand_coalitions.unsqueeze(1).expand(batch_size*self.sample_size, self.n_, self.n_) # shape = (b*n_s, n) -> (b*n_s, 1, n) -> (b*n_s, n, n)
-        subcoalition_map = cuda_wrapper( torch.ones_like(grand_coalitions), self.cuda_ ) # shape = (b*n_s, n, n)
-        for bs in range(batch_size*self.sample_size):
-            for i in range(self.n_):
-                agent_index = (grand_coalitions[bs, i, :] == i).nonzero()
-                subcoalition_map[bs, i, agent_index+1:] = 0
-        grand_coalitions = grand_coalitions.contiguous().view(batch_size, self.sample_size, self.n_, self.n_) # shape = (b, n_s, n, n)
-        subcoalition_map = subcoalition_map.contiguous().view(batch_size, self.sample_size, self.n_, self.n_) # shape = (b, n_s, n, n)
-        return subcoalition_map, grand_coalitions
+        seq_set = cuda_wrapper(torch.tril(torch.ones(self.n_, self.n_), diagonal=0, out=None), self.cuda_)
+        grand_coalitions = cuda_wrapper(torch.multinomial(torch.ones(batch_size*self.sample_size, self.n_)/self.n_, self.n_, replacement=False), self.cuda_)
+        individual_map = cuda_wrapper(torch.zeros(batch_size*self.sample_size*self.n_, self.n_), self.cuda_)
+        individual_map.scatter_(1, grand_coalitions.contiguous().view(-1, 1), 1)
+        individual_map = individual_map.contiguous().view(batch_size, self.sample_size, self.n_, self.n_)
+        subcoalition_map = torch.matmul(individual_map, seq_set)
+        grand_coalitions = grand_coalitions.unsqueeze(1).expand(batch_size*self.sample_size, self.n_, self.n_).contiguous().view(batch_size, self.sample_size, self.n_, self.n_) # shape = (b, n_s, n, n)
+#         grand_coalitions = cuda_wrapper( torch.multinomial(torch.ones(batch_size*self.sample_size, self.n_)/self.n_, self.n_, replacement=False), self.cuda_ ) # shape = (b*n_s, n)
+#         grand_coalitions = grand_coalitions.unsqueeze(1).expand(batch_size*self.sample_size, self.n_, self.n_) # shape = (b*n_s, n) -> (b*n_s, 1, n) -> (b*n_s, n, n)
+#         subcoalition_map = cuda_wrapper( torch.ones_like(grand_coalitions), self.cuda_ ) # shape = (b*n_s, n, n)
+#         # TODO: ADD
+#         individual_map = cuda_wrapper( torch.zeros_like(grand_coalitions), self.cuda_ ) # shape = (b*n_s, n, n)
+#         for bs in range(batch_size*self.sample_size):
+#             for i in range(self.n_):
+#                 agent_index = (grand_coalitions[bs, i, :] == i).nonzero()
+#                 subcoalition_map[bs, i, agent_index+1:] = 0
+#                 # TODO: ADD
+#                 individual_map[bs, i, agent_index] = 1
+#         grand_coalitions = grand_coalitions.contiguous().view(batch_size, self.sample_size, self.n_, self.n_) # shape = (b, n_s, n, n)
+#         subcoalition_map = subcoalition_map.contiguous().view(batch_size, self.sample_size, self.n_, self.n_) # shape = (b, n_s, n, n)
+#         # TODO: ADD
+#         individual_map = individual_map.contiguous().view(batch_size, self.sample_size, self.n_, self.n_) # shape = (b, n_s, n, n)
+        return subcoalition_map, grand_coalitions, individual_map
 
     def marginal_contribution(self, obs, act):
         batch_size = obs.size(0)
-        subcoalition_map, grand_coalitions = self.sample_grandcoalitions(batch_size) # shape = (b, n_s, n, n)
+        subcoalition_map, grand_coalitions, individual_map = self.sample_grandcoalitions(batch_size) # shape = (b, n_s, n, n)
         grand_coalitions = grand_coalitions.unsqueeze(-1).expand(batch_size, self.sample_size, self.n_, self.n_, self.act_dim) # shape = (b, n_s, n, n, a)
+
+        # TODO: ADD
+        individual_map = individual_map.unsqueeze(-1).expand(batch_size, self.sample_size, self.n_, self.n_, self.act_dim)
+        act_ = act.unsqueeze(1).unsqueeze(2).expand(batch_size, self.sample_size, self.n_, self.n_, self.act_dim).gather(3, individual_map.argmax(-2, keepdim=True))
         act = act.unsqueeze(1).unsqueeze(2).expand(batch_size, self.sample_size, self.n_, self.n_, self.act_dim).gather(3, grand_coalitions) # shape = (b, n, a) -> (b, 1, 1, n, a) -> (b, n_s, n, n, a)
         act_map = subcoalition_map.unsqueeze(-1).float() # shape = (b, n_s, n, n, 1)
         act = act * act_map
         act = act.contiguous().view(batch_size, self.sample_size, self.n_, -1) # shape = (b, n_s, n, n*a)
+        # TODO: ADD
+        act = torch.cat((act, act_.squeeze(3)), dim=-1)
         obs = obs.unsqueeze(1).unsqueeze(2).expand(batch_size, self.sample_size, self.n_, self.n_, self.obs_dim) # shape = (b, n, o) -> (b, 1, n, o) -> (b, 1, 1, n, o) -> (b, n_s, n, n, o)
         obs = obs.contiguous().view(batch_size, self.sample_size, self.n_, self.n_*self.obs_dim) # shape = (b, n_s, n, n, o) -> (b, n_s, n, n*o)
         inp = torch.cat((obs, act), dim=-1)
