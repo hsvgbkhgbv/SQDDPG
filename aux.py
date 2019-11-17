@@ -9,6 +9,7 @@ from models.independent_ac import *
 from models.independent_ddpg import *
 from models.mfac import *
 from models.coma_fc import *
+from models.sqddpg_old import *
 
 
 
@@ -26,6 +27,8 @@ randomArgs = namedtuple( 'randomArgs', [] )
 
 sqddpgArgs = namedtuple( 'sqddpgArgs', ['sample_size'] )
 
+sqddpgoldArgs = namedtuple( 'sqddpgoldArgs', ['sample_size'] )
+
 independentArgs = namedtuple( 'independentArgs', [] )
 
 mfacArgs = namedtuple( 'mfacArgs', [] )
@@ -42,7 +45,8 @@ Model = dict(commnet=CommNet,
              independent_ac=IndependentAC,
              independent_ddpg=IndependentDDPG,
              mfac=MFAC,
-             coma_fc=COMAFC
+             coma_fc=COMAFC,
+             sqddpg_old=SQDDPGOLD
             )
 
 AuxArgs = dict(commnet=commnetArgs,
@@ -55,7 +59,8 @@ AuxArgs = dict(commnet=commnetArgs,
                independent_ac=independentArgs,
                independent_ddpg=independentArgs,
                mfac=mfacArgs,
-               coma_fc=comafcArgs
+               coma_fc=comafcArgs,
+               sqddpg_old=sqddpgoldArgs
               )
 
 Strategy=dict(commnet='pg',
@@ -68,7 +73,8 @@ Strategy=dict(commnet='pg',
               independent_ac='pg',
               independent_ddpg='pg',
               mfac='pg',
-              coma_fc='pg'
+              coma_fc='pg',
+              sqddpg_old='pg'
              )
 
 
