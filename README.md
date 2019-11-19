@@ -26,15 +26,23 @@ To easily run the code for training, we provide argument files for each experime
 
 For example, if we would like to run the experiment of simple_tag with the algorithm SQPG, we can edit the file `simple_tag_sqddpg.py` to change the hyperparameters. Then, we can edit `train.sh` to change the variable `EXP_NAME` to `"simple_tag_sqddpg"` and the variable `CUDA_VISIBLE_DEVICES` to the alias of the GPU you'd like to use, e.g. 0 here such that
 ```bash
+# !/bin/bash
+# sh train.sh
+
 EXP_NAME="simple_tag_sqddpg"
 ALIAS=""
 export CUDA_DEVICE_ORDER=PCI_BUS_ID
 export CUDA_VISIBLE_DEVICES=0
 
-mkdir ./model_save/EXPNAMEALIAS
+if [ ! -d "./model_save" ]
+then
+  mkdir ./model_save
+fi
+
+mkdir ./model_save/$EXP_NAME$ALIAS
 cp ./args/$EXP_NAME.py arguments.py
-python -u train.py > ./model_save/EXPNAMEALIAS/exp.out &
-echo $! > ./model_save/EXPNAMEALIAS/exp.pid
+python -u train.py > ./model_save/$EXP_NAME$ALIAS/exp.out &
+echo $! > ./model_save/$EXP_NAME$ALIAS/exp.pid
 ```
 
 If necessary, we can also edit the variable `ALIAS` to ease the experiments with different hyperparameters.
@@ -65,26 +73,26 @@ construct_value_net(self)
 get_loss(self)
 ```
 
-After implementing the class of your own methods, it needs to register your algorithm by the file `aux.py`. For example, if the algorithm is called schednet and the corresponding class is called `SchedNet`, then the process of registeration is shown as below
+After implementing the class of your own methods, it needs to register your algorithm by the file `aux.py`. For example, if the algorithm is called sqddpg and the corresponding class is called `SQDDPG`, then the process of registeration is shown as below
 ```python
-schednetArgs = namedtuple( 'schednetArgs', ['schedule', 'k', 'l'] ) # define the exclusive hyperparameters of this algorithm
+schednetArgs = namedtuple( 'sqddpgArgs', ['sample_size'] ) # define the exclusive hyperparameters of this algorithm
 Model = dict(...,
              ...,
              ...,
              ...,
-             schednet=SchedNet
+             sqddpg=SQDDPG
             ) # register the handle of the corresponding class of this algorithm
 AuxArgs = dict(...,
                ...,
                ...,
                ...,
-               schednet=schednetArgs
+               sqddpg=sqddpgArgs
               ) # register the exclusive args of this algorithm
 Strategy=dict(...,
               ...,
               ...,
               ...,
-              schednet='pg'
+              sqddpg='pg'
              ) # register the training strategy of this algorithm, e.g., 'pg' or 'q'
 ```
 
@@ -92,16 +100,14 @@ Moreover, it is optional to define a restriction for your algorithm to avoid mis
 ```python
 if ... ...:
    ... ... ... ...
-elif args.model_name is 'schednet':
+elif args.model_name is 'sqddpg':
       assert args.replay is True
       assert args.q_func is True
       assert args.target is True
-      assert args.online is True
-      assert args.gumbel_softmax is False
+      assert args.gumbel_softmax is True
       assert args.epsilon_softmax is False
-      assert hasattr(args, 'schedule')
-      assert hasattr(args, 'k')
-      assert hasattr(args, 'l')
+      assert args.online is True
+      assert hasattr(args, 'sample_size')
 ```
 
 Finally, you can additionally add auxilliary functions in directory `utilities`.
