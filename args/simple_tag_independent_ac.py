@@ -6,7 +6,6 @@ import numpy as np
 from aux import *
 
 
-
 '''define the model name'''
 model_name = 'independent_ac'
 
@@ -38,17 +37,17 @@ args = Args(model_name=model_name,
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
             init_std=0.1,
-            policy_lrate=1e-4,
-            value_lrate=1e-3,
+            policy_lrate=1e-3,
+            value_lrate=1e-4,
             max_steps=200,
-            batch_size=128,
+            batch_size=100,
             gamma=0.99,
             normalize_advantages=False,
             entr=1e-3,
             entr_inc=0.0,
             action_num=np.max(env.get_input_shape_of_act()),
             q_func=True,
-            train_episodes_num=int(4e3),
+            train_episodes_num=int(5e3),
             replay=True,
             replay_buffer_size=1e4,
             replay_warmup=0,
@@ -60,7 +59,7 @@ args = Args(model_name=model_name,
             behaviour_update_freq=100,
             critic_update_times=10,
             target_update_freq=200,
-            gumbel_softmax=True,
+            gumbel_softmax=False,
             epsilon_softmax=False,
             online=True,
             reward_record_type='episode_mean_step',

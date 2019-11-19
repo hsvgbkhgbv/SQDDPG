@@ -16,7 +16,7 @@ scenario_name = 'simple_spread'
 '''define the special property'''
 # independentArgs = namedtuple( 'independentArgs', [] )
 aux_args = AuxArgs[model_name]()
-alias = ''
+alias = '_new_1'
 
 '''load scenario from script'''
 scenario = scenario.load(scenario_name+".py").Scenario()
@@ -38,29 +38,29 @@ args = Args(model_name=model_name,
             continuous=False,
             action_dim=np.max(env.get_output_shape_of_act()),
             init_std=0.1,
-            policy_lrate=1e-3,
-            value_lrate=1e-2,
+            policy_lrate=1e-6,
+            value_lrate=1e-5,
             max_steps=200,
-            batch_size=32,
+            batch_size=100,
             gamma=0.9,
             normalize_advantages=False,
             entr=1e-2,
             entr_inc=0.0,
             action_num=np.max(env.get_input_shape_of_act()),
             q_func=True,
-            train_episodes_num=int(2e3),
+            train_episodes_num=int(5e3),
             replay=True,
             replay_buffer_size=1e4,
             replay_warmup=0,
             cuda=True,
             grad_clip=True,
-            save_model_freq=100,
+            save_model_freq=10,
             target=True,
             target_lr=1e-1,
             behaviour_update_freq=100,
             critic_update_times=10,
             target_update_freq=200,
-            gumbel_softmax=True,
+            gumbel_softmax=False,
             epsilon_softmax=False,
             online=True,
             reward_record_type='episode_mean_step',

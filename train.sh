@@ -2,8 +2,11 @@
 # sh train.sh
 
 EXP_NAME="simple_tag_sqddpg"
-ALIAS=""
+ALIAS="_test"
+export CUDA_DEVICE_ORDER=PCI_BUS_ID
+export CUDA_VISIBLE_DEVICES=0
 
+mkdir ./model_save/$EXP_NAME$ALIAS
 cp ./args/$EXP_NAME.py arguments.py
-CUDA_VISIBLE_DEVICES=0 python -u train.py > $EXP_NAME$ALIAS.out &
-echo $! > $EXP_NAME$ALIAS.pid
+python -u train.py > ./model_save/$EXP_NAME$ALIAS/exp.out &
+echo $! > ./model_save/$EXP_NAME$ALIAS/exp.pid
