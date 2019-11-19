@@ -26,15 +26,15 @@ To easily run the code for training, we provide argument files for each experime
 
 For example, if we would like to run the experiment of simple_tag with the algorithm SQPG, we can edit the file `simple_tag_sqddpg.py` to change the hyperparameters. Then, we can edit `train.sh` to change the variable `EXP_NAME` to `"simple_tag_sqddpg"` and the variable `CUDA_VISIBLE_DEVICES` to the alias of the GPU you'd like to use, e.g. 0 here such that
 ```bash
-# !/bin/bash
-# sh train.sh
-
 EXP_NAME="simple_tag_sqddpg"
 ALIAS=""
+export CUDA_DEVICE_ORDER=PCI_BUS_ID
+export CUDA_VISIBLE_DEVICES=0
 
+mkdir ./model_save/EXPNAMEALIAS
 cp ./args/$EXP_NAME.py arguments.py
-CUDA_VISIBLE_DEVICES=0 python -u train.py > $EXP_NAME$ALIAS.out &
-echo $! > $EXP_NAME$ALIAS.pid
+python -u train.py > ./model_save/EXPNAMEALIAS/exp.out &
+echo $! > ./model_save/EXPNAMEALIAS/exp.pid
 ```
 
 If necessary, we can also edit the variable `ALIAS` to ease the experiments with different hyperparameters.
