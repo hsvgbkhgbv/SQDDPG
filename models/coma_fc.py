@@ -19,7 +19,6 @@ class COMAFC(Model):
         self.Transition = namedtuple('Transition', ('state', 'action', 'reward', 'next_state', 'done', 'last_step'))
 
     def construct_policy_net(self):
-        # TODO: fix policy params update
         action_dicts = []
         if self.args.shared_parameters:
             l1 = nn.Linear(self.obs_dim, self.hid_dim)
@@ -43,7 +42,6 @@ class COMAFC(Model):
         self.action_dicts = nn.ModuleList(action_dicts)
 
     def construct_value_net(self):
-        # TODO: policy params update
         value_dicts = []
         if self.args.shared_parameters:
             l1 = nn.Linear((self.n_+1)*self.obs_dim+(self.n_-1)*self.act_dim, self.hid_dim)
@@ -71,7 +69,6 @@ class COMAFC(Model):
         self.construct_policy_net()
 
     def policy(self, obs, schedule=None, last_act=None, last_hid=None, info={}, stat={}):
-        # TODO: policy params update
         actions = []
         for i in range(self.n_):
             h = torch.relu( self.action_dicts[i]['layer_1'](obs[:, i, :]) )
@@ -89,7 +86,7 @@ class COMAFC(Model):
         inp = torch.cat((obs, obs_own), dim=-1) # shape = (b, n, o*n+o)
         values = []
         for i in range(self.n_):
-            # other people actions 
+            # other people actions
             act_other = torch.cat((act[:,:i,:].view(batch_size,-1),act[:,i+1:,:].view(batch_size,-1)),dim=-1)
             h = torch.relu( self.value_dicts[i]['layer_1'](torch.cat((inp[:, i, :], act_other),dim=-1)) )
             h = torch.relu( self.value_dicts[i]['layer_2'](h) )
@@ -116,7 +113,6 @@ class COMAFC(Model):
         else:
             next_values = self.value(next_state, next_actions)
         next_values = torch.sum(next_values*next_actions, dim=-1) # b*n
-
         # calculate the advantages
         returns = cuda_wrapper(torch.zeros((batch_size, self.n_), dtype=torch.float), self.cuda_)
         assert values.size() == next_values.size()
@@ -127,18 +123,15 @@ class COMAFC(Model):
             else:
                 next_return = next_values[i].detach()
             returns[i] = rewards[i] + self.args.gamma * next_return
-
         # value loss
         deltas = returns - values
         value_loss = deltas.pow(2).mean(dim=0)
-
         # actio loss
-        advantages = ( values - baselines ).detach() 
+        advantages = ( values - baselines ).detach()
         if self.args.normalize_advantages:
             advantages = batchnorm(advantages)
         log_prob = multinomials_log_density(actions, action_out).contiguous().view(-1, self.n_)
         assert log_prob.size() == advantages.size()
         action_loss = - advantages * log_prob
         action_loss = action_loss.mean(dim=0)
-
         return action_loss, value_loss, action_out

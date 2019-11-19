@@ -30,7 +30,6 @@ class PGTrainer(object):
             else:
                 self.replay_buffer = EpisodeReplayBuffer(int(self.args.replay_buffer_size))
         self.env = env
-        # TODO: fix policy net params udpate
         self.action_optimizers = []
         for action_dict in self.behaviour_net.action_dicts:
             self.action_optimizers.append(optim.Adam(action_dict.parameters(), lr=args.policy_lrate))
@@ -62,7 +61,6 @@ class PGTrainer(object):
         value_loss.backward(retain_graph=retain_graph)
 
     def grad_clip(self, params):
-        # TODO: fix policy params update
         for param in params:
             param.grad.data.clamp_(-1, 1)
 
@@ -78,7 +76,6 @@ class PGTrainer(object):
 
     def action_transition_process(self, stat, trans):
         action_loss, value_loss, log_p_a = self.get_loss(trans)
-        # TODO: fix poilicy params update
         policy_grads = []
         for i in range(self.args.agent_num):
             retain_graph = False if i == self.args.agent_num-1 else True
@@ -89,7 +86,6 @@ class PGTrainer(object):
             for pp in action_optimizer.param_groups[0]['params']:
                 grad.append(pp.grad.clone())
             policy_grads.append(grad)
-
         policy_grad_norms = []
         for action_optimizer, grad in zip(self.action_optimizers, policy_grads):
             param = action_optimizer.param_groups[0]['params']
@@ -99,14 +95,11 @@ class PGTrainer(object):
                 self.grad_clip(param)
             policy_grad_norms.append(get_grad_norm(param))
             action_optimizer.step()
-
-
         stat['policy_grad_norm'] = np.array(policy_grad_norms).mean()
         stat['action_loss'] = action_loss.mean().item()
 
     def value_transition_process(self, stat, trans):
         action_loss, value_loss, log_p_a = self.get_loss(trans)
-        # TODO: fix poilicy params update
         value_grads = []
         for i in range(self.args.agent_num):
             retain_graph = False if i == self.args.agent_num-1 else True
@@ -117,7 +110,6 @@ class PGTrainer(object):
             for pp in value_optimizer.param_groups[0]['params']:
                 grad.append(pp.grad.clone())
             value_grads.append(grad)
-
         value_grad_norms = []
         for value_optimizer, grad in zip(self.value_optimizers, value_grads):
             param = value_optimizer.param_groups[0]['params']

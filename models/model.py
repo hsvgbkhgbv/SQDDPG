@@ -17,12 +17,10 @@ class Model(nn.Module):
         self.act_dim = self.args.action_dim
 
     def reload_params_to_target(self):
-        # TODO: fix policy params udpate
         self.target_net.action_dicts.load_state_dict( self.action_dicts.state_dict() )
         self.target_net.value_dicts.load_state_dict( self.value_dicts.state_dict() )
 
     def update_target(self):
-        # TODO: fix policy params update
         for name, param in self.target_net.action_dicts.state_dict().items():
             update_params = (1 - self.args.target_lr) * param + self.args.target_lr * self.action_dicts.state_dict()[name]
             self.target_net.action_dicts.state_dict()[name].copy_(update_params)

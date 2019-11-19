@@ -20,7 +20,6 @@ class MFAC(Model):
         self.rl = ActorCritic(self.args)
 
     def construct_policy_net(self):
-        # TODO: fix policy params update
         action_dicts = []
         if self.args.shared_parameters:
             l1 = nn.Linear(self.obs_dim, self.hid_dim)
@@ -44,7 +43,6 @@ class MFAC(Model):
         self.action_dicts = nn.ModuleList(action_dicts)
 
     def construct_value_net(self):
-        # TODO: policy params update
         value_dicts = []
         if self.args.shared_parameters:
             l1 = nn.Linear(self.obs_dim*self.n_+ self.act_dim, self.hid_dim)
@@ -71,9 +69,8 @@ class MFAC(Model):
         self.construct_value_net()
         self.construct_policy_net()
 
-    
+
     def policy(self, obs, schedule=None, last_act=None, last_hid=None, info={}, stat={}):
-        # TODO: policy params update
         actions = []
         for i in range(self.n_):
             h = torch.relu( self.action_dicts[i]['layer_1'](obs[:, i, :]) )
@@ -82,16 +79,15 @@ class MFAC(Model):
             actions.append(a)
         actions = torch.stack(actions, dim=1)
         return actions
-        
+
     def value(self, obs, act):
-        # TODO: policy params update
         batch_size = obs.size(0)
         # expand obs
         obs = obs.unsqueeze(1).expand(batch_size, self.n_, self.n_, self.obs_dim).contiguous().view(batch_size, self.n_, -1) # shape = (b, n, o) -> (b, 1, n, o) -> (b, n, n, o) -> (b, n, n*o)
         # calculate mean_act: MF neighbours include itself
         mean_act = torch.mean(act, dim=1, keepdim=True).repeat(1, self.n_,  1) # shape = (b, n, a) -> (b, 1, a) -> (b, n, a)
         mean_act = ( mean_act * self.n_ - act ) / max(1, self.n_-1)
-        inp = torch.cat((obs, mean_act),dim=-1) # shape = (b, n, o*n+a) 
+        inp = torch.cat((obs, mean_act),dim=-1) # shape = (b, n, o*n+a)
         values = []
         for i in range(self.n_):
             h = torch.relu( self.value_dicts[i]['layer_1'](inp[:, i, :]) )
@@ -104,4 +100,3 @@ class MFAC(Model):
     def get_loss(self, batch):
         action_loss, value_loss, log_p_a = self.rl.get_loss(batch, self, self.target_net)
         return action_loss, value_loss, log_p_a
-

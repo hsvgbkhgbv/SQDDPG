@@ -1,10 +1,10 @@
 # !/bin/bash
 # sh train.sh
 
-EXP_NAME="simple_tag_independent_ac"
-ALIAS="_fix"
+EXP_NAME="simple_tag_sqddpg"
+ALIAS="_test"
 export CUDA_DEVICE_ORDER=PCI_BUS_ID
-export CUDA_VISIBLE_DEVICES=1
+export CUDA_VISIBLE_DEVICES=0
 
 mkdir ./model_save/$EXP_NAME$ALIAS
 cp ./args/$EXP_NAME.py arguments.py

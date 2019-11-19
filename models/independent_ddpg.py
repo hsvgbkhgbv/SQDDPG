@@ -20,9 +20,7 @@ class IndependentDDPG(Model):
         self.Transition = namedtuple('Transition', ('state', 'action', 'reward', 'next_state', 'done', 'last_step'))
         self.rl = DDPG(self.args)
 
-
     def construct_policy_net(self):
-        # TODO: fix policy params update
         action_dicts = []
         if self.args.shared_parameters:
             l1 = nn.Linear(self.obs_dim, self.hid_dim)
@@ -46,7 +44,6 @@ class IndependentDDPG(Model):
         self.action_dicts = nn.ModuleList(action_dicts)
 
     def construct_value_net(self):
-        # TODO: policy params update
         value_dicts = []
         if self.args.shared_parameters:
             l1 = nn.Linear(self.obs_dim+self.act_dim, self.hid_dim )
@@ -74,7 +71,6 @@ class IndependentDDPG(Model):
         self.construct_policy_net()
 
     def policy(self, obs, schedule=None, last_act=None, last_hid=None, info={}, stat={}):
-        # TODO: policy params update
         actions = []
         for i in range(self.n_):
             h = torch.relu( self.action_dicts[i]['layer_1'](obs[:, i, :]) )
@@ -85,10 +81,9 @@ class IndependentDDPG(Model):
         return actions
 
     def value(self, obs, act):
-        # TODO: policy params update
         values = []
         for i in range(self.n_):
-            h = torch.relu( self.value_dicts[i]['layer_1']( torch.cat((obs[:,i,:],act[:,i,:]),dim=-1))) 
+            h = torch.relu( self.value_dicts[i]['layer_1']( torch.cat((obs[:,i,:],act[:,i,:]),dim=-1)))
             h = torch.relu( self.value_dicts[i]['layer_2'](h) )
             v = self.value_dicts[i]['value_head'](h)
             values.append(v)

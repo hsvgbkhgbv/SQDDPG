@@ -89,7 +89,7 @@ class IndependentAC(Model):
         # TODO: policy params update
         values = []
         for i in range(self.n_):
-            h = torch.relu( self.value_dicts[i]['layer_1'](obs[:,i,:]) ) 
+            h = torch.relu( self.value_dicts[i]['layer_1'](obs[:,i,:]) )
             h = torch.relu( self.value_dicts[i]['layer_2'](h) )
             v = self.value_dicts[i]['value_head'](h)
             values.append(v)
@@ -99,4 +99,3 @@ class IndependentAC(Model):
     def get_loss(self, batch):
         action_loss, value_loss, log_p_a = self.rl.get_loss(batch, self, self.target_net)
         return action_loss, value_loss, log_p_a
-

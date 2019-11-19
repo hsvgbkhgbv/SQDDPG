@@ -19,7 +19,6 @@ class MADDPG(Model):
             self.reload_params_to_target()
         self.Transition = namedtuple('Transition', ('state', 'action', 'reward', 'next_state', 'done', 'last_step'))
 
-
     def construct_policy_net(self):
         # TODO: fix policy params update
         action_dicts = []
@@ -128,4 +127,3 @@ class MADDPG(Model):
         action_loss = action_loss.mean(dim=0)
         value_loss = deltas.pow(2).mean(dim=0)
         return action_loss, value_loss, action_out
-

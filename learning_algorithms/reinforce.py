@@ -34,17 +34,12 @@ class REINFORCE(ReinforcementLearning):
             next_return = returns[i]
         # construct the action loss and the value loss
         deltas = returns - values
-        advantages = deltas.contiguous().view(-1, 1).detach()
+        advantages = deltas.detach()
         if self.args.normalize_advantages:
             advantages = batchnorm(advantages)
-        if self.args.continuous:
-            action_means = actions.contiguous().view(-1, self.args.action_dim)
-            action_stds = cuda_wrapper(torch.ones_like(action_means), self.cuda_)
-            log_prob_a = normal_log_density(actions.detach(), action_means, action_stds)
-        else:
-            log_prob_a = multinomials_log_density(actions.detach(), action_out).contiguous().view(-1,1)
+        log_prob_a = multinomials_log_density(actions.detach(), action_out).contiguous().view(-1,n)
         assert log_prob_a.size() == advantages.size()
         action_loss = -advantages * log_prob_a
-        action_loss = action_loss.sum() / batch_size
-        value_loss = deltas.pow(2).view(-1).sum() / batch_size
+        action_loss = action_loss.mean(dim=0)
+        value_loss = deltas.pow(2).mean(dim=0)
         return action_loss, value_loss, action_out

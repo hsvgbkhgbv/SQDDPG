@@ -12,7 +12,6 @@ class TransReplayBuffer(object):
 
     def offset(self):
         self.buffer.pop(0)
-        # self.buffer = []
 
     def get_batch(self, batch_size):
         length = len(self.buffer)
@@ -42,7 +41,6 @@ class EpisodeReplayBuffer(object):
 
     def offset(self):
         self.buffer.pop(0)
-        # self.buffer = []
 
     def get_batch(self, batch_size):
         length = len(self.buffer)

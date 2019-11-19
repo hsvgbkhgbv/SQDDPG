@@ -39,7 +39,6 @@ class DDPG(ReinforcementLearning):
             returns[i] = rewards[i] + self.args.gamma * next_return
         deltas = returns - values
         advantages = values_
-        # advantages = advantages.contiguous().view(-1, 1)
         if self.args.normalize_advantages:
             advantages = batchnorm(advantages)
         action_loss = -advantages

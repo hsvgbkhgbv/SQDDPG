@@ -48,7 +48,6 @@ class ActorCritic(ReinforcementLearning):
         # advantages = advantages.contiguous().view(-1, 1)
         if self.args.normalize_advantages:
             advantages = batchnorm(advantages)
-
         # construct the action loss and the value loss
         log_prob_a = multinomials_log_density(actions, action_out).contiguous().view(-1,n)
         assert log_prob_a.size() == advantages.size()
