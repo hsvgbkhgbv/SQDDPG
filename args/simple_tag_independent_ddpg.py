@@ -16,7 +16,7 @@ scenario_name = 'simple_tag'
 '''define the special property'''
 # independentArgs = namedtuple( 'independentArgs', [] )
 aux_args = AuxArgs[model_name]()
-alias = '_fix'
+alias = ''
 
 '''load scenario from script'''
 scenario = scenario.load(scenario_name+".py").Scenario()
@@ -39,7 +39,7 @@ args = Args(model_name=model_name,
             action_dim=np.max(env.get_output_shape_of_act()),
             init_std=0.1,
             policy_lrate=1e-4,
-            value_lrate=1e-3,
+            value_lrate=5e-4,
             max_steps=200,
             batch_size=128,
             gamma=0.99,
@@ -48,7 +48,7 @@ args = Args(model_name=model_name,
             entr_inc=0.0,
             action_num=np.max(env.get_input_shape_of_act()),
             q_func=False,
-            train_episodes_num=int(4e3),
+            train_episodes_num=int(5e3),
             replay=True,
             replay_buffer_size=1e4,
             replay_warmup=0,
