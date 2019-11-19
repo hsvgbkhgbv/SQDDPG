@@ -1,7 +1,7 @@
 # !/bin/bash
 # sh train.sh
 
-EXP_NAME="simple_tag_coma_fc"
+EXP_NAME="simple_tag_sqddpg"
 ALIAS=""
 export CUDA_DEVICE_ORDER=PCI_BUS_ID
 export CUDA_VISIBLE_DEVICES=0
