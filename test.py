@@ -34,7 +34,7 @@ behaviour_net.load_state_dict(checkpoint['model_state_dict'])
 if strategy == 'pg':
     test = PGTester(env(), behaviour_net, args)
 elif strategy == 'q':
-    test = QTester(env(), behaviour_net, args)
+    raise NotImplementedError('This needs to be implemented.')
 else:
     raise RuntimeError('Please input the correct strategy, e.g. pg or q.')
 

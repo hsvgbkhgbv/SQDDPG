@@ -47,7 +47,9 @@ print ( '{}\n'.format(args) )
 if strategy == 'pg':
     train = PGTrainer(args, model, env(), logger, args.online)
 elif strategy == 'q':
-    train = QTrainer(args, model, env(), logger)
+    raise NotImplementedError('This needs to be implemented.')
+else:
+    raise RuntimeError('Please input the correct strategy, e.g. pg or q.')
 
 stat = dict()
 
