@@ -10,7 +10,7 @@ To enable the experimantal environments, please install OpenAI Gym (0.10.5) and 
 To use Tensorboard to monitor the training process, please install Tensorflow (r1.14).  
 After installing the related dependencies mentioned above, open the terminal and execute the following bash script:
 ```bash
-cd Shapley-Q-value-deep-deterministic-policy-gradient/environments/multiagent_particle_envs/
+cd SQDDPG/environments/multiagent_particle_envs/
 pip install -e .
 ```
 
