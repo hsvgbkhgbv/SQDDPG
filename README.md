@@ -60,7 +60,24 @@ About testing, we provide a Python function called `test.py` which includes seve
 ```
 
 ### Experimental Results
-See the paper: https://arxiv.org/abs/1907.05707.
+<!--See the paper: https://arxiv.org/abs/1907.05707.        -->
+
+#### Cooperative Navigation
+![Mean Reward Per Episode](https://github.com/hsvgbkhgbv/SQDDPG/raw/master/figures/simple_spread_mean_reward.png)
+
+#### Prey-and-Predator
+![Turns Per Episode](https://github.com/hsvgbkhgbv/SQDDPG/raw/master/figures/simple_tag_turn.png)
+
+![Dynamics](https://github.com/hsvgbkhgbv/SQDDPG/raw/master/figures/dynamics_38.png)
+
+#### Trafic Junction
+| Difficulty | IA2C   | IDDPG  | COMA   | MADDPG     | SQDDPG     |
+|------------|--------|--------|--------|------------|------------|
+| Easy       | 65.01% | 93.08% | 93.01% | **93.72%** | 93.26%     |
+| Medium     | 67.51% | 84.16% | 82.48% | 87.92%     | **88.98%** |       
+| Hard       | 60.89% | 64.99% | 85.33% | 84.21%     | **87.04%** |        
+
+
 
 ## Extension of the Framework
 This framework is easily to be extended by adding extra environments implemented in OpenAI Gym or new multi-agent algorithms implemented in Pytorch. To add extra algorithms, it just needs to inherit the base class `models/model.py` and implement the functions such that
