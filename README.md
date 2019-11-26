@@ -85,6 +85,7 @@ About testing, we provide a Python function called `test.py` which includes seve
 | Easy       | 65.01% | 93.08% | 93.01% | **93.72%** | 93.26%     |
 | Medium     | 67.51% | 84.16% | 82.48% | 87.92%     | **88.98%** |       
 | Hard       | 60.89% | 64.99% | 85.33% | 84.21%     | **87.04%** |
+
 The success rate on Traffic Junction, tested with 20, 40, and 60 steps per episode in easy, medium and hard versions respectively. The results are obtained by running each algorithm after training for 1000 episodes.
 
 ## Extension of the Framework
