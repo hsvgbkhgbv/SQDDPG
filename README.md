@@ -63,7 +63,10 @@ About testing, we provide a Python function called `test.py` which includes seve
 <!--See the paper: https://arxiv.org/abs/1907.05707.        -->
 
 #### Cooperative Navigation
-<img src="https://github.com/hsvgbkhgbv/SQDDPG/raw/master/figures/simple_spread_mean_reward.png" height="240" weight="480">
+<figure>
+  <img src="https://github.com/hsvgbkhgbv/SQDDPG/raw/master/figures/simple_spread_mean_reward.png" height="240" weight="480">
+  <figcaption>Fig.1 - Trulli, Puglia, Italy.</figcaption>
+</figure>
 
 #### Prey-and-Predator
 <img src="https://github.com/hsvgbkhgbv/SQDDPG/raw/master/figures/simple_tag_turn.png" height="240" weight="480">
