@@ -63,7 +63,7 @@ About testing, we provide a Python function called `test.py` which includes seve
 <!--See the paper: https://arxiv.org/abs/1907.05707.        -->
 
 #### Cooperative Navigation
-![Mean Reward Per Episode]<img src="https://github.com/hsvgbkhgbv/SQDDPG/raw/master/figures/simple_spread_mean_reward.png" height="24" weight="48">
+<img src="https://github.com/hsvgbkhgbv/SQDDPG/raw/master/figures/simple_spread_mean_reward.png" height="240" weight="480">
 
 #### Prey-and-Predator
 ![Turns Per Episode](https://github.com/hsvgbkhgbv/SQDDPG/raw/master/figures/simple_tag_turn.png)
