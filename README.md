@@ -143,19 +143,24 @@ Temporarily, this framework only supports the policy gradient methods. The funct
 ## Citation
 If you use the framework or part of the work mentioned in the paper, please cite:
 ```
-@ARTICLE{2019arXiv190705707W,
-       author = {{Wang}, Jianhong and {Zhang}, Yuan and {Kim}, Tae-Kyun and {Gu}, Yunjie},
-        title = "{Shapley Q-value: A Local Reward Approach to Solve Global Reward Games}",
-      journal = {arXiv e-prints},
-     keywords = {Computer Science - Machine Learning, Computer Science - Artificial Intelligence, Computer Science - Multiagent Systems},
-         year = "2019",
-        month = "Jul",
-          eid = {arXiv:1907.05707},
-        pages = {arXiv:1907.05707},
-archivePrefix = {arXiv},
-       eprint = {1907.05707},
- primaryClass = {cs.LG},
-       adsurl = {https://ui.adsabs.harvard.edu/abs/2019arXiv190705707W},
-      adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+@inproceedings{DBLP:conf/aaai/WangZKG20,
+  author    = {Jianhong Wang and
+               Yuan Zhang and
+               Tae{-}Kyun Kim and
+               Yunjie Gu},
+  title     = {Shapley Q-Value: {A} Local Reward Approach to Solve Global Reward
+               Games},
+  booktitle = {The Thirty-Fourth {AAAI} Conference on Artificial Intelligence, {AAAI}
+               2020, The Thirty-Second Innovative Applications of Artificial Intelligence
+               Conference, {IAAI} 2020, The Tenth {AAAI} Symposium on Educational
+               Advances in Artificial Intelligence, {EAAI} 2020, New York, NY, USA,
+               February 7-12, 2020},
+  pages     = {7285--7292},
+  publisher = {{AAAI} Press},
+  year      = {2020},
+  url       = {https://aaai.org/ojs/index.php/AAAI/article/view/6220},
+  timestamp = {Thu, 04 Jun 2020 13:18:48 +0200},
+  biburl    = {https://dblp.org/rec/conf/aaai/WangZKG20.bib},
+  bibsource = {dblp computer science bibliography, https://dblp.org}
 }
 ```
