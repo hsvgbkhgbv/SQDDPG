@@ -143,24 +143,18 @@ Temporarily, this framework only supports the policy gradient methods. The funct
 ## Citation
 If you use the framework or part of the work mentioned in the paper, please cite:
 ```
-@inproceedings{DBLP:conf/aaai/WangZKG20,
-  author    = {Jianhong Wang and
-               Yuan Zhang and
-               Tae{-}Kyun Kim and
-               Yunjie Gu},
-  title     = {Shapley Q-Value: {A} Local Reward Approach to Solve Global Reward
-               Games},
-  booktitle = {The Thirty-Fourth {AAAI} Conference on Artificial Intelligence, {AAAI}
-               2020, The Thirty-Second Innovative Applications of Artificial Intelligence
-               Conference, {IAAI} 2020, The Tenth {AAAI} Symposium on Educational
-               Advances in Artificial Intelligence, {EAAI} 2020, New York, NY, USA,
-               February 7-12, 2020},
-  pages     = {7285--7292},
-  publisher = {{AAAI} Press},
-  year      = {2020},
-  url       = {https://aaai.org/ojs/index.php/AAAI/article/view/6220},
-  timestamp = {Thu, 04 Jun 2020 13:18:48 +0200},
-  biburl    = {https://dblp.org/rec/conf/aaai/WangZKG20.bib},
-  bibsource = {dblp computer science bibliography, https://dblp.org}
+@article{Wang_2020,
+   title={Shapley Q-Value: A Local Reward Approach to Solve Global Reward Games},
+   volume={34},
+   ISSN={2159-5399},
+   url={http://dx.doi.org/10.1609/aaai.v34i05.6220},
+   DOI={10.1609/aaai.v34i05.6220},
+   number={05},
+   journal={Proceedings of the AAAI Conference on Artificial Intelligence},
+   publisher={Association for the Advancement of Artificial Intelligence (AAAI)},
+   author={Wang, Jianhong and Zhang, Yuan and Kim, Tae-Kyun and Gu, Yunjie},
+   year={2020},
+   month={Apr},
+   pages={7285–7292}
 }
 ```
