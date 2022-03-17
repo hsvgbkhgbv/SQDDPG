@@ -89,14 +89,33 @@ class SQDDPG(Model):
         actions = torch.stack(actions, dim=1)
         return actions
 
+    # def sample_grandcoalitions(self, batch_size):
+    #     seq_set = cuda_wrapper(torch.tril(torch.ones(self.n_, self.n_), diagonal=0, out=None), self.cuda_)
+    #     grand_coalitions = cuda_wrapper(torch.multinomial(torch.ones(batch_size*self.sample_size, self.n_)/self.n_, self.n_, replacement=False), self.cuda_)
+    #     individual_map = cuda_wrapper(torch.zeros(batch_size*self.sample_size*self.n_, self.n_), self.cuda_)
+    #     individual_map.scatter_(1, grand_coalitions.contiguous().view(-1, 1), 1)
+    #     individual_map = individual_map.contiguous().view(batch_size, self.sample_size, self.n_, self.n_)
+    #     subcoalition_map = torch.matmul(individual_map, seq_set)
+    #     grand_coalitions = grand_coalitions.unsqueeze(1).expand(batch_size*self.sample_size, self.n_, self.n_).contiguous().view(batch_size, self.sample_size, self.n_, self.n_) # shape = (b, n_s, n, n)
+    #     return subcoalition_map, grand_coalitions
     def sample_grandcoalitions(self, batch_size):
         seq_set = cuda_wrapper(torch.tril(torch.ones(self.n_, self.n_), diagonal=0, out=None), self.cuda_)
-        grand_coalitions = cuda_wrapper(torch.multinomial(torch.ones(batch_size*self.sample_size, self.n_)/self.n_, self.n_, replacement=False), self.cuda_)
+        grand_coalitions_pos = cuda_wrapper(torch.multinomial(torch.ones(batch_size*self.sample_size, self.n_)/self.n_, self.n_, replacement=False), self.cuda_) # shape = (b*n_s, n)
         individual_map = cuda_wrapper(torch.zeros(batch_size*self.sample_size*self.n_, self.n_), self.cuda_)
-        individual_map.scatter_(1, grand_coalitions.contiguous().view(-1, 1), 1)
+        individual_map.scatter_(1, grand_coalitions_pos.contiguous().view(-1, 1), 1)
         individual_map = individual_map.contiguous().view(batch_size, self.sample_size, self.n_, self.n_)
         subcoalition_map = torch.matmul(individual_map, seq_set)
-        grand_coalitions = grand_coalitions.unsqueeze(1).expand(batch_size*self.sample_size, self.n_, self.n_).contiguous().view(batch_size, self.sample_size, self.n_, self.n_) # shape = (b, n_s, n, n)
+
+        # FIX: construct torche grand coalition (in sequence by agent_idx) from torche grand_coalitions_pos (e.g., pos_idx <- grand_coalitions_pos[agent_idx])
+        offset = cuda_wrapper((torch.arange(batch_size*self.sample_size)*self.n_).reshape(-1, 1), self.cuda_)
+        grand_coalitions_pos_alter = grand_coalitions_pos + offset
+        grand_coalitions = cuda_wrapper(torch.zeros_like(grand_coalitions_pos_alter.flatten()), self.cuda_)
+        grand_coalitions[grand_coalitions_pos_alter.flatten()] = cuda_wrapper(torch.arange(batch_size*self.sample_size*self.n_), self.cuda_)
+        grand_coalitions = grand_coalitions.reshape(batch_size*self.sample_size, self.n_) - offset
+
+        grand_coalitions = grand_coalitions.unsqueeze(1).expand(batch_size*self.sample_size, \
+            self.n_, self.n_).contiguous().view(batch_size, self.sample_size, self.n_, self.n_) # shape = (b, n_s, n, n)
+
         return subcoalition_map, grand_coalitions
 
     def marginal_contribution(self, obs, act):
@@ -124,13 +143,13 @@ class SQDDPG(Model):
         n = self.args.agent_num
         action_dim = self.args.action_dim
         rewards, last_step, done, actions, state, next_state = self.unpack_data(batch)
-        # do the argmax action on the action loss
+        # do torche argmax action on torche action loss
         action_out = self.policy(state)
         actions_ = select_action(self.args, action_out, status='train', exploration=False)
         shapley_values = self.marginal_contribution(state, actions_).mean(dim=1).contiguous().view(-1, n)
-        # do the exploration action on the value loss
+        # do torche exploration action on torche value loss
         shapley_values_sum = self.marginal_contribution(state, actions).mean(dim=1).contiguous().view(-1, n).sum(dim=-1, keepdim=True).expand(batch_size, self.n_)
-        # do the argmax action on the next value loss
+        # do torche argmax action on torche next value loss
         if self.args.target:
             next_action_out = self.target_net.policy(next_state)
         else:
