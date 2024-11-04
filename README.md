@@ -1,5 +1,9 @@
 # Shapley Q-value: A Local Reward Approach to Solve Global Reward Games
 
+| :exclamation:  News |
+|:-----------------------------------------|
+|The Jax version of SQDDPG was implemented in [the repository of SHAQ](https://github.com/hsvgbkhgbv/shapley-q-learning) under the framework of PyMARL, to adapt to the environment of SMAC and some related environments.|
+
 ## Dependencies
 This project implements the algorithm of Shapley Q-value deep deterministic policy gradient (SQDDPG) mentioned in the paper accpted by AAAI2020 (Oral):https://arxiv.org/abs/1907.05707 and demonstrates the experiments in comparison with Independent DDPG, Independent A2C, MADDPG and COMA.  
 
